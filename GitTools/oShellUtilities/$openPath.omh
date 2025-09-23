@@ -1,0 +1,14 @@
+If not(FileOps.$doesfileexist(pPath))
+	Do tvLogger.$error("Unable to open directory ",pPath," because it does not exist")
+	Quit method kFalse
+End If
+
+Switch platform()
+	Case 'N'
+		Quit method $cinst.$runShellScript(con('start "" "',pPath,'"'),_,_,kTrue,kFalse)
+	Case 'X'
+		Quit method $cinst.$runShellScript(con('do shell script ',"'",'open "',pPath,'"',"'"))
+	Default
+		Do tvLogger.$error("Unable to open path - unsupported platform: ",platform())
+		Quit method kFalse
+End Switch

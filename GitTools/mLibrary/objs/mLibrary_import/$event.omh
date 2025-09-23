@@ -1,0 +1,12 @@
+On evClick
+	Working message GitTools - Import {Importing [ivLibraryID]...}
+	Do tvGitTools.$importLibrary(ivLibraryID) Returns lvIsOk
+	Close working message
+	
+	Calculate lvResultMessage as con('Import of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
+	If not(lvIsOk)
+		Calculate lvResultMessage as con(lvResultMessage,' Check the trace log for details.')
+		Open trace log
+	End If
+	
+	OK message GitTools - Import results {[lvResultMessage]}

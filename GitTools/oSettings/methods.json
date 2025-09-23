@@ -1,0 +1,183 @@
+[
+	{
+		"name": "$construct",
+		"order": 1,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$destruct",
+		"order": 2,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$logLevel",
+		"order": 3,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$logLevel.$assign",
+		"order": 4,
+		"pvardefs": [
+			{
+				"name": "pLogLevel",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$allowRegistrationWithoutConfigFile",
+		"order": 5,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$allowRegistrationWithoutConfigFile.$assign",
+		"order": 6,
+		"pvardefs": [
+			{
+				"name": "pValue",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$save",
+		"order": 7,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvError",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFileOps",
+				"order": 1,
+				"type": "kObject",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvSettingsFile",
+				"order": 4,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvSettingsString",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "$$load",
+		"order": 8,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvError",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFileOpsCode",
+				"order": 2,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvSettings",
+				"order": 4,
+				"type": "kRow",
+				"subtype": "sSettings",
+				"sublen": 0
+			},
+			{
+				"name": "lvSettingsFile",
+				"order": 5,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvSettingsString",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "$$loadInitialSettings",
+		"order": 9,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$openSettingsFile",
+		"order": 10,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvSettingsFile",
+				"order": 1,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			}
+		]
+	}
+]

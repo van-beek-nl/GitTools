@@ -1,0 +1,5 @@
+If not($cinst.$$execute(con('log -1 --pretty=format:"%h" -- "',pPath,'"'),lvOutput))
+	Signal error -1,lvOutput
+End If
+
+Quit method lvOutput

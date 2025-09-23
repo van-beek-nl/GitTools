@@ -1,0 +1,103 @@
+Do tvLogger.$debug(pScript)
+
+Switch platform()
+	Case "N"
+		Register DLL ('Shell32.dll','ShellExecuteW','IJCCCCJ') Returns lvError
+		If lvError
+			Do tvLogger.$error(con('Shell: Unable to register Shell32.dll ShellExecuteW: ',lvError))
+			Quit method kFalse
+		End If
+		
+		Do tvFileUtilities.$getTempDirectory() Returns lvTempDirectory
+		If isclear(lvTempDirectory)
+			Do tvLogger.$error('Shell: Unable to obtain temporary directory path')
+			Quit method kFalse
+		End If
+		
+		If pEscapeSpecialChars
+			Calculate pScript as replaceall(replaceall(replaceall(pScript,'\','\\'),'%','%%'),'^','^^')
+		End If
+		
+		Calculate lvBaseName as con(lvTempDirectory,sys(9),OW3.$makeuuid(kFalse))
+		Calculate lvScriptFile as con(lvBaseName,".cmd")
+		Calculate lvExitCodeFile as con(lvBaseName,".errorcode")
+		Calculate lvOutputFile as con(lvBaseName,".output")
+		Calculate lvLockFile as con(lvBaseName,".lock")
+		
+		# Make script output errors to lvOutputFile and delete lvLockFile when finished
+		Begin text block
+		Line:[pScript] > "[lvOutputFile]" 2>&1
+		Line:echo %ERRORLEVEL% > "[lvExitCodeFile]"
+		Line:del "[lvLockFile]"
+		End text block
+		Get text block pScript
+		
+		# Create lock file
+		Do lvFile.$createfile(lvLockFile)
+		Do lvFile.$closefile()
+		
+		# Create script file for ShellExecute
+		Do lvFile.$createfile(lvScriptFile)
+		Do lvFile.$writecharacter(kUniTypeNativeCharacters,pScript)
+		Do lvFile.$closefile()
+		
+		Call DLL ('Shell32.dll','ShellExecuteW',chr(0),'Open',lvScriptFile,chr(0),chr(0),kFalse)
+		
+		Calculate lvTicks as #CT
+		While FileOps.$doesfileexist(lvLockFile)&(#CT-lvTicks)<1800
+		End While
+		
+		If lvFile.$openfile(lvExitCodeFile,kTrue)
+			Do lvFile.$readcharacter(kUniTypeNativeCharacters,lvExitCode)
+			Do lvFile.$closefile()
+		End If
+		
+		If lvFile.$openfile(lvOutputFile,kTrue)
+			Do lvFile.$readcharacter(kUniTypeNativeCharacters,lvOutput)
+			Do lvFile.$closefile()
+		End If
+		
+		Do FileOps.$deletefile(lvScriptFile)
+		Do FileOps.$deletefile(lvOutputFile)
+		Do FileOps.$deletefile(lvLockFile)
+		Do FileOps.$deletefile(lvExitCodeFile)
+		
+		If pTrimOutput
+			Do method trimOutput (lvOutput) Returns lvOutput
+		End If
+		
+		Calculate pOutput as lvOutput
+		Calculate pExitCode as lvExitCode
+		
+		# If pReturnOutput
+		# Quit method lvOutput
+		# End If
+		
+		If lvExitCode<>0
+			Quit method kFalse
+		End If
+		
+	Case "X"
+		Do $root.$runapplescript(con('do shell script "',pScript,'"'),lvOutput,lvError) Returns lvExitCode
+		
+		If pTrimOutput
+			Do method trimOutput (lvOutput) Returns lvOutput
+		End If
+		
+		Calculate pOutput as lvOutput
+		
+		# If pReturnOutput
+		# Quit method lvOutput
+		# End If
+		
+		If lvExitCode<>0
+			Do tvLogger.$error('Shell: Script returned error code ',lvExitCode,': ',lvError)
+			Quit method kFalse
+		End If
+		
+	Default
+		Do tvLogger.$error(con('Shell: Unsupported  platform "',platform(),'"'))
+		Quit method kFalse
+End Switch
+
+Quit method kTrue

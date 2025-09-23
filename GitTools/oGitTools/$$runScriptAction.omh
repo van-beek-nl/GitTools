@@ -1,0 +1,85 @@
+Do pos(" ",pScriptAction) Returns lvSplitPosition
+
+If lvSplitPosition<=0
+	Do tvLogger.$error("Invalid script action ",pScriptAction)
+	Quit method kFalse
+End If
+
+Calculate lvActionType as left(pScriptAction,lvSplitPosition-1)
+Calculate lvActionValue as mid(pScriptAction,lvSplitPosition+1)
+
+Switch low(lvActionType)
+	Case "eval"
+		Test for valid calculation lvActionValue
+		If flag false
+			Do tvLogger.$error('Invalid calculation "',lvActionValue,'"')
+			Quit method kFalse
+		End If
+		
+		Do eval(lvActionValue)
+		
+		If #ERRCODE<>0
+			Do tvLogger.$error('An error occurred when evaluating "',lvActionValue,'"')
+			Send to trace log [#ERRCODE] - [#ERRTEXT]
+		End If
+		
+	Case "copy"
+		Do $cinst.$$extractSourceAndDestination(lvActionValue,pBaseDirectory) Returns lvResults
+		If not(callprivate('createPath',lvResults.destination))
+			Do tvLogger.$error("Could not create destination path ",lvResults.destination)
+			Quit method kFalse
+		End If
+		
+		Do FileOps.$copyfile(lvResults.source,lvResults.destination) Returns lvErrorCode
+		
+		# If the destination already exists, delete it first.
+		If lvErrorCode=kFileOpsAlreadyExists
+			Do FileOps.$deletefile(lvResults.destination,kTrue,kTrue)
+			Do FileOps.$copyfile(lvResults.source,lvResults.destination) Returns lvErrorCode
+		End If
+		
+		If lvErrorCode<>kFileOpsOK
+			Do tvLogger.$error('FileOps error ',lvErrorCode,' when attempting to copy "',lvResults.source,'" to "',lvResults.destination,'"')
+			Quit method kFalse
+		End If
+		
+	Case "move"
+		Do $cinst.$$extractSourceAndDestination(lvActionValue,pBaseDirectory) Returns lvResults
+		If not(callprivate('createPath',lvResults.destination))
+			Do tvLogger.$error("Could not create destination path ",lvResults.destination)
+			Quit method kFalse
+		End If
+		
+		Do FileOps.$movefile(lvResults.source,lvResults.destination) Returns lvErrorCode
+		
+		# If the destination already exists, delete it first.
+		If lvErrorCode=kFileOpsAlreadyExists
+			Do FileOps.$deletefile(lvResults.destination,kTrue,kTrue)
+			Do FileOps.$movefile(lvResults.source,lvResults.destination) Returns lvErrorCode
+		End If
+		
+		If lvErrorCode<>kFileOpsOK
+			Do tvLogger.$error('FileOps error ',lvErrorCode,' when attempting to move "',lvResults.source,'" to "',lvResults.destination,'"')
+			Quit method kFalse
+		End If
+		
+	Case "delete"
+		Do tvFileUtilities.$getAbsolutePath(lvActionValue) Returns lvActionValue
+		Do FileOps.$deletefile(lvActionValue,kTrue,kTrue) Returns lvErrorCode
+		
+		If lvErrorCode<>kFileOpsOK&lvErrorCode<>kFileOpsFileNotFound
+			Do tvLogger.$error('FileOps error ',lvErrorCode,' when attempting to delete "',lvActionValue,'"')
+			Quit method kFalse
+		End If
+		
+	Case "shell"
+		If not(tvScripting.$runShellScript(lvActionValue))
+			Quit method kFalse
+		End If
+		
+	Default
+		Do tvLogger.$error('Invalid action type ',lvActionType)
+		Quit method kFalse
+End Switch
+
+Quit method kTrue

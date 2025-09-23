@@ -1,0 +1,7 @@
+Calculate lvLevel as $cinst.$$levelCharToInt(pLevel)
+If lvLevel<0
+	Do tvLogger.$error("Unable to change log level - Invalid log level provided: ",pLevel)
+	Quit method kFalse
+End If
+
+Calculate ivLevel as lvLevel

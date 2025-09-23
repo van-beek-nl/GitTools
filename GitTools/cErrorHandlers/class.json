@@ -1,0 +1,25 @@
+{
+	"classtype": "kCode",
+	"omnisversion": "10.2",
+	"internalversion": 6,
+	"designtaskname": "GitTools",
+	"cvardefs": [
+
+	],
+	"properties": {
+		"canremotedebugwhenlocked": false,
+		"collectperformancedata": false,
+		"componenticon": 0,
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2025-09-11 14:48:15",
+		"desc": "",
+		"editor": "",
+		"editordata": "",
+		"external": true,
+		"moddate": "2025-09-11 14:49:25",
+		"showascheckedout": false,
+		"userinfo": "",
+		"vcsrevision": 0,
+		"version": ""
+	}
+}

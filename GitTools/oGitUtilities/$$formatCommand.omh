@@ -1,0 +1,5 @@
+If isclear(pCwd)
+	Calculate pCwd as pick(isclear($cinst.$cwd),$cinst.$cwd,FileOps.$getworkingdir())
+End If
+
+Quit method con($cinst.$gitExecutable,' -c "core.safecrlf=false" -C "',pCwd,'" ',pCommand)

@@ -1,0 +1,12 @@
+If ivIsAvailable=0
+	If platform()='N'
+		Calculate lvScript as con('(',$cinst.$gitExecutable,' --version >nul 2>&1 && echo 1 || echo 0)')
+	Else
+		Calculate lvScript as con('(command -v ',$cinst.$gitExecutable,' >/dev/null 2>&1 && echo 1 || echo 0)')
+	End If
+	
+	Do tvScripting.$runShellScript(lvScript,lvOutput) Returns lvIsOk
+	Calculate ivIsAvailable as lvIsOk&lvOutput='1'
+End If
+
+Quit method ivIsAvailable=1

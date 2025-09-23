@@ -1,0 +1,20 @@
+# If the given path does not (yet) exist, we'll traverse up the directory tree until we find one that does exist.
+While not(isclear(pPath))&not(FileOps.$doesfileexist(pPath))
+	Calculate pPath as FileOps.$parentdir(pPath)
+End While
+
+# If the given path is a file, we'll want to use the parent directory instead.
+Do FileOps.$getfileinfo(pPath,kFileOpsInfoIsDirectory) Returns lvFileInfo
+If not(lvFileInfo.isdirectory)
+	Calculate pPath as FileOps.$parentdir(pPath)
+End If
+
+If not($cinst.$$execute('rev-parse --show-toplevel',lvOutput,pPath))
+	If not($cinst.$isInRepository(pPath))
+		Quit method ""
+	End If
+	
+	Signal error -1,lvOutput
+End If
+
+Quit method lvOutput

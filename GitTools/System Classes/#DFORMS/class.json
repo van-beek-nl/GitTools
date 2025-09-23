@@ -1,0 +1,32 @@
+{
+	"classtype": "kSystemtable",
+	"omnisversion": "10.2",
+	"internalversion": 1,
+	"properties": {
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2025-08-13 14:14:03",
+		"desc": "",
+		"external": false,
+		"moddate": "2025-08-13 14:14:03",
+		"showascheckedout": false,
+		"userinfo": "",
+		"vcsrevision": 0,
+		"version": ""
+	},
+	"formats": [
+		"D m y",
+		"H:N",
+		"h:N A",
+		"H:N:S",
+		"H:N:S.s",
+		"D m Y  H:N",
+		"D m Y  H:N:S",
+		"D m Y  H:N:S.s",
+		"M/D/Y",
+		"w, n D, y",
+		"D/M/Y",
+		"w, D n, y",
+		"M/D/Y h:N A",
+		"D/M/Y H:N"
+	]
+}

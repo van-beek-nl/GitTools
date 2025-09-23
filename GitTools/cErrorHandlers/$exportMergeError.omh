@@ -1,0 +1,3 @@
+Calculate lvErrorCode as #ERRCODE
+Calculate lvErrorText as #ERRTEXT
+Breakpoint

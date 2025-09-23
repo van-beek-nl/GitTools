@@ -1,0 +1,12 @@
+Switch pLevel
+	Case 0
+		Quit method "debug"
+	Case 1
+		Quit method "info"
+	Case 2
+		Quit method "warn"
+	Case 3
+		Quit method "error"
+	Default
+		Quit method "???"
+End Switch

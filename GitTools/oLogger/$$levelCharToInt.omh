@@ -1,0 +1,12 @@
+Switch low(pLevel)
+	Case "debug"
+		Quit method 0
+	Case "info"
+		Quit method 1
+	Case "warning","warn"
+		Quit method 2
+	Case "error","fatal"
+		Quit method 3
+	Default
+		Quit method -1
+End Switch

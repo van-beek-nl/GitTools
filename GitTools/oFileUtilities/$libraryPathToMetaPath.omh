@@ -1,0 +1,1 @@
+Quit method con(left(pLibraryPath,pick(low(right(pLibraryPath,len(cvLibraryFileExtension))=cvLibraryFileExtension),len(pLibraryPath),len(pLibraryPath)-len(cvLibraryFileExtension))),cvMetaFileExtension)

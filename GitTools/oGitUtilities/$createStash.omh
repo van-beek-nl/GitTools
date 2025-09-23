@@ -1,0 +1,10 @@
+If not($cinst.$isChanged(pPath))
+	# Nothing to stash
+	Quit method ""
+End If
+
+If not($cinst.$$execute(con('stash push ',pick(pIncludeUntracked,'','-u'),' -m "',pIdentifier,'" -- "',pPath,'"'),lvOutput))
+	Signal error -1,lvOutput
+End If
+
+Quit method pIdentifier

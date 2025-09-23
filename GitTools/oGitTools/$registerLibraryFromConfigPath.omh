@@ -1,0 +1,62 @@
+If not(tvGit.$isAvailable)
+	Do tvLogger.$error("Git is not available. Refusing to register libraries at this time.")
+	Quit method kFalse
+End If
+
+Do tvFileUtilities.$fixPathSeparators(pConfigFilePath) Returns pConfigFilePath
+Calculate lvRegistration.id as tvFileUtilities.$configPathToLibraryID(pConfigFilePath)
+Calculate lvRegistration.basePath as FileOps.$parentdir(pConfigFilePath)
+Calculate lvRegistration.libraryPath as tvFileUtilities.$configPathToLibraryPath(pConfigFilePath)
+Calculate lvRegistration.metaPath as tvFileUtilities.$libraryPathToMetaPath(lvRegistration.libraryPath)
+Calculate lvRegistration.configPath as pConfigFilePath
+
+If lvRegistration.libraryPath=$clib.$pathname
+	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as it matches our (GitTools) path")
+	Quit method kFalse
+End If
+
+If ivRegisteredLibraries.$search($ref.libraryPath=lvRegistration.libraryPath,kTrue,kFalse,kFalse,kFalse)
+	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as it is already registered")
+	Quit method kTrue
+End If
+
+# TODO: revamp config file parsing
+If FileOps.$doesfileexist(lvRegistration.configPath)
+	Calculate lvConfiguration as $cinst.$$parseConfiguration(pConfigFilePath)
+	If isnull(lvConfiguration)
+		Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as its config file could not be parsed.")
+		Quit method kFalse
+	End If
+Else If tvSettings.$allowRegistrationWithoutConfigFile
+	Calculate lvConfiguration.jsonPath as "./src"
+Else
+	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as it does not have a GitTools config file.")
+	Quit method kFalse
+End If
+
+Calculate lvRegistration.jsonPath as tvFileUtilities.$join(FileOps.$parentdir(lvRegistration.libraryPath),lvConfiguration.jsonPath)
+Calculate lvRegistration.repositoryRoot as tvGit.$getRepositoryRoot(lvRegistration.jsonPath)
+Calculate lvRegistration.releasePath as tvFileUtilities.$getAbsolutePath(lvConfiguration.releasePath,FileOps.$parentdir(pConfigFilePath))
+Calculate lvRegistration.preImportScript as lvConfiguration.preImportScript
+Calculate lvRegistration.postImportScript as lvConfiguration.postImportScript
+Calculate lvRegistration.preExportScript as lvConfiguration.preExportScript
+Calculate lvRegistration.postExportScript as lvConfiguration.postExportScript
+
+If isclear(lvRegistration.repositoryRoot)
+	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as its source directory is not part of a git repository.")
+	Quit method kFalse
+End If
+
+Do ivRegisteredLibraries.$add().$assignrow(lvRegistration,kTrue)
+Do tvLogger.$info("Registered library ",lvRegistration.id)
+Do tvMenu.$buildMenu()
+
+Calculate tvGit.$cwd as lvRegistration.repositoryRoot
+If tvGit.$isHeadDetached()
+	Yes/No message Detached HEAD detected {GitTools has detected that the repository for library [lvRegistration.id] is in a detached HEAD state. This can happen when the GitTools export procedure is aborted abruptly (i.e. due to a crash). Do you want GitTools to try and re-attach the repository HEAD for you?}
+	If flag true
+		Do tvGit.$reattachHead()
+	End If
+End If
+
+Quit method kTrue

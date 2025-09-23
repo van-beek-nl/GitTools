@@ -1,0 +1,24 @@
+Calculate lvLibraries as tvGitTools.$libraries
+Do lvLibraries.$sort($ref.id,kFalse)
+
+Do lvFailures.$cols.$add("name",kCharacter,kSimplechar)
+For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
+	Working message GitTools - Import {([lvLibraries.$line]/[lvLibraries.$linecount]) Importing [lvLibraries.id]...}
+	If not(tvGitTools.$importLibrary(lvLibraries.id))
+		Do lvFailures.$add(lvLibraries.id)
+	End If
+	Close working message
+End For
+
+Calculate lvResultMessage as con('Imports finished (',lvLibraries.$linecount-lvFailures.$linecount,'/',lvLibraries.$linecount,' succeeded).')
+If lvFailures.$linecount>0
+	Open trace log
+	
+	Calculate lvResultMessage as con(lvResultMessage,' The following libraries failed to import:')
+	For lvFailures.$line from 1 to lvFailures.$linecount step 1
+		Calculate lvResultMessage as con(lvResultMessage,kCr,'- ',lvFailures.C1)
+	End For
+	Calculate lvResultMessage as con(lvResultMessage,kCr,kCr,'Check the trace log for details.')
+End If
+
+OK message Import results {[lvResultMessage]}

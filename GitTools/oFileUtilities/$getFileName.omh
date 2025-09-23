@@ -1,0 +1,7 @@
+Calculate pPath as $cinst.$fixPathSeparators(pPath)
+Do rxpos(con('^.*\',pathsep(),'(.+)$'),pPath,kTrue,kFalse,_,lvRegexResults)
+If isclear(lvRegexResults)
+	Quit method ""
+End If
+
+Quit method lvRegexResults.G1

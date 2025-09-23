@@ -1,0 +1,5 @@
+Do tvLogger.$debug("Attempting to register all currently open libraries")
+Do $libs.$makelist($ref) Returns lvOpenLibraries
+For lvOpenLibraries.$line from 1 to lvOpenLibraries.$linecount step 1
+	Do $cinst.$registerLibrary(lvOpenLibraries.C1)
+End For

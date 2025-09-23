@@ -1,0 +1,54 @@
+{
+	"classtype": "kObjectclass",
+	"omnisversion": "10.2",
+	"internalversion": 228,
+	"designtaskname": "GitTools",
+	"cvardefs": [
+
+	],
+	"ivardefs": [
+		{
+			"name": "ivCwd",
+			"order": 2,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
+			"name": "ivGitExecutable",
+			"order": 1,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000,
+			"initval": "\"git\"",
+			"desc": "Git executable path or alias."
+		},
+		{
+			"name": "ivIsAvailable",
+			"order": 3,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "0",
+			"desc": "Whether git is available. 0 = not checked, -1 = unavailable, 1 = available."
+		}
+	],
+	"properties": {
+		"canremotedebugwhenlocked": false,
+		"collectperformancedata": false,
+		"componenticon": 0,
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2025-08-20 13:41:11",
+		"desc": "",
+		"editor": "",
+		"editordata": "",
+		"external": true,
+		"issupercomponent": false,
+		"moddate": "2025-09-17 16:33:58",
+		"selfcontained": false,
+		"showascheckedout": false,
+		"userinfo": "",
+		"vcsrevision": 0,
+		"version": ""
+	}
+}

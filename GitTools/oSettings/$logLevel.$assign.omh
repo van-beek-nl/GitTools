@@ -1,0 +1,2 @@
+Calculate ivSettings.logLevel as pLogLevel
+Do $cinst.$$save()

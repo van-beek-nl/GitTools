@@ -1,0 +1,9 @@
+For pErrors.$line from 1 to pErrors.$linecount step 1
+	Do tvLogger.$error("#",pErrors.errorcode," in ",pErrors.pathname," on line ",pErrors.lineno,":")
+	Do tvLogger.$error(pErrors.errortext)
+End For
+
+For pWarnings.$line from 1 to pWarnings.$linecount step 1
+	Do tvLogger.$warning("#",pErrors.errorcode," in ",pErrors.pathname," on line ",pErrors.lineno,":")
+	Do tvLogger.$warning(pErrors.errortext)
+End For

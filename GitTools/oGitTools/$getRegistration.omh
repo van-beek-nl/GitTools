@@ -1,0 +1,6 @@
+Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse) Returns lvLine
+If lvLine<1
+	Quit method #NULL
+End If
+
+Quit method ivRegisteredLibraries.[lvLine]

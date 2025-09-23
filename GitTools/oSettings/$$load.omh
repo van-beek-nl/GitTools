@@ -1,0 +1,24 @@
+Do $cinst.$$openSettingsFile() Returns lvSettingsFile
+
+If not(lvSettingsFile.$readcharacter(kUniTypeUTF8,lvSettingsString))
+	Do tvLogger.$error("Unable to read settings file (FileOps #",lvSettingsFile.$getlasterror(),")")
+	Do lvSettingsFile.$closefile()
+	Quit method kFalse
+End If
+
+Do lvSettingsFile.$closefile()
+
+If isclear(lvSettingsString)
+	Calculate lvSettingsString as "{}"
+End If
+
+Do OJSON.$jsontolistorrow(lvSettingsString,lvError,kTrue) Returns lvSettings
+If isnull(lvSettings)|not(isclear(lvError))
+	Do tvLogger.$error("Unable to parse settings file (OJSON: ",lvError,")")
+	Quit method kFalse
+End If
+
+Calculate ivSettings as lvSettings
+Do $cinst.$$loadInitialSettings()
+
+Quit method kTrue

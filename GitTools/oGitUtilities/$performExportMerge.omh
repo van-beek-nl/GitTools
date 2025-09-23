@@ -1,0 +1,37 @@
+# Remember the branch we're on and the commit we're currently at.
+Do $cinst.$getBranch() Returns lvCurrentBranch
+Do $cinst.$getCommitHash() Returns lvCurrentCommitHash
+
+# Detach git HEAD
+If not($cinst.$$execute('checkout --detach',lvOutput))
+	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
+End If
+
+# Soft reset to the previous import commit, leaving any changes since the commit intact.
+If not($cinst.$$execute(con('reset --soft "',pPreviousImportCommitHash,'"'),lvOutput))
+	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
+End If
+
+# Stage all pending changes to the given path.
+If not($cinst.$$execute(con('add -A "',pPath,'"'),lvOutput))
+	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
+End If
+
+# Commit the above changes, creating a dangling commit since our HEAD is detached.
+If not($cinst.$$execute(con('commit -m "GitTools export" -- "',pPath,'"'),lvOutput))
+	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
+End If
+
+# Obtain the commit hash of the dangling commit.
+Do $cinst.$getCommitHash(pPath) Returns lvDanglingCommitHash
+Do $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch)
+
+# Merge dangling commit into the current state
+If not($cinst.$$execute(con('merge "',lvDanglingCommitHash,'"'),lvOutput))
+	# Git returns a non-zero exit code when it encounters a merge conflict.
+	# Moreover, git should not leave pending merge conflicts when it encounters a fatal error.
+	# Thus, we only signal an error if the merge command did not cause any merge conflicts.
+	If $cinst.$getMergeConflicts(pPath).$linecount=0
+		Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
+	End If
+End If

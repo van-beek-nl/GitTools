@@ -1,0 +1,19 @@
+Calculate $cinst.$objs.mloglevel_debug.$checked as kFalse
+Calculate $cinst.$objs.mloglevel_info.$checked as kFalse
+Calculate $cinst.$objs.mloglevel_warnings.$checked as kFalse
+Calculate $cinst.$objs.mloglevel_errors.$checked as kFalse
+
+Switch tvLogger.$level
+	Case "debug"
+		Calculate $cinst.$objs.mloglevel_debug.$checked as kTrue
+		Break to end of switch
+	Case "info"
+		Calculate $cinst.$objs.mloglevel_info.$checked as kTrue
+		Break to end of switch
+	Case "warn"
+		Calculate $cinst.$objs.mloglevel_warnings.$checked as kTrue
+		Break to end of switch
+	Case "error"
+		Calculate $cinst.$objs.mloglevel_errors.$checked as kTrue
+		Break to end of switch
+End Switch

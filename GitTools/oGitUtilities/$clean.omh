@@ -1,0 +1,3 @@
+If not($cinst.$$execute(con('clean',pick(pRecurse,'',' -d'),pick(pForce,'',' -f'),' "',pPath,'"'),lvOutput))
+	Signal error -1,lvOutput
+End If

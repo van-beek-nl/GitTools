@@ -1,0 +1,2 @@
+Do $cinst.$$execute('symbolic-ref --quiet HEAD >nul 2>&1 && echo 1 || echo 0',lvOutput)
+Quit method lvOutput='0'

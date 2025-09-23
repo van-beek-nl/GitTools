@@ -1,0 +1,6 @@
+If isclear(pLibrary.$pathname())
+	Do tvLogger.$error("Unable to obtain pathname from library reference. Are you sure you passed a valid library reference to $registerLibrary?")
+	Quit method kFalse
+End If
+
+Quit method $cinst.$registerLibraryFromConfigPath(tvFileUtilities.$libraryPathToConfigPath(pLibrary.$pathname))

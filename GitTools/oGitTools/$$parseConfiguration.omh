@@ -1,0 +1,23 @@
+If not(lvConfigFile.$openfile(pConfigPath,kTrue))
+	Quit method #NULL
+End If
+
+If not(lvConfigFile.$readcharacter(kUniTypeUTF8,lvConfigString))
+	Quit method #NULL
+End If
+
+Do lvConfigFile.$closefile()
+
+Do OJSON.$jsontolistorrow(lvConfigString,lvError,kTrue) Returns lvConfiguration
+If isclear(lvConfiguration)
+	Do tvLogger.$error("Could not parse config file: ",lvError)
+	Quit method #NULL
+End If
+
+If isclear(lvConfiguration.jsonPath)
+	Calculate lvConfiguration.jsonPath as "./src"
+End If
+
+Calculate lvConfiguration.jsonPath as tvFileUtilities.$fixRelativePath(lvConfiguration.jsonPath)
+
+Quit method lvConfiguration

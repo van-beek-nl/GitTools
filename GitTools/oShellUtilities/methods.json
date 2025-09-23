@@ -1,0 +1,182 @@
+[
+	{
+		"name": "$runShellScript",
+		"order": 1,
+		"desc": "Runs the given shell script. Returns a boolean indicating success or the script output depending on the given parameter.\rOnly supports macOS and Windows at this time. Cross-platform scripting support not implemented.",
+		"pvardefs": [
+			{
+				"name": "pScript",
+				"order": 10,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Script to execute"
+			},
+			{
+				"name": "pOutput",
+				"order": 16,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"desc": "Script output"
+			},
+			{
+				"name": "pExitCode",
+				"order": 17,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 3,
+				"desc": "Script exit code"
+			},
+			{
+				"name": "pTrimOutput",
+				"order": 14,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 4,
+				"initval": "kTrue",
+				"desc": "Whether to trim the script output (both spaces and newline characters)."
+			},
+			{
+				"name": "pEscapeSpecialChars",
+				"order": 15,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 5,
+				"initval": "kTrue",
+				"desc": "Whether to automatically escape special characters such as \\ and %."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvBaseName",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvError",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvExitCode",
+				"order": 12,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvExitCodeFile",
+				"order": 7,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFile",
+				"order": 1,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvFileInfo",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvLockFile",
+				"order": 9,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvOutput",
+				"order": 13,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvOutputFile",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvScriptFile",
+				"order": 6,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvTempDirectory",
+				"order": 4,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvTicks",
+				"order": 11,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "trimOutput",
+		"order": 4,
+		"pvardefs": [
+			{
+				"name": "pOutput",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$openPath",
+		"order": 5,
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "_",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	}
+]

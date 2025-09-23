@@ -1,0 +1,5 @@
+If pLevel<ivLevel
+	Quit method
+End If
+
+Send to trace log [ivName] | [upp($cinst.$$levelIntToChar(pLevel))] - [pMessage]

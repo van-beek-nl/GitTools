@@ -1,0 +1,30 @@
+{
+	"classtype": "kSystemtable",
+	"omnisversion": "10.2",
+	"internalversion": 1,
+	"properties": {
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2025-08-13 14:14:03",
+		"desc": "",
+		"external": false,
+		"moddate": "2025-08-13 14:14:03",
+		"showascheckedout": false,
+		"userinfo": "",
+		"vcsrevision": 0,
+		"version": ""
+	},
+	"formats": [
+		"0",
+		"0.00",
+		"#,##0",
+		"#,##0.00",
+		"#,##0;[RED](#,##0)",
+		"#,##0.00 'cr';#,##0.00 'dr'",
+		"'£' #,##0;[RED]'£'-#,##0;;'Nil'",
+		"'$' #,##0;[RED]'$'-#,##0;;'Nil'",
+		"0%",
+		"0.00%",
+		"0.00 E+00",
+		"0.00 E-00"
+	]
+}

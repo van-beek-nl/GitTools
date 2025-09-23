@@ -1,0 +1,3 @@
+If not(tvGit.$isAvailable)
+	Do tvLogger.$error("The git executable could not be found. Please ensure that git is installed on your system and tvGit.$gitExecutable is set correctly. GitTools does not work without git!")
+End If

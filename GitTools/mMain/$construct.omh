@@ -1,0 +1,2 @@
+Set reference tvMenu to $cinst.$ref()
+Do $cinst.$buildMenu()

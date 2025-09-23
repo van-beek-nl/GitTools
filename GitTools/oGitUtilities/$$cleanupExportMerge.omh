@@ -1,0 +1,12 @@
+If not(isclear(pErrorText))
+	Do tvLogger.$warning("Attempting to recover from failed export merge")
+Else
+	Do tvLogger.$debug("Cleaning up after export merge procedure")
+End If
+
+Do $cinst.$resetDirectory(pPath)
+Do $cinst.$$execute(con('checkout ',pBranch))
+
+If not(isclear(pErrorText))
+	Signal error -1,pErrorText
+End If

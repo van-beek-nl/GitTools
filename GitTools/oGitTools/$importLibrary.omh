@@ -1,0 +1,133 @@
+Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse)
+Calculate lvRegistration as ivRegisteredLibraries.$first(kFalse,kFalse,$ref.id=pLibraryID)
+
+Do tvLogger.$info("Importing ",pLibraryID)
+Calculate tvGit.$cwd as lvRegistration.repositoryRoot
+
+Do tvLogger.$debug("Checking for merge conflicts in source directory")
+Do tvGit.$getMergeConflicts(lvRegistration.jsonPath) Returns lvMergeConflicts
+If lvMergeConflicts.$linecount>0
+	Do tvLogger.$error('The source directory contains merge conflict(s) in the following file(s). These must be resolved first:')
+	For lvMergeConflicts.$line from 1 to lvMergeConflicts.$linecount step 1
+		Do tvLogger.$error(lvMergeConflicts.C1)
+	End For
+	Quit method kFalse
+End If
+
+Calculate lvImportPath as con(lvRegistration.libraryPath,'.import')
+Calculate lvBackupPath as con(lvRegistration.libraryPath,'.bak')
+
+# Delete previous leftover build artifact (if any)
+Do $cinst.$$getLibraryReferenceFromPath(lvImportPath) Returns lvLibrary
+If not(isclear(lvLibrary))
+	Close library [lvLibrary.$name()]
+End If
+
+If FileOps.$doesfileexist(lvImportPath)
+	Do FileOps.$deletefile(lvImportPath)
+End If
+
+Calculate tvGit.$cwd as lvRegistration.repositoryRoot
+Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvImportCommitHash
+
+Do tvLogger.$debug("Source is at commit #",lvImportCommitHash)
+
+If not(isclear(lvRegistration.preImportScript))
+	Do tvLogger.$info("Running pre-import script")
+	If not($cinst.$$runScript(lvRegistration.preImportScript,lvRegistration.basePath))
+		Do tvLogger.$error("Pre-import script failure")
+		Quit method kFalse
+	End If
+End If
+
+# Temporarily change import options
+Calculate lvOptionsToRestore as $root.$prefs.$exportimportjsonoptions
+Calculate lvOptions as $root.$prefs.$exportimportjsonoptions
+Calculate lvOptions.importtreatsunknownpropertyaswarning as kTrue
+Calculate $root.$prefs.$exportimportjsonoptions as lvOptions
+
+Do tvLogger.$debug("Starting JSON import")
+
+Do $root.$importjson(lvRegistration.jsonPath,lvImportPath,lvErrors,lvWarnings,kFalse) Returns lvIsOk
+
+# Restore regular options
+Calculate $root.$prefs.$exportimportjsonoptions as lvOptionsToRestore
+
+Do tvLogger.$info("Import ",pick(lvIsOk,"failed","succeeded"))
+Do $cinst.$$logErrorsAndWarnings(lvErrors,lvWarnings)
+
+If not(lvIsOk)
+	Do FileOps.$deletefile(lvImportPath)
+	Quit method kFalse
+End If
+
+Do tvLogger.$debug("Replacing library with build artifact")
+Do $cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath) Returns lvLibrary
+Calculate lvLibraryWasOpen as not(isclear(lvLibrary))
+
+If lvLibraryWasOpen
+	Calculate lvStartupTaskWasOpen as not(isclear($itasks.$findname(pLibraryID))) ## TODO: This check is most likely wrong
+	Close library [pLibraryID]
+End If
+
+If FileOps.$doesfileexist(lvBackupPath)
+	Do FileOps.$deletefile(lvBackupPath) Returns lvFileOpsCode
+	
+	If lvFileOpsCode<>kFileOpsOK
+		Do tvLogger.$error("Import failed - Unable to delete previous library backup ",lvBackupPath," (FileOps #",lvFileOpsCode,")")
+		Quit method kFalse
+	End If
+End If
+
+Do FileOps.$movefile(lvRegistration.libraryPath,lvBackupPath) Returns lvFileOpsCode
+If lvFileOpsCode<>kFileOpsOK
+	Do tvLogger.$error("Import failed - Unable to create backup (FileOps #",lvFileOpsCode,")")
+	Quit method kFalse
+End If
+
+Do FileOps.$movefile(lvImportPath,lvRegistration.libraryPath) Returns lvFileOpsCode
+If lvFileOpsCode<>kFileOpsOK
+	Do tvLogger.$error("Import failed - Unable to replace existing library with build artifact (FileOps #",lvFileOpsCode,")")
+	Quit method kFalse
+End If
+
+If FileOps.$doesfileexist(lvRegistration.metaPath)
+	If not(lvFileOps.$openfile(lvRegistration.metaPath))
+		Do tvLogger.$error("Import failed - Unable to open meta file (FileOps #",lvFileOps.$getlasterror(),")")
+		Quit method kFalse
+	End If
+Else
+	If not(lvFileOps.$createfile(lvRegistration.metaPath))
+		Do tvLogger.$error("Import failed - Unable to create meta file (FileOps #",lvFileOps.$getlasterror(),")")
+		Quit method kFalse
+	End If
+End If
+
+If not(lvFileOps.$writecharacter(kUniTypeUTF8,lvImportCommitHash))
+	Do tvLogger.$error("Import failed - Unable to write to meta file (FileOps #",lvFileOps.$getlasterror(),")")
+	Quit method kFalse
+End If
+
+Do lvFileOps.$closefile()
+
+If lvLibraryWasOpen
+	If lvStartupTaskWasOpen
+		Open library (Do not close others) [lvRegistration.libraryPath]
+	Else
+		Open library (Do not close others,Do not open startup task) [lvRegistration.libraryPath]
+	End If
+	
+	If flag false
+		Do tvLogger.$warning("Unable to re-open library after import")
+	End If
+End If
+
+If not(isclear(lvRegistration.postImportScript))
+	Do tvLogger.$info("Running post-import script")
+	If not($cinst.$$runScript(lvRegistration.postImportScript,lvRegistration.basePath))
+		Do tvLogger.$error("Post-import script failure")
+		Quit method kFalse
+	End If
+End If
+
+Quit method kTrue

@@ -1,0 +1,13 @@
+# If the given path does not (yet) exist, we'll traverse up the directory tree until we find one that does exist.
+While not(isclear(pPath))&not(FileOps.$doesfileexist(pPath))
+	Calculate pPath as FileOps.$parentdir(pPath)
+End While
+
+# If the given path is a file, we'll want to use the parent directory instead.
+Do FileOps.$getfileinfo(pPath,kFileOpsInfoIsDirectory) Returns lvFileInfo
+If not(lvFileInfo.isdirectory)
+	Calculate pPath as FileOps.$parentdir(pPath)
+End If
+
+Do $cinst.$$execute('rev-parse --is-inside-work-tree >nul 2>&1 && echo 1 || echo 0',lvOutput,pPath)
+Quit method lvOutput='1'

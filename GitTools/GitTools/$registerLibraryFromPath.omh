@@ -1,0 +1,5 @@
+If right(low(pPath),4)=".lbs"
+	Quit method tvGitTools.$registerLibraryFromLibraryPath(pPath)
+Else
+	Quit method tvGitTools.$registerLibraryFromConfigPath(pPath)
+End If

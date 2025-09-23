@@ -1,0 +1,9 @@
+Calculate ivLibraryID as pLibraryID
+
+# Optionally add the build release button if a release path is defined in the registration
+# Do tvGitTools.$getRegistration(pLibraryID) Returns lvRegistration
+# If not(isclear(lvRegistration.releasePath))
+# Do $cinst.$objs.$addafter($cinst.$objs.mLibrary_export,'Build release',kTrue) Returns lvMenuItem
+# Do lvMenuItem.$methods.$add("$event") Returns lvMethod
+# Calculate lvMethod.$methodtext as con('On evClick',kCr,'Do tvGitTools.$buildRelease(ivLibraryID)')
+# End If

@@ -1,0 +1,11 @@
+If isclear(cvTempDirectory)
+	If not(lvFile.$createtmpfile())
+		Quit method #NULL
+	End If
+	
+	Do lvFile.$getfileinfo(kFileOpsInfoFullName) Returns lvFileInfo
+	Do lvFile.$closefile()
+	Calculate cvTempDirectory as FileOps.$parentdir(lvFileInfo.fullname)
+End If
+
+Quit method cvTempDirectory

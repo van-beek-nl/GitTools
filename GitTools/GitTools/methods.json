@@ -1,0 +1,62 @@
+[
+	{
+		"name": "$construct",
+		"order": 1,
+		"desc": "Runs GitTools!",
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$openlibschanged",
+		"order": 2,
+		"desc": "This method is automatically called by Omnis Studio 11+ IDEs. For older Omnis Studio versions (or Omnis Studio runtime), call this method manually to make GitTools scan for libraries to register.\rIf calling this manually, it's recommended to do so as follows:\r\rIf $itasks.[\"GitTools\"].[\"$openlibschanged\"].$cando()\r    Do $itasks.[\"GitTools\"].[\"$openlibschanged\"]()\rEnd if",
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$registerLibrary",
+		"order": 3,
+		"desc": "Registers the given library with GitTools. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibrary",
+				"order": 1,
+				"type": "kItemref",
+				"subtype": "$libs.lib",
+				"sublen": 0,
+				"param": 1,
+				"desc": "Item reference to library."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$registerLibraryFromPath",
+		"order": 4,
+		"desc": "Registers a library with GitTools based on the given path. The path can point to an Omnis library file or a GitTools config file. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to Omnis library file or GitTools config file."
+			}
+		],
+		"lvardefs": [
+
+		]
+	}
+]

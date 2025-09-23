@@ -1,0 +1,5 @@
+If not($cinst.$$execute(con('status --porcelain "',pPath,'"'),lvOutput))
+	Signal error -1,lvOutput
+End If
+
+Quit method not(isclear(lvOutput))

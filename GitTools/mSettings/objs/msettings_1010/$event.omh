@@ -1,0 +1,2 @@
+On evClick
+	Do tvScripting.$openPath($clib.$parentfolder)

@@ -1,0 +1,7 @@
+Calculate lvListStashCommand as $cinst.$$formatCommand('stash list')
+Calculate lvDropStashCommand as $cinst.$$formatCommand('stash drop %%i')
+Calculate lvScript as con('for /f "tokens=1 delims=:" %%i in (',"'",lvListStashCommand,' ^| findstr "',pIdentifier,'"',"'",') do ',lvDropStashCommand)
+
+If not(tvScripting.$runShellScript(lvScript,lvOutput,lvExitCode,kTrue,kFalse))
+	Signal error -1,lvOutput
+End If

@@ -1,0 +1,4 @@
+On evClick
+	Calculate tvLogger.$level as "debug"
+	Calculate tvSettings.$logLevel as "debug"
+	Do $cinst.$$updateCheckedLogLevel()

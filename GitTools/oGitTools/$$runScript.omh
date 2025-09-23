@@ -1,0 +1,12 @@
+If not(isclear(pBaseDirectory))
+	Do FileOps.$changeworkingdir(pBaseDirectory)
+End If
+
+For pScript.$line from 1 to pScript.$linecount step 1
+	If not($cinst.$$runScriptAction(pScript.C1,pBaseDirectory))
+		Do tvLogger.$error("Script action failed: ",pScript.C1)
+		Quit method kFalse
+	End If
+End For
+
+Quit method kTrue

@@ -1,0 +1,7 @@
+Do $cinst.$getRegistration(pLibraryID) Returns lvRegistration
+If isclear(lvRegistration)
+	Quit method kFalse
+End If
+
+Do $cinst.$deregisterLibrary(pLibraryID)
+Quit method $cinst.$registerLibraryFromConfigPath(lvRegistration.configPath)

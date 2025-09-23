@@ -1,0 +1,15 @@
+Do FileOps.$getfilename(lvPath,"Select library or GitTools config file","*.gittools.json,*.lbs")
+If isclear(lvPath)
+	Quit method
+End If
+
+If low(right(lvPath,4))=".lbs"
+	Do tvGitTools.$registerLibraryFromLibraryPath(lvPath) Returns lvIsOk
+Else
+	Do tvGitTools.$registerLibraryFromConfigPath(lvPath) Returns lvIsOk
+End If
+
+If not(lvIsOk)
+	Open trace log
+	OK message GitTools - Registration failed {The selected library could not be registered. Check the trace log for details.}
+End If

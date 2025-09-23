@@ -1,0 +1,3 @@
+Do $libs.$makelist($ref) Returns lvOpenLibraries
+Calculate lvOpenLibraries.$line as lvOpenLibraries.$search($ref().C1.$pathname()=pLibraryPath,kTrue,kFalse,kFalse,kFalse)
+Quit method lvOpenLibraries.C1

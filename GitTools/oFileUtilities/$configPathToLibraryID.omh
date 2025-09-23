@@ -1,0 +1,2 @@
+Calculate lvConfigFileName as $cinst.$getFileName(pConfigPath)
+Quit method left(lvConfigFileName,pick(low(right(lvConfigFileName,len(cvConfigFileExtension))=cvConfigFileExtension),len(lvConfigFileName),len(lvConfigFileName)-len(cvConfigFileExtension)))

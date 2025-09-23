@@ -1,0 +1,22 @@
+{
+	"ident": 1008,
+	"order": 4,
+	"properties": {
+		"cascade": "",
+		"checked": false,
+		"enabled": true,
+		"fontstyle": "kPlain",
+		"helpfile": 0,
+		"helptext": "",
+		"iconid": 0,
+		"macshortcutkey": "",
+		"text": {
+			"type": 0,
+			"calc": "Errors"
+		},
+		"unixshortcutkey": "",
+		"userinfo": "",
+		"users": "12345678",
+		"winshortcutkey": ""
+	}
+}

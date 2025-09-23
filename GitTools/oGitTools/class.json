@@ -1,0 +1,43 @@
+{
+	"classtype": "kObjectclass",
+	"omnisversion": "10.2",
+	"internalversion": 647,
+	"designtaskname": "GitTools",
+	"cvardefs": [
+		{
+			"name": "cvConfigFileExtension",
+			"order": 1,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000,
+			"initval": "\".gittools.json\""
+		}
+	],
+	"ivardefs": [
+		{
+			"name": "ivRegisteredLibraries",
+			"order": 2,
+			"type": "kList",
+			"subtype": "sLibraryRegistration",
+			"sublen": 0
+		}
+	],
+	"properties": {
+		"canremotedebugwhenlocked": false,
+		"collectperformancedata": false,
+		"componenticon": 0,
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2025-08-13 14:17:28",
+		"desc": "",
+		"editor": "",
+		"editordata": "",
+		"external": true,
+		"issupercomponent": false,
+		"moddate": "2025-09-23 16:44:44",
+		"selfcontained": false,
+		"showascheckedout": false,
+		"userinfo": "",
+		"vcsrevision": 0,
+		"version": ""
+	}
+}

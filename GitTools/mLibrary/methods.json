@@ -1,0 +1,64 @@
+[
+	{
+		"name": "$libraryID",
+		"order": 1,
+		"pvardefs": [
+			{
+				"name": "pClient",
+				"order": 1,
+				"type": "kItemref",
+				"subtype": "oGitTools",
+				"sublen": 0,
+				"param": 1
+			},
+			{
+				"name": "pLibrary",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$libraryID.$assign",
+		"order": 2,
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvMenuItem",
+				"order": 3,
+				"type": "kItemref",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvMethod",
+				"order": 4,
+				"type": "kItemref",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvRegistration",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	}
+]

@@ -1,0 +1,849 @@
+[
+	{
+		"name": "$construct",
+		"order": 1,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$registerLibraries",
+		"order": 2,
+		"desc": "Attempts to register all currently opened libraries.",
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvOpenLibraries",
+				"order": 1,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$registerLibraryFromConfigPath",
+		"order": 3,
+		"desc": "Registers a library based on the given path to a GitTools config file. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pConfigFilePath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to config file."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvConfiguration",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryConfiguration",
+				"sublen": 0
+			},
+			{
+				"name": "lvRegistration",
+				"order": 4,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$registerLibraryFromLibraryPath",
+		"order": 4,
+		"desc": "Registers a library based on the given path to an Omnis library file. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to Omnis library file."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvConfigPath",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFileOps",
+				"order": 3,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$registerLibrary",
+		"order": 5,
+		"desc": "Registers the given library with GitTools. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibrary",
+				"order": 1,
+				"type": "kItemref",
+				"subtype": "$libs.lib",
+				"sublen": 0,
+				"param": 1,
+				"desc": "Item reference to library."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvConfigPath",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvConfiguration",
+				"order": 5,
+				"type": "kRow",
+				"subtype": "sLibraryConfiguration",
+				"sublen": 0
+			},
+			{
+				"name": "lvMeta",
+				"order": 3,
+				"type": "kItemref",
+				"subtype": "$libs.lib.$codes.code",
+				"sublen": 0
+			},
+			{
+				"name": "lvOpenLibraries",
+				"order": 6,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvRegistration",
+				"order": 4,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$updateRegistration",
+		"order": 6,
+		"desc": "Updates the library registered under the given ID, reloading its configuration. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID"
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegistration",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$deregisterLibrary",
+		"order": 7,
+		"desc": "Deregisters a library with the given library ID. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvLine",
+				"order": 2,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$importLibrary",
+		"order": 8,
+		"desc": "Imports the given library from source, creating a new Omnis library file. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvBackupPath",
+				"order": 11,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvErrors",
+				"order": 8,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvFileOps",
+				"order": 15,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvFileOpsCode",
+				"order": 12,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvImportCommitHash",
+				"order": 14,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvImportPath",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvIsOk",
+				"order": 6,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvLibrary",
+				"order": 7,
+				"type": "kItemref",
+				"subtype": "$libs.lib",
+				"sublen": 0
+			},
+			{
+				"name": "lvLibraryWasOpen",
+				"order": 10,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvMergeConflicts",
+				"order": 16,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvMeta",
+				"order": 17,
+				"type": "kItemref",
+				"subtype": "$libs.lib.$codes.code",
+				"sublen": 0
+			},
+			{
+				"name": "lvMetaMethod",
+				"order": 18,
+				"type": "kItemref",
+				"subtype": "$methods.method",
+				"sublen": 0
+			},
+			{
+				"name": "lvOptions",
+				"order": 5,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvOptionsToRestore",
+				"order": 4,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvRegistration",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			},
+			{
+				"name": "lvStartupTaskWasOpen",
+				"order": 13,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"initval": "kFalse"
+			},
+			{
+				"name": "lvTest",
+				"order": 19,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvWarnings",
+				"order": 9,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$exportLibrary",
+		"order": 9,
+		"desc": "Exports the given library to JSON. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID."
+			},
+			{
+				"name": "pMergeConflicts",
+				"order": 24,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"desc": "Optionally, a reference to a list variable. When provided, contains a list of files that have merge conflicts after the export merge was performed."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvCreatedExportStash",
+				"order": 19,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"initval": "kFalse"
+			},
+			{
+				"name": "lvCurrentCommitHash",
+				"order": 9,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvDidOpenLibrary",
+				"order": 5,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvExportErrors",
+				"order": 15,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvExportWarnings",
+				"order": 16,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvFileOps",
+				"order": 4,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvGitStashID",
+				"order": 17,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvIsOk",
+				"order": 6,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvLastSourceChangeCommitHash",
+				"order": 11,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvLibrary",
+				"order": 7,
+				"type": "kItemref",
+				"subtype": "$libs.lib",
+				"sublen": 0
+			},
+			{
+				"name": "lvMergeConflicts",
+				"order": 20,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvMergeConflictsText",
+				"order": 21,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvNumFilesChangedSincePreviousImport",
+				"order": 10,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0,
+				"initval": "0"
+			},
+			{
+				"name": "lvOptions",
+				"order": 14,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvOptionsToRestore",
+				"order": 13,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvOutput",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvPreviousImportCommitHash",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvRegistration",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			},
+			{
+				"name": "lvSourceNeedsSync",
+				"order": 12,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvTempCommitHash",
+				"order": 23,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvTrackedPatchPath",
+				"order": 22,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"initval": "tvFileUtilities.$join(tvFileUtilities.$getTempDirectory(),con(OW3.$makeuuid(),'.patch'))"
+			},
+			{
+				"name": "lvUntrackedPatchPath",
+				"order": 18,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"initval": "tvFileUtilities.$join(tvFileUtilities.$getTempDirectory(),con(OW3.$makeuuid(),'.patch'))"
+			}
+		]
+	},
+	{
+		"name": "$getRegistration",
+		"order": 10,
+		"desc": "Returns the registration data for the given library, or null if the library is not registered with GitTools.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvLine",
+				"order": 2,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "----- Properties",
+		"order": 11,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		],
+		"empty": true
+	},
+	{
+		"name": "$libraries",
+		"order": 12,
+		"desc": "All libraries currently registered with GitTools.",
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$libraries.$assign",
+		"order": 13,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "----- Private",
+		"order": 14,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		],
+		"empty": true
+	},
+	{
+		"name": "$$logErrorsAndWarnings",
+		"order": 16,
+		"desc": "Logs the given import/export errors and warnings to the trace log.",
+		"pvardefs": [
+			{
+				"name": "pErrors",
+				"order": 1,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0,
+				"param": 1,
+				"desc": "List of import/export errors."
+			},
+			{
+				"name": "pWarnings",
+				"order": 2,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0,
+				"param": 2,
+				"desc": "List of import/export warnings."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$parseConfiguration",
+		"order": 17,
+		"desc": "Parses the given GitTools config file, returning the parsed data or #NULL if the config file could not be parsed.",
+		"pvardefs": [
+			{
+				"name": "pConfigPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to GitTools configuration file."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvConfigFile",
+				"order": 2,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvConfigString",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvConfiguration",
+				"order": 4,
+				"type": "kRow",
+				"subtype": "sLibraryConfiguration",
+				"sublen": 0
+			},
+			{
+				"name": "lvError",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFileInfo",
+				"order": 6,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$$getLibraryReferenceFromPath",
+		"order": 18,
+		"desc": "Finds and returns a matching library reference for the given library path.",
+		"pvardefs": [
+			{
+				"name": "pLibraryPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to Omnis library file."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvOpenLibraries",
+				"order": 2,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "----- Scripts",
+		"order": 19,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		],
+		"empty": true
+	},
+	{
+		"name": "$$runScript",
+		"order": 20,
+		"desc": "Runs GitTools script. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pScript",
+				"order": 1,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0,
+				"param": 1,
+				"desc": "GitTools script. A list of script actions."
+			},
+			{
+				"name": "pBaseDirectory",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2,
+				"desc": "Base directory from which to run the script actions."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$runScriptAction",
+		"order": 21,
+		"desc": "Runs a given GitTools script action. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pScriptAction",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "GitTools script action."
+			},
+			{
+				"name": "pBaseDirectory",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2,
+				"desc": "Base directory from which to run the given action."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvActionType",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvActionValue",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvErrorCode",
+				"order": 4,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvFileOpsResult",
+				"order": 5,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvResults",
+				"order": 6,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvSplitPosition",
+				"order": 7,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$$extractSourceAndDestination",
+		"order": 22,
+		"desc": "Extracts source and destination paths from the given GitTools script action value. Returns a row with \"source\" and \"destination\" columns.",
+		"pvardefs": [
+			{
+				"name": "pValue",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "GitTools script action value."
+			},
+			{
+				"name": "pBaseDirectory",
+				"order": 4,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2,
+				"desc": "Base directory from which to form the absolute paths to the source and destination."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegexResults",
+				"order": 3,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvResults",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	}
+]

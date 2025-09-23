@@ -1,0 +1,43 @@
+Calculate lvLibraries as tvGitTools.$libraries
+Do lvLibraries.$sort($ref.id,kFalse)
+
+Do lvFailures.$cols.$add("id",kCharacter,kSimplechar)
+Do lvLibrariesWithMergeConflicts.$cols.$add("id",kCharacter,kSimplechar)
+Do lvLibrariesWithMergeConflicts.$cols.$add("amount",kInteger,k32bitint)
+
+For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
+	Working message GitTools - Export {([lvLibraries.$line]/[lvLibraries.$linecount]) Exporting [lvLibraries.id]...}
+	Do tvGitTools.$exportLibrary(lvLibraries.id,lvMergeConflicts) Returns lvIsOk
+	Close working message
+	
+	If not(lvIsOk)
+		Do lvFailures.$add(lvLibraries.id)
+	Else If lvMergeConflicts.$linecount>0
+		Do lvLibrariesWithMergeConflicts.$add(lvLibraries.id,lvMergeConflicts.$linecount)
+	End If
+End For
+
+Calculate lvResultMessage as con('Exports finished (',lvLibraries.$linecount-lvFailures.$linecount,'/',lvLibraries.$linecount,' succeeded). ')
+If lvFailures.$linecount>0
+	Calculate lvResultMessage as con(lvResultMessage,'The following libraries failed to export:')
+	For lvFailures.$line from 1 to lvFailures.$linecount step 1
+		Calculate lvResultMessage as con(lvResultMessage,kCr,'- ',lvFailures.C1)
+	End For
+End If
+
+If lvLibrariesWithMergeConflicts.$linecount>0
+	If lvFailures.$linecount>0
+		Calculate lvResultMessage as con(lvResultMessage,kCr,kCr)
+	End If
+	Calculate lvResultMessage as con(lvResultMessage,'The following libraries successfully exported but have pending merge conflicts after the export merge:')
+	For lvLibrariesWithMergeConflicts.$line from 1 to lvLibrariesWithMergeConflicts.$linecount step 1
+		Calculate lvResultMessage as con(lvResultMessage,kCr,'- ',lvLibrariesWithMergeConflicts.C1,' (amount: ',lvLibrariesWithMergeConflicts.amount,')')
+	End For
+End If
+
+If lvFailures.$linecount>0|lvLibrariesWithMergeConflicts.$linecount>0
+	Open trace log
+	Calculate lvResultMessage as con(lvResultMessage,kCr,kCr,"Check the trace log for details.")
+End If
+
+OK message GitTools - Export results {[lvResultMessage]}

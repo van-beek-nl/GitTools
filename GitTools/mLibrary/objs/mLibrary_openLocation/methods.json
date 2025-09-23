@@ -1,0 +1,18 @@
+[
+	{
+		"name": "$event",
+		"order": 1,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	}
+]

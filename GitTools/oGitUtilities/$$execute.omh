@@ -1,0 +1,7 @@
+If not($cinst.$isAvailable)
+	Calculate pOutput as "Git unavailable!"
+	Quit method kFalse
+End If
+
+Do $cinst.$$formatCommand(pCommand,pCwd) Returns pCommand
+Quit method tvScripting.$runShellScript(pCommand,pOutput,_,pTrimOutput)

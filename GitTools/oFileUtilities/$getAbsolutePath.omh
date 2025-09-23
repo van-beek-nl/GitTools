@@ -1,0 +1,20 @@
+If isclear(pPath)
+	Quit method pPath
+End If
+
+Calculate pPath as $cinst.$fixPathSeparators(pPath)
+
+If platform()="N"
+	Do rxpos("^(?:[A-Za-z]:)?\\",pPath,kTrue,kFalse,lvMatchLength)
+	Calculate lvIsAbsolutePath as lvMatchLength>0
+Else
+	Calculate lvIsAbsolutePath as left(pPath,1)=pathsep()
+End If
+
+If lvIsAbsolutePath
+	# No need to do anything
+	Quit method pPath
+Else
+	# Make path relative to the package description's base directory
+	Quit method $cinst.$join(pick(isclear(pBaseDirectory),pBaseDirectory,FileOps.$getworkingdir()),pPath)
+End If

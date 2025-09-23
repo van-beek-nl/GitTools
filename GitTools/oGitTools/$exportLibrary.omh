@@ -1,0 +1,108 @@
+Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse)
+Calculate lvRegistration as ivRegisteredLibraries
+
+Do tvLogger.$info("Exporting ",pLibraryID)
+
+Do $libs.$findname(pLibraryID) Returns lvLibrary
+If isclear(lvLibrary)
+	Do tvLogger.$debug("Opening library ",pLibraryID," for export")
+	Open library (Do not close others,Do not open startup task) [lvRegistration.libraryPath]
+	If flag false
+		Quit method tvLogger.$error("Unable to open library ",lvRegistration.libraryPath)
+		Quit method kFalse
+	End If
+	
+	Do $cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath) Returns lvLibrary
+	If isclear(lvLibrary)
+		Do tvLogger.$error("Unable to obtain reference after opening library")
+		Quit method kFalse
+	End If
+	
+	Calculate lvDidOpenLibrary as kTrue
+End If
+
+Calculate tvGit.$cwd as lvRegistration.repositoryRoot
+Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvLastSourceChangeCommitHash
+
+If FileOps.$doesfileexist(lvRegistration.metaPath)
+	If not(lvFileOps.$openfile(lvRegistration.metaPath,kTrue))
+		Do tvLogger.$error("Export failed - Unable to open meta file  (FileOps #",lvFileOps.$getlasterror(),")")
+		Quit method kFalse
+	End If
+	
+	If not(lvFileOps.$readcharacter(kUniTypeUTF8,lvPreviousImportCommitHash))
+		Do tvLogger.$error("Export failed - Unable to read meta file (FileOps #",lvFileOps.$getlasterror(),")")
+		Quit method kFalse
+	End If
+	
+	Do lvFileOps.$closefile()
+	Calculate lvPreviousImportCommitHash as trim(lvPreviousImportCommitHash)
+	Do tvLogger.$debug("Library was previously imported from #",lvPreviousImportCommitHash)
+Else
+	Do tvLogger.$debug("Library has not been imported using GitTools before")
+End If
+
+Do tvLogger.$debug("Clearing out any pending changes in source directory ",lvRegistration.jsonPath)
+Do tvGit.$resetDirectory(lvRegistration.jsonPath)
+
+If not(isclear(lvRegistration.preExportScript))
+	Do tvLogger.$info("Running pre-export script")
+	If not($cinst.$$runScript(lvRegistration.preExportScript,lvRegistration.basePath))
+		Do tvLogger.$error("Pre-export script failure")
+		Quit method kFalse
+	End If
+End If
+
+# Temporarily change export options
+Calculate lvOptionsToRestore as $root.$prefs.$exportimportjsonoptions
+Calculate lvOptions as $root.$prefs.$exportimportjsonoptions
+Calculate lvOptions.exportoverwritesconflicts as kTrue
+Calculate lvOptions.exportcodefoldingstate as kFalse
+Calculate $root.$prefs.$exportimportjsonoptions as lvOptions
+
+Do tvLogger.$debug("Starting JSON export")
+Do $root.$exportjson(lvLibrary,lvRegistration.jsonPath,lvExportErrors,lvExportWarnings) Returns lvIsOk
+
+# Restore regular options
+Calculate $root.$prefs.$exportimportjsonoptions as lvOptionsToRestore
+
+Do tvLogger.$info("Export ",pick(lvIsOk,"failed","succeeded"))
+Do $cinst.$$logErrorsAndWarnings(lvExportErrors,lvExportWarnings)
+
+If lvDidOpenLibrary
+	Do tvLogger.$debug("Closing library opened for export")
+	Close library [lvLibrary.$name()]
+End If
+
+If not(lvIsOk)
+	Do tvGit.$resetDirectory(lvRegistration.jsonPath)
+	Quit method kFalse
+End If
+
+Calculate lvSourceNeedsSync as not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
+If lvSourceNeedsSync
+	Do tvLogger.$debug("Performing export merge")
+	Do tvGit.$performExportMerge(lvRegistration.jsonPath,lvPreviousImportCommitHash)
+	Do tvGit.$getMergeConflicts(lvRegistration.jsonPath) Returns lvMergeConflicts
+	
+	If $cparmcount>1
+		Calculate pMergeConflicts as lvMergeConflicts
+	End If
+	
+	If lvMergeConflicts.$linecount>0
+		Do tvLogger.$warn("Merge of exported changes with external changes caused merge conflict(s) in the following file(s):")
+		For lvMergeConflicts.$line from 1 to lvMergeConflicts.$linecount step 1
+			Do tvLogger.$warn(lvMergeConflicts.C1)
+		End For
+	End If
+End If
+
+If not(isclear(lvRegistration.postExportScript))
+	Do tvLogger.$info("Running post-export script")
+	If not($cinst.$$runScript(lvRegistration.postExportScript,lvRegistration.basePath))
+		Do tvLogger.$error("Post-export script failure")
+		Quit method kFalse
+	End If
+End If
+
+Quit method kTrue

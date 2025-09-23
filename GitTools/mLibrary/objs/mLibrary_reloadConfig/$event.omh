@@ -1,0 +1,2 @@
+On evClick
+	Do tvGitTools.$updateRegistration(ivLibraryID)

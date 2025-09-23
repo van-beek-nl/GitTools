@@ -1,0 +1,39 @@
+{
+	"classtype": "kMenu",
+	"omnisversion": "10.2",
+	"internalversion": 14,
+	"designtaskname": "GitTools",
+	"nextident": 1012,
+	"cvardefs": [
+
+	],
+	"ivardefs": [
+
+	],
+	"properties": {
+		"canremotedebugwhenlocked": false,
+		"collectperformancedata": false,
+		"componenticon": 0,
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2025-09-04 11:28:33",
+		"desc": "",
+		"editor": "",
+		"editordata": "",
+		"enabled": true,
+		"external": true,
+		"helpfile": 0,
+		"helptext": "",
+		"inheritedorder": 0,
+		"issupercomponent": false,
+		"moddate": "2025-09-19 07:50:14",
+		"showascheckedout": false,
+		"title": {
+			"type": 0,
+			"calc": "Log level"
+		},
+		"userinfo": "",
+		"users": "12345678",
+		"vcsrevision": 0,
+		"version": ""
+	}
+}

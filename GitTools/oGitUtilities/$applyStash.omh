@@ -1,0 +1,16 @@
+Switch platform()
+	Case 'N'
+		Calculate lvScript as con('for /f "tokens=1 delims=:" %%i in (',"'",$cinst.$$formatCommand('stash list'),' ^| findstr "',pIdentifier,'"',"'",') do ',$cinst.$$formatCommand('stash apply'),' "%%i"')
+		Break to end of loop
+	Case 'X','U'
+		Calculate lvScript as con($cinst.$$formatCommand('stash apply'),' $(',$cinst.$$formatCommand('stash list'),' | grep "',pIdentifier,'" | cut -d: -f1)')
+		Break to end of loop
+	Default
+		Do tvLogger.$error("Unsupported platform code ",platform())
+End Switch
+
+If not(tvScripting.$runShellScript(lvScript,lvOutput,lvExitCode,kTrue,kFalse))
+	If $cinst.$getMergeConflicts().$linecount=0
+		Signal error -1,lvOutput
+	End If
+End If

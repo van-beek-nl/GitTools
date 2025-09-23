@@ -1,0 +1,31 @@
+# Kindly stolen from http://www.studiotips.net/docs/tips/functions/fileops.html <3
+
+# Split the path and then loop through the folders path checking each directory.
+Do FileOps.$splitpathname(pPath,lvDrivePath,lvDirectoryPath,lvFileName,lvExtension) Returns lvErrorCode
+
+# Loop through the folders path checking to make sure each directory exists.
+Calculate lvCheckPath as lvDrivePath
+Calculate lvDirectoryPath as trim(lvDirectoryPath,kTrue,kTrue,pathsep())
+Calculate lvErrorCode as 0 ## Preset to zero.
+
+While len(lvDirectoryPath)
+	Calculate lvNextDirectoryName as strtok('lvDirectoryPath',pathsep())
+	Calculate lvCheckPath as con(lvCheckPath,pathsep(),lvNextDirectoryName)
+	
+	# Does the directory exists?
+	If not(FileOps.$doesfileexist(lvCheckPath))
+		# Create the intervening directory.
+		Do tvLogger.$debug("Creating directory ",lvCheckPath)
+		Do FileOps.$createdir(lvCheckPath) Returns lvErrorCode
+		If lvErrorCode
+			Break to end of loop
+		End If
+	End If
+End While
+
+If lvErrorCode
+	Do tvLogger.$error("Could not create directory path to ",pPath," (FileOps #",lvErrorCode,")")
+	Quit method kFalse
+End If
+
+Quit method kTrue

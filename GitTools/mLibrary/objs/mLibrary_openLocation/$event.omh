@@ -1,0 +1,2 @@
+Do tvGitTools.$getRegistration(ivLibraryID) Returns lvRegistration
+Do tvScripting.$openPath(FileOps.$parentdir(lvRegistration.libraryPath))

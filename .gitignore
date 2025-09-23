@@ -1,0 +1,5 @@
+.DS_Store
+*.lbs
+*.lbs.bak
+*.lbs.import
+GitTools.settings.json

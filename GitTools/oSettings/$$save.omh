@@ -1,0 +1,20 @@
+Do $cinst.$$openSettingsFile() Returns lvSettingsFile
+If isnull(lvSettingsFile)
+	Quit method kFalse
+End If
+
+Do OJSON.$listorrowtojson(ivSettings,kUniTypeCharacter,lvError) Returns lvSettingsString
+If isnull(lvSettingsString)|not(isclear(lvError))
+	Do tvLogger.$error("Unable to stringify settings (OJSON: ",lvError,")")
+	Do lvSettingsFile.$closefile()
+	Quit method kFalse
+End If
+
+If not(lvSettingsFile.$writecharacter(kUniTypeUTF8,lvSettingsString))
+	Do tvLogger.$error("Unable to write settings to file (FileOps #",lvSettingsFile.$getlasterror(),")")
+	Do lvSettingsFile.$closefile()
+	Quit method kFalse
+End If
+
+Do lvSettingsFile.$closefile()
+Quit method kTrue

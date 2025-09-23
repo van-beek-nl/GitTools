@@ -1,0 +1,13 @@
+If not(FileOps.$doesfileexist(cvSettingsFilePath))
+	If not(lvSettingsFile.$createfile(cvSettingsFilePath))
+		Do tvLogger.$error("Unable to create settings file (FileOps #",lvSettingsFile.$getlasterror(),")")
+		Quit method #NULL
+	End If
+Else
+	If not(lvSettingsFile.$openfile(cvSettingsFilePath))
+		Do tvLogger.$error("Unable to open settings file (FileOps #",lvSettingsFile.$getlasterror(),")")
+		Quit method #NULL
+	End If
+End If
+
+Quit method lvSettingsFile

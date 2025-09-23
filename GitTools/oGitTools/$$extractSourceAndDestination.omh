@@ -1,0 +1,20 @@
+Do lvResults.$cols.$add("source",kCharacter,kSimplechar)
+Do lvResults.$cols.$add("destination",kCharacter,kSimplechar)
+
+# Matches the pattern: "path/to/source" "path/to/destination". Supports both quotes and no quotes.
+Do rxpos('^((\"(.+?)\")|[^\ \"]+?)\ (\"(.+?)\"|[^\ \"]+?)$',pValue,kTrue,kFalse,0,lvRegexResults)
+Calculate lvResults.source as lvRegexResults.G3
+Calculate lvResults.destination as lvRegexResults.G5
+
+If isclear(lvResults.source)
+	Calculate lvResults.source as lvRegexResults.G1
+End If
+
+If isclear(lvResults.destination)
+	Calculate lvResults.destination as lvRegexResults.G4
+End If
+
+Do tvFileUtilities.$getAbsolutePath(lvResults.source,pBaseDirectory) Returns lvResults.source
+Do tvFileUtilities.$getAbsolutePath(lvResults.destination,pBaseDirectory) Returns lvResults.destination
+
+Quit method lvResults

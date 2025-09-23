@@ -1,0 +1,10 @@
+Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse) Returns lvLine
+If lvLine<1
+	Do tvLogger.$warn("Unable to deregister library ",pLibraryID,": library is not currently registered with GitTools.")
+	Quit method kFalse
+End If
+
+Do ivRegisteredLibraries.$remove(lvLine)
+Do tvMenu.$buildMenu()
+Do tvLogger.$info("Deregistered library ",pLibraryID)
+Quit method kTrue

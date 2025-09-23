@@ -1,0 +1,16 @@
+On evClick
+	Working message GitTools - Export {Exporting [ivLibraryID]...}
+	Do tvGitTools.$exportLibrary(ivLibraryID,lvMergeConflicts) Returns lvIsOk
+	Close working message
+	
+	Calculate lvResultMessage as con('Export of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
+	If not(lvIsOk)
+		Calculate lvResultMessage as con(lvResultMessage,' Check the trace log for details.')
+		Open trace log
+	Else
+		If lvMergeConflicts.$linecount>0
+			Calculate lvResultMessage as con(lvResultMessage,' Merge of exported changes with external changes caused ',lvMergeConflicts.$linecount,' merge conflict',pick(lvMergeConflicts.$linecount=1,'s',''),'.')
+		End If
+	End If
+	
+	OK message GitTools - Export results {[lvResultMessage]}

@@ -1,0 +1,393 @@
+[
+	{
+		"name": "$join",
+		"order": 1,
+		"desc": "Joins the given partial paths together, replacing path separators with OS-specific variants when necessary. Returns the joined path.\rFor example: $join(\"Users\\myuser\\\",\"/directory\",\"file.txt\") returns \"Users\\myuser\\directory\\file.txt\" on Windows and \"Users/myuser/directory/file.txt\" on macOS and Linux.",
+		"pvardefs": [
+			{
+				"name": "p1",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "p2",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			},
+			{
+				"name": "p3",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 3
+			},
+			{
+				"name": "p4",
+				"order": 4,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 4
+			},
+			{
+				"name": "p5",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 5
+			},
+			{
+				"name": "p6",
+				"order": 6,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 6
+			},
+			{
+				"name": "p7",
+				"order": 7,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 7
+			},
+			{
+				"name": "p8",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 8
+			},
+			{
+				"name": "p9",
+				"order": 9,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 9
+			},
+			{
+				"name": "p10",
+				"order": 10,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 10
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvJoinedPath",
+				"order": 13,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvLoopNum",
+				"order": 11,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvPathSubstring",
+				"order": 12,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "$fixPathSeparators",
+		"order": 2,
+		"desc": "Fixes path separators in the given path, returning the same path with all separators replaced by OS-specific variants.",
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to clean."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$fixRelativePath",
+		"order": 3,
+		"desc": "Removes leading separators from the given path, making it relative.",
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$libraryPathToConfigPath",
+		"order": 4,
+		"desc": "Returns path to the corresponding GitTools config file for the given Omnis library path.",
+		"pvardefs": [
+			{
+				"name": "pLibraryPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to Omnis library file."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$configPathToLibraryPath",
+		"order": 5,
+		"desc": "Returns path to the corresponding Omnis library file for the given GitTools config file.",
+		"pvardefs": [
+			{
+				"name": "pConfigPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "GitTools config file path."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$configPathToLibraryID",
+		"order": 6,
+		"desc": "Returns the library ID for the given GitTools config file path.",
+		"pvardefs": [
+			{
+				"name": "pConfigPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "GitTools config file path."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvConfigFileName",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "$libraryPathToMetaPath",
+		"order": 7,
+		"desc": "Returns path to the GitTools meta file for the given Omnis library file.",
+		"pvardefs": [
+			{
+				"name": "pLibraryPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Omnis library file path."
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$getTempDirectory",
+		"order": 8,
+		"desc": "Returns path to the temp directory.",
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvFile",
+				"order": 1,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvFileInfo",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$getAbsolutePath",
+		"order": 9,
+		"desc": "Turns pPath into an absolute path. If pPath is absolute, returns pPath as-is. If pPath is relative and pBaseDirectory is defined, joins them together. If pPath is relative and pBaseDirectory isn't defined, joins FileOps.$getworkingdir() and pPath together. Returns the absolute path.",
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pBaseDirectory",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvIsAbsolutePath",
+				"order": 4,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvMatchLength",
+				"order": 3,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$getFileName",
+		"order": 10,
+		"desc": "Extracts and returns the filename from the given path. Does not require the file to actually exist.",
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to file."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegexResults",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "_",
+				"order": 3,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$createDirectory",
+		"order": 11,
+		"desc": "Creates a new directory at pPath, creating any missing parent directories in the process.",
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Path to create."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvCheckPath",
+				"order": 7,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvDirectoryPath",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvDrivePath",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvErrorCode",
+				"order": 6,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvExtension",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFileName",
+				"order": 4,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvNextDirectoryName",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	}
+]

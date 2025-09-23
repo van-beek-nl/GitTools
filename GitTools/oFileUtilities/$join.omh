@@ -1,0 +1,10 @@
+For lvLoopNum from 1 to $cparmcount step 1
+	Calculate lvPathSubstring as trim($cinst.$fixPathSeparators([con("p",lvLoopNum)]),kFalse,kTrue,pathsep())
+	If isclear(lvPathSubstring)
+		Quit method lvJoinedPath
+	End If
+	
+	Calculate lvJoinedPath as con(lvJoinedPath,pick(isclear(lvJoinedPath),pathsep(),""),lvPathSubstring)
+End For
+
+Quit method lvJoinedPath
