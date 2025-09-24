@@ -29,6 +29,16 @@ If lvLibraries.$linecount>0
 	Do $cinst.$objs.$add("")
 End If
 
+# Omnis Studio v10.x and below cannot automatically scan for libraries.
+# For these versions, we'll provide a button to manually scan.
+Calculate lvOmnisMajorVersion as pick(pos('.',sys(1))<>0,sys(1),left(sys(1),pos('.',sys(1))-1))
+If lvOmnisMajorVersion<=10
+	Do $cinst.$objs.$add("Scan for libraries") Returns lvMenuEntry
+	Calculate lvMenuEntry.$enabled as kTrue
+	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibraries()")
+End If
+
 Do $cinst.$objs.$add("Register library") Returns lvMenuEntry
 Calculate lvMenuEntry.$enabled as kTrue
 Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod

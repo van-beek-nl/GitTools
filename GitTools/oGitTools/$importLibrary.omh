@@ -24,6 +24,7 @@ If not(isclear(lvLibrary))
 End If
 
 If FileOps.$doesfileexist(lvImportPath)
+	Do tvLogger.$debug("Removing stale build artifact ",lvImportPath)
 	Do FileOps.$deletefile(lvImportPath)
 End If
 
@@ -70,7 +71,10 @@ If lvLibraryWasOpen
 	Close library [pLibraryID]
 End If
 
+Do tvLogger.$debug("Library was open: ",lvLibraryWasOpen,". Startup task was open: ",lvStartupTaskWasOpen)
+
 If FileOps.$doesfileexist(lvBackupPath)
+	Do tvLogger.$debug("Deleting stale library backup ",lvBackupPath)
 	Do FileOps.$deletefile(lvBackupPath) Returns lvFileOpsCode
 	
 	If lvFileOpsCode<>kFileOpsOK
@@ -79,6 +83,7 @@ If FileOps.$doesfileexist(lvBackupPath)
 	End If
 End If
 
+Do tvLogger.$debug("Backing up existing library ",lvRegistration.libraryPath)
 Do FileOps.$movefile(lvRegistration.libraryPath,lvBackupPath) Returns lvFileOpsCode
 If lvFileOpsCode<>kFileOpsOK
 	Do tvLogger.$error("Import failed - Unable to create backup (FileOps #",lvFileOpsCode,")")
@@ -91,6 +96,7 @@ If lvFileOpsCode<>kFileOpsOK
 	Quit method kFalse
 End If
 
+Do tvLogger.$debug("Writing import data to meta file ",lvRegistration.metaPath)
 If FileOps.$doesfileexist(lvRegistration.metaPath)
 	If not(lvFileOps.$openfile(lvRegistration.metaPath))
 		Do tvLogger.$error("Import failed - Unable to open meta file (FileOps #",lvFileOps.$getlasterror(),")")
@@ -111,6 +117,7 @@ End If
 Do lvFileOps.$closefile()
 
 If lvLibraryWasOpen
+	Do tvLogger.$debug("Re-opening library ",pick(lvStartupTaskWasOpen,"without","with")," startup task")
 	If lvStartupTaskWasOpen
 		Open library (Do not close others) [lvRegistration.libraryPath]
 	Else

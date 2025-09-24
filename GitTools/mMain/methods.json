@@ -45,6 +45,13 @@
 				"sublen": 0
 			},
 			{
+				"name": "lvOmnisMajorVersion",
+				"order": 5,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
 				"name": "lvPath",
 				"order": 3,
 				"type": "kCharacter",
@@ -77,8 +84,18 @@
 		]
 	},
 	{
-		"name": "$importAll",
+		"name": "$registerLibraries",
 		"order": 4,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$importAll",
+		"order": 5,
 		"pvardefs": [
 
 		],
@@ -115,7 +132,7 @@
 	},
 	{
 		"name": "$exportAll",
-		"order": 5,
+		"order": 6,
 		"pvardefs": [
 
 		],
