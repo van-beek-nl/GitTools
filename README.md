@@ -6,16 +6,22 @@ Omnis library to improve working with JSON source and git.
 - [Omnis Studio](https://www.omnis.net/) v10.22 or higher.
 
 ## Getting started
-Installing GitTools is simple: copy `GitTools.lbs.release` to your Omnis Studio startup directory and rename it to `GitTools.lbs`. You should also manually open the library once to ensure it gets converted to your version of Omnis Studio. When you start Omnis, a new GitTools menu item should appear. GitTools will attempt to register all currently opened libraries, populating the menu. In Omnis Studio 11+, GitTools will also automatically find and register newly opened libraries. For older versions, you can manually register your library in a safe manner by putting the following code in your library's startup task:
+Installing GitTools is simple: copy `GitTools.lbs.release` to your Omnis Studio startup directory and rename it to `GitTools.lbs`. You should also manually open the library once to ensure it gets converted to your version of Omnis Studio. When you start Omnis, a new GitTools menu item should appear.
+
+### Automatic library registration
+GitTools will attempt to register all currently opened libraries upon startup, populating the menu. In Omnis Studio 11+, GitTools will also automatically find and register newly opened libraries. For older versions, you can either manually trigger this feature with the `GitTools -> Scan for libraries` menu option, or you can programmatically trigger the feature in safe manner by putting the following code in your library's startup task:
 ```
 If $itasks.["GitTools"].["$openlibschanged"].$cando()
     Do $itasks.["GitTools"].["$openlibschanged"]()
 End if
 ```
 
-To register a library, it must satisfy the following requirements:
+To automatically register a library, it must satisfy the following requirements:
 - A GitTools config file should be present for the library. This file must be placed next to the library file, and its name should be `<library file name excluding .lbs>.gittools.json`. For example, if your library file name is `MyCoolLibrary.lbs`, a config file called `MyCoolLibrary.gittools.json` should be present next to it. See [GitTools config file format](#gittools-config-file-format) for more information.
 - The source directory of the library must be part of a git repository.
+
+### Manual library registration
+The `GitTools -> Register library` menu option lets you register a library using either the path to the library or the path to its config file. This will also create an empty GitTools config file if the selected library does not have one yet.
 
 Finally, GitTools generates meta files for libraries to keep track of certain information. This information is *local only*. GitTools may also leave certain other artifacts behind, such as import backups and other artifacts when its interrupted. You should add the following lines to your repository's gitignore:
 ```
