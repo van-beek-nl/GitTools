@@ -6,7 +6,7 @@ Omnis library to improve working with JSON source and git.
 - [Omnis Studio](https://www.omnis.net/) v10.22 or higher.
 
 ## Getting started
-Installing GitTools is simple: copy `GitTools.lbs` to your Omnis Studio startup directory and you should be good to go. When you start Omnis, a new GitTools menu item should appear. GitTools will attempt to register all currently opened libraries, populating the menu. In Omnis Studio 11+, GitTools will also automatically find and register newly opened libraries. For older versions, you can manually register your library in a safe manner by putting the following code in your library's startup task:
+Installing GitTools is simple: copy `GitTools.lbs.release` to your Omnis Studio startup directory and rename it to `GitTools.lbs`. You should also manually open the library once to ensure it gets converted to your version of Omnis Studio. When you start Omnis, a new GitTools menu item should appear. GitTools will attempt to register all currently opened libraries, populating the menu. In Omnis Studio 11+, GitTools will also automatically find and register newly opened libraries. For older versions, you can manually register your library in a safe manner by putting the following code in your library's startup task:
 ```
 If $itasks.["GitTools"].["$openlibschanged"].$cando()
     Do $itasks.["GitTools"].["$openlibschanged"]()
