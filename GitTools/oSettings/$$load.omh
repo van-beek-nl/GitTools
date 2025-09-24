@@ -18,7 +18,7 @@ If isnull(lvSettings)|not(isclear(lvError))
 	Quit method kFalse
 End If
 
-Calculate ivSettings as lvSettings
+Do ivSettings.$assignrow(lvSettings,kTrue)
 Do $cinst.$$loadInitialSettings()
 
 Quit method kTrue
