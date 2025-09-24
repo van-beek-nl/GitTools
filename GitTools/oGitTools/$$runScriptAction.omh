@@ -74,6 +74,29 @@ Switch low(lvActionType)
 		End If
 		
 	Case "shell"
+		If pos("windows ",lvActionValue)=1
+			If platform()<>"N"
+				Do tvLogger.$debug("Skipping Windows-only shell command on non-Windows platform ",platform())
+				Quit method kTrue
+			End If
+			
+			Calculate lvActionValue as mid(lvActionValue,9)
+		Else If pos("macos ",lvActionValue)=1
+			If platform()<>"X"
+				Do tvLogger.$debug("Skipping macOS-only shell command on non-macOS platform ",platform())
+				Quit method kTrue
+			End If
+			
+			Calculate lvActionValue as mid(lvActionValue,7)
+		Else If pos("linux ",lvActionValue)=1
+			If platform()<>"U"
+				Do tvLogger.$debug("Skipping Linux-only shell command on non-Linux platform ",platform())
+				Quit method kTrue
+			End If
+			
+			Calculate lvActionValue as mid(lvActionValue,7)
+		End If
+		
 		If not(tvScripting.$runShellScript(lvActionValue))
 			Quit method kFalse
 		End If

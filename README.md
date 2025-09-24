@@ -47,5 +47,5 @@ GitTools supports running scripts before and after performing imports and export
     Moves the given source path to the given destination path. Paths can be relative to the config file's parent directory or absolute.
 - **`delete <path>`**  
     Deletes the given path recursively. Paths can be relative to the config file's parent directory or absolute.
-- **`shell <command>`**  
-    Runs the given shell command using the operating system's shell environment. For Windows, this uses the batch scripting syntax. For macOS, this uses the default shell (so probably zsh). Linux is currently unsupported.
+- **`shell [platform] <command>`**  
+    Runs the given shell command using the operating system's shell environment. For Windows, this uses the batch scripting syntax. For macOS, this uses the default shell (so probably zsh). Linux is currently unsupported. To use platform-specific commands, prepend your command with `windows` or `macos`. For example: `shell windows start calc.exe` or `shell macos open /System/Applications/Calculator.app`.
