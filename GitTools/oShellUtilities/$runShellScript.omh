@@ -1,4 +1,4 @@
-Do tvLogger.$debug(pScript)
+Do tvLogger.$debug("Shell script: ",pScript)
 
 Switch platform()
 	Case "N"

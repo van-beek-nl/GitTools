@@ -54,7 +54,9 @@ Do $root.$importjson(lvRegistration.jsonPath,lvImportPath,lvErrors,lvWarnings,kF
 # Restore regular options
 Calculate $root.$prefs.$exportimportjsonoptions as lvOptionsToRestore
 
-Do tvLogger.$info("Import ",pick(lvIsOk,"failed","succeeded"))
+If not(lvIsOk)
+	Do tvLogger.$error("JSON import failed:")
+End If
 Do $cinst.$$logErrorsAndWarnings(lvErrors,lvWarnings)
 
 If not(lvIsOk)
@@ -137,4 +139,5 @@ If not(isclear(lvRegistration.postImportScript))
 	End If
 End If
 
+Do tvLogger.$info("Import succeeded")
 Quit method kTrue

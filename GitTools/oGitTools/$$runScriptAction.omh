@@ -1,4 +1,4 @@
-Do tvLogger.$debug(pScriptAction)
+Do tvLogger.$debug("Script action: ",pScriptAction)
 Do pos(" ",pScriptAction) Returns lvSplitPosition
 
 If lvSplitPosition<=0
