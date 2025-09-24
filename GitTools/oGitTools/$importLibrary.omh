@@ -67,8 +67,8 @@ Do $cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath) Returns lvLi
 Calculate lvLibraryWasOpen as not(isclear(lvLibrary))
 
 If lvLibraryWasOpen
-	Calculate lvStartupTaskWasOpen as not(isclear($itasks.$findname(pLibraryID))) ## TODO: This check is most likely wrong
-	Close library [pLibraryID]
+	Calculate lvStartupTaskWasOpen as not(isclear($itasks.$findname(lvLibrary.$name()))) ## TODO: This check is most likely wrong
+	Close library [lvLibrary.$name()]
 End If
 
 Do tvLogger.$debug("Library was open: ",lvLibraryWasOpen,". Startup task was open: ",lvStartupTaskWasOpen)
