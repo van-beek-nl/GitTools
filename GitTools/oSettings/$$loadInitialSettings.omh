@@ -5,11 +5,4 @@ If isclear(ivSettings.logLevel)
 	Calculate ivSettings.logLevel as "info"
 End If
 
-If isclear(ivSettings.allowRegistrationWithoutConfigFile)
-	If isclear(ivSettings.$cols.allowRegistrationWithoutConfigFile)
-		Do ivSettings.$cols.$add("allowRegistrationWithoutConfigFile",kBoolean)
-	End If
-	Calculate ivSettings.allowRegistrationWithoutConfigFile as kFalse
-End If
-
 Do $cinst.$$save()

@@ -1,3 +1,0 @@
-On evClick
-	Calculate tvSettings.$allowRegistrationWithoutConfigFile as not(tvSettings.$allowRegistrationWithoutConfigFile)
-	Calculate $cinst.$objs.msettings_allowRegistrationWithoutConfigFile.$checked as tvSettings.$allowRegistrationWithoutConfigFile

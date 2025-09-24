@@ -1,3 +1,2 @@
 Do ivSettings.$cols.$add("logLevel",kCharacter,kSimplechar)
-Do ivSettings.$cols.$add("allowRegistrationWithoutConfigFile",kBoolean)
 Do $cinst.$$load()

@@ -47,33 +47,6 @@
 		]
 	},
 	{
-		"name": "$allowRegistrationWithoutConfigFile",
-		"order": 5,
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$allowRegistrationWithoutConfigFile.$assign",
-		"order": 6,
-		"pvardefs": [
-			{
-				"name": "pValue",
-				"order": 1,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
 		"name": "$$save",
 		"order": 7,
 		"pvardefs": [

@@ -1,5 +1,5 @@
 Do tvFileUtilities.$libraryPathToConfigPath(pLibraryPath) Returns lvConfigPath
-If not(FileOps.$doesfileexist(lvConfigPath))&not(tvSettings.$allowRegistrationWithoutConfigFile)
+If not(FileOps.$doesfileexist(lvConfigPath))
 	Do lvFileOps.$createfile(lvConfigPath)
 	Do lvFileOps.$writecharacter(kUniTypeUTF8,"{}")
 	Do lvFileOps.$closefile()

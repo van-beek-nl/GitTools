@@ -1,2 +1,0 @@
-Calculate ivSettings.allowRegistrationWithoutConfigFile as pValue
-Do $cinst.$$save()

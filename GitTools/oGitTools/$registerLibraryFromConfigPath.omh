@@ -20,17 +20,14 @@ If ivRegisteredLibraries.$search($ref.libraryPath=lvRegistration.libraryPath,kTr
 	Quit method kTrue
 End If
 
-# TODO: revamp config file parsing
-If FileOps.$doesfileexist(lvRegistration.configPath)
-	Calculate lvConfiguration as $cinst.$$parseConfiguration(pConfigFilePath)
-	If isnull(lvConfiguration)
-		Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as its config file could not be parsed.")
-		Quit method kFalse
-	End If
-Else If tvSettings.$allowRegistrationWithoutConfigFile
-	Calculate lvConfiguration.jsonPath as "./src"
-Else
+If not(FileOps.$doesfileexist(lvRegistration.configPath))
 	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as it does not have a GitTools config file.")
+	Quit method kFalse
+End If
+
+Calculate lvConfiguration as $cinst.$$parseConfiguration(pConfigFilePath)
+If isnull(lvConfiguration)
+	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as its config file could not be parsed.")
 	Quit method kFalse
 End If
 
