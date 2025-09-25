@@ -281,6 +281,13 @@
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
+			},
+			{
+				"name": "lvScript",
+				"order": 7,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
 			}
 		]
 	},

@@ -44,6 +44,13 @@ End If
 
 # Now, we unstage all changes as the merge automatically stages its changes.
 # TODO: Figure out a way to re-stage previously staged hunks (prior to export). This is complicated.
-If not($cinst.$$execute(con('reset -- "',pPath,'"'),lvOutput))
+Switch platform()
+	Case 'N'
+		Calculate lvScript as con('for /f "delims=" %f in (',"'",$cinst.$$formatCommand(con('diff --name-only --cached --diff-filter=u -- "',pPath,'"')),"'",') do ',$cinst.$$formatCommand('reset "%f"'))
+	Case 'X','U'
+		Calculate lvScript as con($cinst.$$formatCommand('reset'),' $(',$cinst.$$formatCommand(con('diff --name-only --cached --diff-filter=u -- "',pPath,'"')),')')
+End Switch
+
+If not(tvScripting.$runShellScript(lvScript,lvOutput))
 	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
 End If
