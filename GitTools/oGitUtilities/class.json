@@ -1,10 +1,25 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 228,
+	"internalversion": 248,
 	"designtaskname": "GitTools",
 	"cvardefs": [
-
+		{
+			"name": "cvGitRequiredMajorVersion",
+			"order": 1,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "2"
+		},
+		{
+			"name": "cvGitRequiredMinorVersion",
+			"order": 2,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "23"
+		}
 	],
 	"ivardefs": [
 		{
@@ -44,7 +59,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2025-09-17 16:33:58",
+		"moddate": "2025-09-25 10:45:00",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

@@ -2,7 +2,7 @@
 Omnis library to improve working with JSON source and git.
 
 ## Prerequisites
-- [Git](https://git-scm.com/) installed and present in your path environment variable.
+- [Git >= v2.23](https://git-scm.com/) installed and present in your path environment variable.
 - [Omnis Studio](https://www.omnis.net/) v10.22 or higher.
 
 ## Getting started

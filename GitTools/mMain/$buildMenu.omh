@@ -3,6 +3,11 @@ While $cinst.$objs.$count()>0
 	Do $cinst.$objs.$remove($cinst.$objs.$first())
 End While
 
+If not(tvGit.$isAvailable)
+	Do $cinst.$objs.$add("Git >= v2.23 unavailable")
+	Quit method
+End If
+
 Calculate lvLibraries as tvGitTools.$libraries
 Do lvLibraries.$sort($ref.id,kFalse)
 For lvLibraries.$line from 1 to lvLibraries.$linecount step 1

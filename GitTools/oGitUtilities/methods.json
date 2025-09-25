@@ -1,7 +1,7 @@
 [
 	{
 		"name": "$getCommitHash",
-		"order": 1,
+		"order": 2,
 		"desc": "Returns the commit hash in which the given file or directory last changed, relative to the repository's current commit hash.\rFor example, if the given path is changed in commits #1, #2 and #4, and the repository is currently checked out at commit #3, this will return 2.\r\rIf no path is provided, returns the commit hash of the current working directory instead.",
 		"pvardefs": [
 			{
@@ -26,7 +26,7 @@
 	},
 	{
 		"name": "$getBranch",
-		"order": 2,
+		"order": 3,
 		"pvardefs": [
 
 		],
@@ -42,7 +42,7 @@
 	},
 	{
 		"name": "$getRepositoryRoot",
-		"order": 3,
+		"order": 4,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -72,7 +72,7 @@
 	},
 	{
 		"name": "$isInRepository",
-		"order": 4,
+		"order": 5,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -102,7 +102,7 @@
 	},
 	{
 		"name": "$isHeadDetached",
-		"order": 5,
+		"order": 6,
 		"pvardefs": [
 
 		],
@@ -118,7 +118,7 @@
 	},
 	{
 		"name": "$getMergeConflicts",
-		"order": 6,
+		"order": 7,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -141,7 +141,7 @@
 	},
 	{
 		"name": "$clean",
-		"order": 7,
+		"order": 8,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -183,7 +183,7 @@
 	},
 	{
 		"name": "$isChanged",
-		"order": 8,
+		"order": 9,
 		"desc": "Returns a boolean indicating whether the given path has changed in comparison to the current repository head.",
 		"pvardefs": [
 			{
@@ -208,7 +208,7 @@
 	},
 	{
 		"name": "$resetDirectory",
-		"order": 9,
+		"order": 10,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -231,7 +231,7 @@
 	},
 	{
 		"name": "$performExportMerge",
-		"order": 10,
+		"order": 11,
 		"desc": "Perform an export merge, selectively merging only the changes since the library was last imported into the current repository state.\r\rThis operation leaves a dangling commit, which git's garbage collection will automatically clean up (after 30 days by default).\rThis is okay (and necessary in the case of a merge conflict).",
 		"pvardefs": [
 			{
@@ -604,6 +604,20 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvGitMajorVersion",
+				"order": 5,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvGitMinorVersion",
+				"order": 6,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
 				"name": "lvIsOk",
 				"order": 2,
 				"type": "kBoolean",
@@ -623,6 +637,13 @@
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
+			},
+			{
+				"name": "lvVersionParts",
+				"order": 4,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
 			}
 		]
 	},

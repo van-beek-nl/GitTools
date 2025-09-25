@@ -1,12 +1,29 @@
 If ivIsAvailable=0
-	If platform()='N'
-		Calculate lvScript as con('(',$cinst.$gitExecutable,' --version >nul 2>&1 && echo 1 || echo 0)')
-	Else
-		Calculate lvScript as con('(command -v ',$cinst.$gitExecutable,' >/dev/null 2>&1 && echo 1 || echo 0)')
-	End If
+	Do tvScripting.$runShellScript(con($cinst.$gitExecutable,' --version'),lvOutput) Returns lvIsOk
 	
-	Do tvScripting.$runShellScript(lvScript,lvOutput) Returns lvIsOk
-	Calculate ivIsAvailable as lvIsOk&lvOutput='1'
+	If lvIsOk
+		# Remove "git version " from the command output
+		If pos('git version',lvOutput)=1
+			Calculate lvOutput as mid(lvOutput,len('git version ')+1)
+		End If
+		
+		# Split the version number into parts and extract the major and minor versions
+		Do split(lvOutput,'.') Returns lvVersionParts
+		If lvVersionParts.$linecount>=1
+			Calculate lvGitMajorVersion as lvVersionParts.1.value
+		End If
+		
+		If lvVersionParts.$linecount>=2
+			Calculate lvGitMinorVersion as lvVersionParts.2.value
+		End If
+		
+		# If the major version < required major version, reject git.
+		# If the major version == required major version, check if the minor version >= required minor version.
+		# If the major version > required major version, do nothing.
+		Calculate ivIsAvailable as pick(lvGitMajorVersion>cvGitRequiredMajorVersion|(lvGitMajorVersion=cvGitRequiredMajorVersion&lvGitMinorVersion>=cvGitRequiredMinorVersion),-1,1)
+	Else
+		Calculate ivIsAvailable as -1
+	End If
 End If
 
 Quit method ivIsAvailable=1
