@@ -26,12 +26,24 @@ End If
 Do $cinst.$getCommitHash(pPath) Returns lvDanglingCommitHash
 Do $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch)
 
-# Merge dangling commit into the current state
-If not($cinst.$$execute(con('merge "',lvDanglingCommitHash,'"'),lvOutput))
+# Merge dangling commit into the current state without creating a new commit
+If not($cinst.$$execute(con('merge --no-commit --no-ff "',lvDanglingCommitHash,'"'),lvOutput))
 	# Git returns a non-zero exit code when it encounters a merge conflict.
 	# Moreover, git should not leave pending merge conflicts when it encounters a fatal error.
 	# Thus, we only signal an error if the merge command did not cause any merge conflicts.
 	If $cinst.$getMergeConflicts(pPath).$linecount=0
 		Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
 	End If
+End If
+
+# Because we passed --no-commit and --no-ff to the merge command, git will leave the merge in a "paused" state.
+# We want to completely exit the merge without discarding the changes made by the merge, which we do here.
+If not($cinst.$$execute('merge --quit',lvOutput))
+	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
+End If
+
+# Now, we unstage all changes as the merge automatically stages its changes.
+# TODO: Figure out a way to re-stage previously staged hunks (prior to export). This is complicated.
+If not($cinst.$$execute(con('reset -- "',pPath,'"'),lvOutput))
+	Quit method $cinst.$$cleanupExportMerge(pPath,lvCurrentBranch,lvOutput)
 End If

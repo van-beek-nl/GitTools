@@ -81,7 +81,7 @@ If not(lvIsOk)
 	Quit method kFalse
 End If
 
-Calculate lvSourceNeedsSync as not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
+Calculate lvSourceNeedsSync as tvGit.$isChanged(lvRegistration.jsonPath)&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
 If lvSourceNeedsSync
 	Do tvLogger.$debug("Performing export merge")
 	Do tvGit.$performExportMerge(lvRegistration.jsonPath,lvPreviousImportCommitHash)
