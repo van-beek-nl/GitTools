@@ -6,7 +6,7 @@ Do lvLibrariesWithMergeConflicts.$cols.$add("id",kCharacter,kSimplechar)
 Do lvLibrariesWithMergeConflicts.$cols.$add("amount",kInteger,k32bitint)
 
 For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
-	Do tvLogger.$showWorkingMessage(con('(',lvLibraries.$line,'/',lvLibraries.$linecount,') Exporting ',lvLibraries.id,'...'),"")
+	Do tvLogger.$showWorkingMessage(con('(',lvLibraries.$line,'/',lvLibraries.$linecount,') Exporting ',lvLibraries.id),"")
 	Do tvGitTools.$exportLibrary(lvLibraries.id,lvMergeConflicts) Returns lvIsOk
 	Do tvLogger.$closeWorkingMessage()
 	

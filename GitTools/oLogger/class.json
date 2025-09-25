@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 52,
+	"internalversion": 57,
 	"designtaskname": "GitTools",
 	"cvardefs": [
 		{
@@ -60,7 +60,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2025-09-25 12:00:51",
+		"moddate": "2025-09-25 14:38:46",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

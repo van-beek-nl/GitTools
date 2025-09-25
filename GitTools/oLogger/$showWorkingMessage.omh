@@ -2,5 +2,5 @@ If isclear(cvWorkingMessage)
 	Do $windows.wWorkingMessage.$open('GitTools',kWindowCenter) Returns cvWorkingMessage
 End If
 
-Calculate cvWorkingMessage.$primary as pTitle
+Calculate cvWorkingMessage.$primary as con('GitTools - ',pTitle)
 Calculate cvWorkingMessage.$secondary as pBody

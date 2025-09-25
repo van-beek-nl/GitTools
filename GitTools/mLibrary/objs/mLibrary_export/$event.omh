@@ -1,5 +1,5 @@
 On evClick
-	Do tvLogger.$showWorkingMessage(con('Exporting ',ivLibraryID,'...'),"")
+	Do tvLogger.$showWorkingMessage(con('Exporting ',ivLibraryID),"")
 	Do tvGitTools.$exportLibrary(ivLibraryID,lvMergeConflicts) Returns lvIsOk
 	Do tvLogger.$closeWorkingMessage()
 	

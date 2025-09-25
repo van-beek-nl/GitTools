@@ -3,7 +3,7 @@ Do lvLibraries.$sort($ref.id,kFalse)
 
 Do lvFailures.$cols.$add("name",kCharacter,kSimplechar)
 For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
-	Do tvLogger.$showWorkingMessage(con('(',lvLibraries.$line,'/',lvLibraries.$linecount,') Importing ',lvLibraries.id,'...'),"")
+	Do tvLogger.$showWorkingMessage(con('(',lvLibraries.$line,'/',lvLibraries.$linecount,') Importing ',lvLibraries.id),"")
 	If not(tvGitTools.$importLibrary(lvLibraries.id))
 		Do lvFailures.$add(lvLibraries.id)
 	End If
