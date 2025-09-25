@@ -1,4 +1,4 @@
-If not($cinst.$$execute(con('log -1 --pretty=format:"%h" -- "',pPath,'"'),lvOutput))
+If not($cinst.$$execute(con('log -1 --pretty=format:"%H" -- "',pPath,'"'),lvOutput))
 	Signal error -1,lvOutput
 End If
 

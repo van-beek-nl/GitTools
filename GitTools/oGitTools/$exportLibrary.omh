@@ -23,6 +23,7 @@ End If
 
 Calculate tvGit.$cwd as lvRegistration.repositoryRoot
 Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvLastSourceChangeCommitHash
+Do tvLogger.$debug("Source was last changed in commit #",lvLastSourceChangeCommitHash)
 
 If FileOps.$doesfileexist(lvRegistration.metaPath)
 	If not(lvFileOps.$openfile(lvRegistration.metaPath,kTrue))
