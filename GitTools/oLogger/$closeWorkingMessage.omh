@@ -1,0 +1,6 @@
+If isclear(cvWorkingMessage)
+	Quit method
+End If
+
+Do cvWorkingMessage.$close()
+Set reference cvWorkingMessage to #NULL

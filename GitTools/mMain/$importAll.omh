@@ -3,11 +3,11 @@ Do lvLibraries.$sort($ref.id,kFalse)
 
 Do lvFailures.$cols.$add("name",kCharacter,kSimplechar)
 For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
-	Working message GitTools - Import {([lvLibraries.$line]/[lvLibraries.$linecount]) Importing [lvLibraries.id]...}
+	Do tvLogger.$showWorkingMessage(con('(',lvLibraries.$line,'/',lvLibraries.$linecount,') Importing ',lvLibraries.id,'...'),"")
 	If not(tvGitTools.$importLibrary(lvLibraries.id))
 		Do lvFailures.$add(lvLibraries.id)
 	End If
-	Close working message
+	Do tvLogger.$closeWorkingMessage()
 End For
 
 Calculate lvResultMessage as con('Imports finished (',lvLibraries.$linecount-lvFailures.$linecount,'/',lvLibraries.$linecount,' succeeded).')

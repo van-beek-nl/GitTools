@@ -1,10 +1,16 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 34,
+	"internalversion": 52,
 	"designtaskname": "GitTools",
 	"cvardefs": [
-
+		{
+			"name": "cvWorkingMessage",
+			"order": 1,
+			"type": "kItemref",
+			"subtype": "$iwindows.window",
+			"sublen": 0
+		}
 	],
 	"ivardefs": [
 		{
@@ -17,6 +23,27 @@
 		{
 			"name": "ivName",
 			"order": 1,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
+			"name": "ivShowingWorkingMessage",
+			"order": 5,
+			"type": "kBoolean",
+			"subtype": 0,
+			"sublen": 0
+		},
+		{
+			"name": "ivWorkingMessageBody",
+			"order": 3,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
+			"name": "ivWorkingMessageTitle",
+			"order": 4,
 			"type": "kCharacter",
 			"subtype": "kSimplechar",
 			"sublen": 100000000
@@ -33,7 +60,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2025-09-19 07:49:01",
+		"moddate": "2025-09-25 12:00:51",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

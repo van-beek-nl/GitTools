@@ -1,0 +1,11 @@
+If isclear(cvWorkingMessage)
+	Quit method
+End If
+
+If not(isnull(pTitle))
+	Calculate cvWorkingMessage.$primary as pTitle
+End If
+
+If not(isnull(pBody))
+	Calculate cvWorkingMessage.$secondary as pBody
+End If

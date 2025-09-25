@@ -1,7 +1,7 @@
 On evClick
-	Working message GitTools - Export {Exporting [ivLibraryID]...}
+	Do tvLogger.$showWorkingMessage(con('Exporting ',ivLibraryID,'...'),"")
 	Do tvGitTools.$exportLibrary(ivLibraryID,lvMergeConflicts) Returns lvIsOk
-	Close working message
+	Do tvLogger.$closeWorkingMessage()
 	
 	Calculate lvResultMessage as con('Export of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
 	If not(lvIsOk)

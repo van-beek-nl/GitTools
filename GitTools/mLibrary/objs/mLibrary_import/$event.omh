@@ -1,7 +1,7 @@
 On evClick
-	Working message GitTools - Import {Importing [ivLibraryID]...}
+	Do tvLogger.$showWorkingMessage(con('Importing ',ivLibraryID,'...'),"")
 	Do tvGitTools.$importLibrary(ivLibraryID) Returns lvIsOk
-	Close working message
+	Do tvLogger.$closeWorkingMessage()
 	
 	Calculate lvResultMessage as con('Import of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
 	If not(lvIsOk)

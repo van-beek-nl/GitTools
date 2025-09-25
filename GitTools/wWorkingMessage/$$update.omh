@@ -1,0 +1,8 @@
+If isclear($cinst.$secondary)
+	Calculate $cinst.$bobjs.wworkingmessage_primary.$top as ($cinst.$height/2)-12
+Else
+	Calculate $cinst.$bobjs.wworkingmessage_primary.$top as ($cinst.$height/2)-22
+	Calculate $cinst.$bobjs.wworkingmessage_secondary.$top as ($cinst.$height/2)-2
+End If
+
+Redraw (Refresh now)

@@ -1,0 +1,2 @@
+Calculate $cinst.$bobjs.wworkingmessage_primary.$text as pValue
+Do $cinst.$$update()

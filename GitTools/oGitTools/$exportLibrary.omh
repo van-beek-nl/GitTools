@@ -2,6 +2,7 @@ Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse)
 Calculate lvRegistration as ivRegisteredLibraries
 
 Do tvLogger.$info("Exporting ",pLibraryID)
+Do tvLogger.$updateWorkingMessage(#NULL,"Preparing to export...")
 
 Do $libs.$findname(pLibraryID) Returns lvLibrary
 If isclear(lvLibrary)
@@ -48,6 +49,7 @@ Do tvGit.$resetDirectory(lvRegistration.jsonPath)
 
 If not(isclear(lvRegistration.preExportScript))
 	Do tvLogger.$info("Running pre-export script")
+	Do tvLogger.$updateWorkingMessage(#NULL,"Running pre-export script...")
 	If not($cinst.$$runScript(lvRegistration.preExportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Pre-export script failure")
 		Quit method kFalse
@@ -62,6 +64,7 @@ Calculate lvOptions.exportcodefoldingstate as kFalse
 Calculate $root.$prefs.$exportimportjsonoptions as lvOptions
 
 Do tvLogger.$debug("Starting JSON export")
+Do tvLogger.$updateWorkingMessage(#NULL,"Exporting JSON...")
 Do $root.$exportjson(lvLibrary,lvRegistration.jsonPath,lvExportErrors,lvExportWarnings) Returns lvIsOk
 
 # Restore regular options
@@ -72,6 +75,7 @@ If not(lvIsOk)
 End If
 Do $cinst.$$logErrorsAndWarnings(lvExportErrors,lvExportWarnings)
 
+Do tvLogger.$updateWorkingMessage(#NULL,"Finalizing export...")
 If lvDidOpenLibrary
 	Do tvLogger.$debug("Closing library opened for export")
 	Close library [lvLibrary.$name()]
@@ -85,6 +89,7 @@ End If
 Calculate lvSourceNeedsSync as tvGit.$isChanged(lvRegistration.jsonPath)&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
 If lvSourceNeedsSync
 	Do tvLogger.$debug("Performing export merge")
+	Do tvLogger.$updateWorkingMessage(#NULL,"Performing export merge...")
 	Do tvGit.$performExportMerge(lvRegistration.jsonPath,lvPreviousImportCommitHash)
 	Do tvGit.$getMergeConflicts(lvRegistration.jsonPath) Returns lvMergeConflicts
 	
@@ -102,6 +107,7 @@ End If
 
 If not(isclear(lvRegistration.postExportScript))
 	Do tvLogger.$info("Running post-export script")
+	Do tvLogger.$updateWorkingMessage(#NULL,"Running post-export script...")
 	If not($cinst.$$runScript(lvRegistration.postExportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Post-export script failure")
 		Quit method kFalse

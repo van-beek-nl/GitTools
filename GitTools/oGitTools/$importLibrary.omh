@@ -2,6 +2,7 @@ Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse)
 Calculate lvRegistration as ivRegisteredLibraries.$first(kFalse,kFalse,$ref.id=pLibraryID)
 
 Do tvLogger.$info("Importing ",pLibraryID)
+Do tvLogger.$updateWorkingMessage(#NULL,"Preparing to import...")
 Calculate tvGit.$cwd as lvRegistration.repositoryRoot
 
 Do tvLogger.$debug("Checking for merge conflicts in source directory")
@@ -30,11 +31,11 @@ End If
 
 Calculate tvGit.$cwd as lvRegistration.repositoryRoot
 Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvImportCommitHash
-
 Do tvLogger.$debug("Source is at commit #",lvImportCommitHash)
 
 If not(isclear(lvRegistration.preImportScript))
 	Do tvLogger.$info("Running pre-import script")
+	Do tvLogger.$updateWorkingMessage(#NULL,"Running pre-import script...")
 	If not($cinst.$$runScript(lvRegistration.preImportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Pre-import script failure")
 		Quit method kFalse
@@ -48,7 +49,7 @@ Calculate lvOptions.importtreatsunknownpropertyaswarning as kTrue
 Calculate $root.$prefs.$exportimportjsonoptions as lvOptions
 
 Do tvLogger.$debug("Starting JSON import")
-
+Do tvLogger.$updateWorkingMessage(#NULL,"Importing JSON...")
 Do $root.$importjson(lvRegistration.jsonPath,lvImportPath,lvErrors,lvWarnings,kFalse) Returns lvIsOk
 
 # Restore regular options
@@ -64,6 +65,7 @@ If not(lvIsOk)
 	Quit method kFalse
 End If
 
+Do tvLogger.$updateWorkingMessage(#NULL,"Finalizing import...")
 Do tvLogger.$debug("Replacing library with build artifact")
 Do $cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath) Returns lvLibrary
 Calculate lvLibraryWasOpen as not(isclear(lvLibrary))
@@ -133,6 +135,7 @@ End If
 
 If not(isclear(lvRegistration.postImportScript))
 	Do tvLogger.$info("Running post-import script")
+	Do tvLogger.$updateWorkingMessage(#NULL,"Running post-import script...")
 	If not($cinst.$$runScript(lvRegistration.postImportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Post-import script failure")
 		Quit method kFalse
