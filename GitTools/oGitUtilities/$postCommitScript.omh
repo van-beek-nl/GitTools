@@ -1,0 +1,42 @@
+Begin text block
+Line:#!/bin/sh
+Line:
+Line:if [[ -z "$GIT_DIR" ]; then
+Line:    echo "[[gittools] WARN: GIT_DIR environment variable not set. Assuming we're in the default location..."
+Line:    GIT_DIR="$(cd "$(dirname "${BASH_SOURCE[[0]}")/../.." && pwd)"
+Line:fi
+Line:
+Line:MAPPINGS="$GIT_DIR/gittools-mapping.meta"
+Line:if [[ ! -f "$MAPPINGS" ]; then
+Line:    echo "[[gittools] Meta mappings file $MAPPINGS not found. Skipping."
+Line:    exit 0
+Line:fi
+Line:
+Line:# Get new commit hash
+Line:NEW_COMMIT=$(git rev-parse HEAD)
+Line:
+Line:while read -r LINE; do
+Line:    SOURCE_DIRECTORY=${LINE%|*}
+Line:    META_FILE=${LINE#*|}
+Line:
+Line:    [[ -z "$SOURCE_DIRECTORY" ] && continue
+Line:
+Line:    if [[ -f "$META_FILE" ]; then
+Line:        META_HASH=$(cat "$META_FILE" | xargs)
+Line:    else
+Line:        META_HASH=""
+Line:    fi
+Line:
+Line:    readarray -t SOURCE_COMMITS < <(git log -2 --pretty=format:"%H" -- "$SOURCE_DIRECTORY")
+Line:    SOURCE_CURRENT_HASH="${SOURCE_COMMITS[[0]}"
+Line:    SOURCE_PREVIOUS_HASH="${SOURCE_COMMITS[[1]}"
+Line:
+Line:    if [[ "$SOURCE_CURRENT_HASH" = "$NEW_COMMIT" ] && [[ "$META_HASH" = "$SOURCE_PREVIOUS_HASH" ]; then
+Line:        echo "[[gittools] Bumping hash for $META_FILE from $META_HASH to $NEW_COMMIT"
+Line:        echo -n "$NEW_COMMIT" > "$META_FILE"
+Line:    fi
+Line:done < "$MAPPINGS"
+End text block
+
+Get text block lvScript
+Quit method lvScript

@@ -1,9 +1,27 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 33,
+	"internalversion": 37,
 	"designtaskname": "GitTools",
 	"cvardefs": [
+		{
+			"name": "cvLockFileCheckInterval",
+			"order": 2,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "200",
+			"desc": "The lock file check interval in milliseconds"
+		},
+		{
+			"name": "cvLockFileCheckTimeout",
+			"order": 3,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "1800",
+			"desc": "The lock file check timeout in ticks"
+		},
 		{
 			"name": "cvTempDirectory",
 			"order": 1,
@@ -26,7 +44,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2025-09-24 14:37:27",
+		"moddate": "2025-09-26 16:35:23",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

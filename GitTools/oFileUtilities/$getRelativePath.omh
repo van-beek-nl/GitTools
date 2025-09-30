@@ -1,0 +1,8 @@
+Calculate pBaseDirectory as $cinst.$fixPathSeparators(pBaseDirectory)
+Calculate pAbsolutePath as $cinst.$fixPathSeparators(pAbsolutePath)
+
+If pos(pBaseDirectory,pAbsolutePath)=0
+	Quit method pAbsolutePath
+End If
+
+Quit method mid(pAbsolutePath,len(pBaseDirectory)+2)

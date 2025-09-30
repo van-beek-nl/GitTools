@@ -1,0 +1,24 @@
+Begin text block
+Line:#!/bin/sh
+Line:HOOK_DIR="$(dirname "$0")/post-commit.d"
+Line:
+Line:# Skip if directory does not exist
+Line:[[ ! -d "$HOOK_DIR" ] && exit 0
+Line:
+Line:echo "[[post-commit] Executing all post-commit scripts..."
+Line:
+Line:# Iterate over all files in the directory
+Line:for hook in "$HOOK_DIR"/*; do
+Line:    # Skip non-executable files
+Line:    [[ ! -x "$hook" ] && continue
+Line:
+Line:    echo "[[post-commit] Running hook: $(basename "$hook")"
+Line:    "$hook"
+Line:done
+Line:
+Line:echo "[[post-commit] Finished"
+Line:exit 0
+End text block
+
+Get text block lvScript
+Quit method lvScript

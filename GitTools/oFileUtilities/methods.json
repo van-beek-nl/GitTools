@@ -292,8 +292,33 @@
 		]
 	},
 	{
-		"name": "$getFileName",
+		"name": "$getRelativePath",
 		"order": 10,
+		"pvardefs": [
+			{
+				"name": "pAbsolutePath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pBaseDirectory",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$getFileName",
+		"order": 11,
 		"desc": "Extracts and returns the filename from the given path. Does not require the file to actually exist.",
 		"pvardefs": [
 			{
@@ -325,7 +350,7 @@
 	},
 	{
 		"name": "$createDirectory",
-		"order": 11,
+		"order": 12,
 		"desc": "Creates a new directory at pPath, creating any missing parent directories in the process.",
 		"pvardefs": [
 			{

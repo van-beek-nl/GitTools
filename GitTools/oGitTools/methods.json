@@ -386,6 +386,13 @@
 				"sublen": 0
 			},
 			{
+				"name": "lvExportCreatedChanges",
+				"order": 25,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
 				"name": "lvExportErrors",
 				"order": 15,
 				"type": "kList",
@@ -593,7 +600,7 @@
 	},
 	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 16,
+		"order": 15,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{
@@ -621,7 +628,7 @@
 	},
 	{
 		"name": "$$parseConfiguration",
-		"order": 17,
+		"order": 16,
 		"desc": "Parses the given GitTools config file, returning the parsed data or #NULL if the config file could not be parsed.",
 		"pvardefs": [
 			{
@@ -674,7 +681,7 @@
 	},
 	{
 		"name": "$$getLibraryReferenceFromPath",
-		"order": 18,
+		"order": 17,
 		"desc": "Finds and returns a matching library reference for the given library path.",
 		"pvardefs": [
 			{
@@ -698,8 +705,103 @@
 		]
 	},
 	{
-		"name": "----- Scripts",
+		"name": "$$bootstrapGitRepository",
+		"order": 18,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 6,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvFile",
+				"order": 7,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvGitDirectory",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvGitToolsPostCommitHookPath",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvPostCommitHookDirectory",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvPostCommitHookDispatcherPath",
+				"order": 4,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "$$updateMetaMapping",
 		"order": 19,
+		"pvardefs": [
+			{
+				"name": "pRepositoryRoot",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvFile",
+				"order": 6,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvMapping",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvMetaMappingPath",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvRegistrations",
+				"order": 2,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "----- Scripts",
+		"order": 20,
 		"pvardefs": [
 
 		],
@@ -710,7 +812,7 @@
 	},
 	{
 		"name": "$$runScript",
-		"order": 20,
+		"order": 21,
 		"desc": "Runs GitTools script. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -738,7 +840,7 @@
 	},
 	{
 		"name": "$$runScriptAction",
-		"order": 21,
+		"order": 22,
 		"desc": "Runs a given GitTools script action. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -807,7 +909,7 @@
 	},
 	{
 		"name": "$$extractSourceAndDestination",
-		"order": 22,
+		"order": 23,
 		"desc": "Extracts source and destination paths from the given GitTools script action value. Returns a row with \"source\" and \"destination\" columns.",
 		"pvardefs": [
 			{

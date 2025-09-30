@@ -44,6 +44,11 @@ If isclear(lvRegistration.repositoryRoot)
 	Quit method kFalse
 End If
 
+If not($cinst.$$bootstrapGitRepository(lvRegistration))
+	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as repository bootstrapping failed.")
+	Quit method kFalse
+End If
+
 Do ivRegisteredLibraries.$add().$assignrow(lvRegistration,kTrue)
 Do tvLogger.$info("Registered library ",lvRegistration.id)
 Do tvMenu.$buildMenu()
@@ -55,5 +60,7 @@ If tvGit.$isHeadDetached()
 		Do tvGit.$reattachHead()
 	End If
 End If
+
+Do $cinst.$$updateMetaMapping(lvRegistration.repositoryRoot)
 
 Quit method kTrue

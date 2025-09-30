@@ -113,7 +113,7 @@ Else
 	End If
 End If
 
-If not(lvFileOps.$writecharacter(kUniTypeUTF8,lvImportCommitHash))
+If not(lvFileOps.$writecharacter(kUniTypeUTF8,lvImportCommitHash,kFalse,kFalse))
 	Do tvLogger.$error("Import failed - Unable to write to meta file (FileOps #",lvFileOps.$getlasterror(),")")
 	Quit method kFalse
 End If

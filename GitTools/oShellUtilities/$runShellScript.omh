@@ -42,9 +42,9 @@ Switch platform()
 		Do lvFile.$closefile()
 		
 		Call DLL ('Shell32.dll','ShellExecuteW',chr(0),'Open',lvScriptFile,chr(0),chr(0),kFalse)
-		
 		Calculate lvTicks as #CT
-		While FileOps.$doesfileexist(lvLockFile)&(#CT-lvTicks)<1800
+		While FileOps.$doesfileexist(lvLockFile)&(#CT-lvTicks)<cvLockFileCheckTimeout
+			Do sleep(cvLockFileCheckInterval)
 		End While
 		
 		If lvFile.$openfile(lvExitCodeFile,kTrue)

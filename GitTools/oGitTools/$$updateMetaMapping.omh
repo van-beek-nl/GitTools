@@ -1,0 +1,18 @@
+Calculate lvRegistrations as ivRegisteredLibraries
+Do lvRegistrations.$search($ref.repositoryRoot=pRepositoryRoot,kTrue,kFalse,kTrue,kTrue)
+Do lvRegistrations.$remove(kListKeepSelected)
+
+Calculate lvMetaMappingPath as tvFileUtilities.$join(pRepositoryRoot,".git","gittools-mapping.meta")
+
+For lvRegistrations.$line from 1 to lvRegistrations.$linecount step 1
+	Calculate lvMapping as con(lvMapping,lvRegistrations.jsonPath,"|",lvRegistrations.metaPath,kLf)
+End For
+
+If FileOps.$doesfileexist(lvMetaMappingPath)
+	Do lvFile.$openfile(lvMetaMappingPath)
+Else
+	Do lvFile.$createfile(lvMetaMappingPath)
+End If
+
+Do lvFile.$writecharacter(kUniTypeUTF8,lvMapping,kFalse,kFalse)
+Do lvFile.$closefile()

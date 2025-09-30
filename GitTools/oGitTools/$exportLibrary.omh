@@ -38,7 +38,6 @@ If FileOps.$doesfileexist(lvRegistration.metaPath)
 	End If
 	
 	Do lvFileOps.$closefile()
-	Calculate lvPreviousImportCommitHash as trim(lvPreviousImportCommitHash)
 	Do tvLogger.$debug("Library was previously imported from #",lvPreviousImportCommitHash)
 Else
 	Do tvLogger.$debug("Library has not been imported using GitTools before")
@@ -86,7 +85,13 @@ If not(lvIsOk)
 	Quit method kFalse
 End If
 
-Calculate lvSourceNeedsSync as tvGit.$isChanged(lvRegistration.jsonPath)&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
+Calculate lvExportCreatedChanges as tvGit.$isChanged(lvRegistration.jsonPath)
+Calculate lvSourceNeedsSync as lvExportCreatedChanges&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
+
+Do tvLogger.$debug("Export created changes: ",lvExportCreatedChanges)
+Do tvLogger.$debug("Commit hashes match: ",pick(lvPreviousImportCommitHash=lvLastSourceChangeCommitHash,"NO","YES"))
+Do tvLogger.$debug("Export merge required: ",lvSourceNeedsSync)
+
 If lvSourceNeedsSync
 	Do tvLogger.$debug("Performing export merge")
 	Do tvLogger.$updateWorkingMessage(#NULL,"Performing export merge")
