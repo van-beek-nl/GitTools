@@ -4,4 +4,15 @@ If not($cinst.$isAvailable)
 End If
 
 Do $cinst.$$formatCommand(pCommand,pCwd) Returns pCommand
-Quit method tvScripting.$runShellScript(pCommand,pOutput,_,pTrimOutput)
+
+Repeat
+	Do tvScripting.$runShellScript(pCommand,pOutput,_,pTrimOutput) Returns lvIsOk
+	
+	If not(lvIsOk)&pos("index.lock': file exists",low(pOutput))>0
+		Calculate lvLockAttempts as lvLockAttempts+1
+		Do tvLogger.$debug("Detected git lock file error. Retrying after ",cvLockAttemptInterval,"ms (",lvLockAttempts,"/",cvMaxLockRetries,")")
+		Do sleep(cvLockAttemptInterval)
+	End If
+Until lvIsOk|lvLockAttempts>=cvMaxLockRetries
+
+Quit method lvIsOk

@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 310,
+	"internalversion": 317,
 	"designtaskname": "GitTools",
 	"cvardefs": [
 		{
@@ -19,6 +19,22 @@
 			"subtype": "k32bitint",
 			"sublen": 0,
 			"initval": "23"
+		},
+		{
+			"name": "cvLockAttemptInterval",
+			"order": 4,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "500"
+		},
+		{
+			"name": "cvMaxLockRetries",
+			"order": 3,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "5"
 		}
 	],
 	"ivardefs": [
@@ -59,7 +75,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2025-10-01 08:10:30",
+		"moddate": "2025-10-01 17:21:42",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

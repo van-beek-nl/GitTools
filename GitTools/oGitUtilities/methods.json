@@ -584,6 +584,21 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvIsOk",
+				"order": 6,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvLockAttempts",
+				"order": 7,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0,
+				"initval": "0"
+			},
+			{
 				"name": "_",
 				"order": 5,
 				"type": "kCharacter",
