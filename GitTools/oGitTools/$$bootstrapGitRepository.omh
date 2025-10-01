@@ -1,38 +1,54 @@
 Calculate tvGit.$cwd as pRegistration.repositoryRoot
 
-Calculate lvGitDirectory as tvFileUtilities.$join(pRegistration.repositoryRoot,".git")
-Calculate lvPostCommitHookDirectory as tvFileUtilities.$join(lvGitDirectory,"hooks","post-commit.d")
-Calculate lvPostCommitHookDispatcherPath as tvFileUtilities.$join(lvGitDirectory,"hooks","post-commit")
+Calculate lvHooksDirectory as tvFileUtilities.$join(pRegistration.repositoryRoot,tvGit.$getHooksPath())
+Calculate lvPostCommitHookDirectory as tvFileUtilities.$join(lvHooksDirectory,"post-commit.d")
+Calculate lvPostCommitHookDispatcherPath as tvFileUtilities.$join(lvHooksDirectory,"post-commit")
 Calculate lvGitToolsPostCommitHookPath as tvFileUtilities.$join(lvPostCommitHookDirectory,"gittools")
 
 If not(FileOps.$doesfileexist(lvGitToolsPostCommitHookPath))
-	Do tvLogger.$info("Installing GitTools post-commit hook")
-	
 	If not(FileOps.$doesfileexist(lvPostCommitHookDirectory))
 		Do tvLogger.$debug("Creating post-commit hooks directory ",lvPostCommitHookDirectory)
 		Do FileOps.$createdir(lvPostCommitHookDirectory,kTrue)
 		
 		If FileOps.$doesfileexist(lvPostCommitHookDispatcherPath)
 			Do tvLogger.$debug("Moving existing git post-commit hook to post-commit hooks directory")
-			Do FileOps.$movefile(lvPostCommitHookDispatcherPath,tvFileUtilities.$join(lvPostCommitHookDirectory,"original-hook"))
+			Do FileOps.$movefile(lvPostCommitHookDispatcherPath,tvFileUtilities.$join(lvPostCommitHookDirectory,"original-hook")) Returns lvErrorCode
+			If lvErrorCode<>kFileOpsOK
+				Do tvLogger.$error("Unable to move existing post-commit hook into post-commit hooks directory (FileOps #",lvErrorCode,")")
+				Quit method kFalse
+			End If
 		Else
 			Do tvLogger.$debug("Creating post-commit hook dispatcher ",lvPostCommitHookDispatcherPath)
-			Do lvFile.$createfile(lvPostCommitHookDispatcherPath)
-			Do lvFile.$writecharacter(kUniTypeUTF8,tvGit.$postCommitDispatcherScript,kFalse,kFalse)
+			If not(lvFile.$createfile(lvPostCommitHookDispatcherPath))
+				Do tvLogger.$error("Unable to create post-commit hook dispatcher script (FileOps #",lvFile.$getlasterror(),")")
+				Quit method kFalse
+			End If
+			
+			If not(lvFile.$writecharacter(kUniTypeUTF8,tvGit.$postCommitDispatcherScript,kFalse,kFalse))
+				Do tvLogger.$error("Unable to write to post-commit hook dispatcher script (FileOps #",lvFile.$getlasterror(),")")
+				Quit method kFalse
+			End If
+			
 			Do lvFile.$closefile()
+			Do FileOps.$setunixpermissions(lvPostCommitHookDispatcherPath,'-rwxr-xr-x')
 		End If
 	End If
 	
 	Do tvLogger.$debug("Creating post-commit hook ",lvGitToolsPostCommitHookPath)
-	Do lvFile.$createfile(lvGitToolsPostCommitHookPath)
-	Do lvFile.$writecharacter(kUniTypeUTF8,tvGit.$postCommitScript,kFalse,kFalse)
-	Do lvFile.$closefile()
+	If not(lvFile.$createfile(lvGitToolsPostCommitHookPath))
+		Do tvLogger.$error("Unable to create post-commit hook (FileOps #",lvFile.$getlasterror(),")")
+		Quit method kFalse
+	End If
 	
-	Do tvLogger.$debug("Fixing Unix permissions")
-	Do FileOps.$setunixpermissions(lvPostCommitHookDispatcherPath,'-rwxr-xr-x')
+	If not(lvFile.$writecharacter(kUniTypeUTF8,tvGit.$postCommitScript,kFalse,kFalse))
+		Do tvLogger.$error("Unable to write to post-commit hook (FileOps #",lvFile.$getlasterror(),")")
+		Quit method kFalse
+	End If
+	
+	Do lvFile.$closefile()
 	Do FileOps.$setunixpermissions(lvGitToolsPostCommitHookPath,'-rwxr-xr-x')
 	
-	Do tvLogger.$info("Installed post-commit hook for ",pRegistration.id)
+	Do tvLogger.$info("Installed post-commit hook for repository ",pRegistration.repositoryRoot)
 End If
 
 Quit method kTrue

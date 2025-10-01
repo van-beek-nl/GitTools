@@ -325,8 +325,24 @@
 		]
 	},
 	{
-		"name": "----- Deprecated",
+		"name": "$getHooksPath",
 		"order": 13,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvOutput",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "----- Deprecated",
+		"order": 15,
 		"pvardefs": [
 
 		],
@@ -337,7 +353,7 @@
 	},
 	{
 		"name": "$createStash",
-		"order": 14,
+		"order": 16,
 		"desc": "Stashes the changes in the given path (or every uncommitted change in the repository if not given). Returns the identifier of the created stash. If there is nothing to stash, returns an empty string.",
 		"pvardefs": [
 			{
@@ -383,7 +399,7 @@
 	},
 	{
 		"name": "$applyStash",
-		"order": 15,
+		"order": 17,
 		"pvardefs": [
 			{
 				"name": "pIdentifier",
@@ -434,7 +450,7 @@
 	},
 	{
 		"name": "$dropStash",
-		"order": 16,
+		"order": 18,
 		"pvardefs": [
 			{
 				"name": "pIdentifier",
@@ -485,7 +501,7 @@
 	},
 	{
 		"name": "----- Private",
-		"order": 17,
+		"order": 19,
 		"pvardefs": [
 
 		],
@@ -496,7 +512,7 @@
 	},
 	{
 		"name": "$$cleanupExportMerge",
-		"order": 18,
+		"order": 20,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -529,7 +545,7 @@
 	},
 	{
 		"name": "$$execute",
-		"order": 19,
+		"order": 21,
 		"desc": "Executes the given git command. The command output is written to pOutput, and the method returns a boolean indicating success (exit code 0.",
 		"pvardefs": [
 			{
@@ -578,7 +594,7 @@
 	},
 	{
 		"name": "$$formatCommand",
-		"order": 20,
+		"order": 22,
 		"pvardefs": [
 			{
 				"name": "pCommand",
@@ -603,7 +619,7 @@
 	},
 	{
 		"name": "----- Properties",
-		"order": 21,
+		"order": 23,
 		"pvardefs": [
 
 		],
@@ -614,7 +630,7 @@
 	},
 	{
 		"name": "$isAvailable",
-		"order": 22,
+		"order": 24,
 		"desc": "A boolean indicating whether git is available on the user's system.",
 		"pvardefs": [
 
@@ -666,7 +682,7 @@
 	},
 	{
 		"name": "$isAvailable.$assign",
-		"order": 23,
+		"order": 25,
 		"pvardefs": [
 
 		],
@@ -676,7 +692,7 @@
 	},
 	{
 		"name": "$gitExecutable",
-		"order": 24,
+		"order": 26,
 		"desc": "Git executable path or alias. Defaults to \"git\".",
 		"pvardefs": [
 
@@ -687,7 +703,7 @@
 	},
 	{
 		"name": "$gitExecutable.$assign",
-		"order": 25,
+		"order": 27,
 		"pvardefs": [
 			{
 				"name": "pExecutable",
@@ -704,7 +720,7 @@
 	},
 	{
 		"name": "$cwd",
-		"order": 26,
+		"order": 28,
 		"pvardefs": [
 
 		],
@@ -714,7 +730,7 @@
 	},
 	{
 		"name": "$cwd.$assign",
-		"order": 27,
+		"order": 29,
 		"pvardefs": [
 			{
 				"name": "pCwd",
@@ -731,7 +747,7 @@
 	},
 	{
 		"name": "$postCommitScript",
-		"order": 28,
+		"order": 30,
 		"pvardefs": [
 
 		],
@@ -761,7 +777,7 @@
 	},
 	{
 		"name": "$postCommitScript.$assign",
-		"order": 29,
+		"order": 31,
 		"pvardefs": [
 
 		],
@@ -771,7 +787,7 @@
 	},
 	{
 		"name": "$postCommitDispatcherScript",
-		"order": 30,
+		"order": 32,
 		"pvardefs": [
 
 		],
@@ -787,7 +803,7 @@
 	},
 	{
 		"name": "$postCommitDispatcherScript.$assign",
-		"order": 31,
+		"order": 33,
 		"pvardefs": [
 
 		],

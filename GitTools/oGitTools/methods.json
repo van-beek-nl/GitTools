@@ -719,6 +719,13 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvErrorCode",
+				"order": 2,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
 				"name": "lvFile",
 				"order": 7,
 				"type": "kObject",
@@ -735,6 +742,13 @@
 			{
 				"name": "lvGitToolsPostCommitHookPath",
 				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvHooksDirectory",
+				"order": 1,
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
