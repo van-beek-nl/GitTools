@@ -1,0 +1,2 @@
+Calculate ivSettings.gitExecutable as pGitExecutable
+Do $cinst.$$save()

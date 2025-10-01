@@ -5,4 +5,11 @@ If isclear(ivSettings.logLevel)
 	Calculate ivSettings.logLevel as "info"
 End If
 
+If isclear(ivSettings.gitExecutable)
+	If isclear(ivSettings.$cols.gitExecutable)
+		Do ivSettings.$cols.$add("gitExecutable",kCharacter,kSimplechar)
+	End If
+	Calculate ivSettings.gitExecutable as "git"
+End If
+
 Do $cinst.$$save()

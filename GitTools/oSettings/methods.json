@@ -47,6 +47,33 @@
 		]
 	},
 	{
+		"name": "$gitExecutable",
+		"order": 5,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$gitExecutable.$assign",
+		"order": 6,
+		"pvardefs": [
+			{
+				"name": "pGitExecutable",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
 		"name": "$$save",
 		"order": 7,
 		"pvardefs": [

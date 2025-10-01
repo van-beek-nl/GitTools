@@ -1,7 +1,17 @@
 [
 	{
-		"name": "$getCommitHash",
+		"name": "$construct",
 		"order": 1,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$getCommitHash",
+		"order": 2,
 		"desc": "Returns the commit hash in which the given file or directory last changed, relative to the repository's current commit hash.\rFor example, if the given path is changed in commits #1, #2 and #4, and the repository is currently checked out at commit #3, this will return 2.\r\rIf no path is provided, returns the commit hash of the current working directory instead.",
 		"pvardefs": [
 			{
@@ -26,7 +36,7 @@
 	},
 	{
 		"name": "$getBranch",
-		"order": 2,
+		"order": 3,
 		"pvardefs": [
 
 		],
@@ -42,7 +52,7 @@
 	},
 	{
 		"name": "$getRepositoryRoot",
-		"order": 3,
+		"order": 4,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -72,7 +82,7 @@
 	},
 	{
 		"name": "$isInRepository",
-		"order": 4,
+		"order": 5,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -102,7 +112,7 @@
 	},
 	{
 		"name": "$isHeadDetached",
-		"order": 5,
+		"order": 6,
 		"pvardefs": [
 
 		],
@@ -118,7 +128,7 @@
 	},
 	{
 		"name": "$getMergeConflicts",
-		"order": 6,
+		"order": 7,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -141,7 +151,7 @@
 	},
 	{
 		"name": "$clean",
-		"order": 7,
+		"order": 8,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -183,7 +193,7 @@
 	},
 	{
 		"name": "$isChanged",
-		"order": 8,
+		"order": 9,
 		"desc": "Returns a boolean indicating whether the given path has changed in comparison to the current repository head.",
 		"pvardefs": [
 			{
@@ -208,7 +218,7 @@
 	},
 	{
 		"name": "$resetDirectory",
-		"order": 9,
+		"order": 10,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -231,7 +241,7 @@
 	},
 	{
 		"name": "$performExportMerge",
-		"order": 10,
+		"order": 11,
 		"desc": "Perform an export merge, selectively merging only the changes since the library was last imported into the current repository state.\r\rThis operation leaves a dangling commit, which git's garbage collection will automatically clean up (after 30 days by default).\rThis is okay (and necessary in the case of a merge conflict).",
 		"pvardefs": [
 			{
@@ -293,7 +303,7 @@
 	},
 	{
 		"name": "$reattachHead",
-		"order": 11,
+		"order": 12,
 		"pvardefs": [
 
 		],
@@ -316,7 +326,7 @@
 	},
 	{
 		"name": "----- Deprecated",
-		"order": 12,
+		"order": 13,
 		"pvardefs": [
 
 		],
@@ -327,7 +337,7 @@
 	},
 	{
 		"name": "$createStash",
-		"order": 13,
+		"order": 14,
 		"desc": "Stashes the changes in the given path (or every uncommitted change in the repository if not given). Returns the identifier of the created stash. If there is nothing to stash, returns an empty string.",
 		"pvardefs": [
 			{
@@ -373,7 +383,7 @@
 	},
 	{
 		"name": "$applyStash",
-		"order": 14,
+		"order": 15,
 		"pvardefs": [
 			{
 				"name": "pIdentifier",
@@ -424,7 +434,7 @@
 	},
 	{
 		"name": "$dropStash",
-		"order": 15,
+		"order": 16,
 		"pvardefs": [
 			{
 				"name": "pIdentifier",
@@ -475,7 +485,7 @@
 	},
 	{
 		"name": "----- Private",
-		"order": 16,
+		"order": 17,
 		"pvardefs": [
 
 		],
@@ -486,7 +496,7 @@
 	},
 	{
 		"name": "$$cleanupExportMerge",
-		"order": 17,
+		"order": 18,
 		"pvardefs": [
 			{
 				"name": "pPath",
@@ -519,7 +529,7 @@
 	},
 	{
 		"name": "$$execute",
-		"order": 18,
+		"order": 19,
 		"desc": "Executes the given git command. The command output is written to pOutput, and the method returns a boolean indicating success (exit code 0.",
 		"pvardefs": [
 			{
@@ -568,7 +578,7 @@
 	},
 	{
 		"name": "$$formatCommand",
-		"order": 19,
+		"order": 20,
 		"pvardefs": [
 			{
 				"name": "pCommand",
@@ -593,7 +603,7 @@
 	},
 	{
 		"name": "----- Properties",
-		"order": 20,
+		"order": 21,
 		"pvardefs": [
 
 		],
@@ -604,7 +614,7 @@
 	},
 	{
 		"name": "$isAvailable",
-		"order": 21,
+		"order": 22,
 		"desc": "A boolean indicating whether git is available on the user's system.",
 		"pvardefs": [
 
@@ -656,7 +666,7 @@
 	},
 	{
 		"name": "$isAvailable.$assign",
-		"order": 22,
+		"order": 23,
 		"pvardefs": [
 
 		],
@@ -666,7 +676,7 @@
 	},
 	{
 		"name": "$gitExecutable",
-		"order": 23,
+		"order": 24,
 		"desc": "Git executable path or alias. Defaults to \"git\".",
 		"pvardefs": [
 
@@ -677,7 +687,7 @@
 	},
 	{
 		"name": "$gitExecutable.$assign",
-		"order": 24,
+		"order": 25,
 		"pvardefs": [
 			{
 				"name": "pExecutable",
@@ -694,7 +704,7 @@
 	},
 	{
 		"name": "$cwd",
-		"order": 25,
+		"order": 26,
 		"pvardefs": [
 
 		],
@@ -704,7 +714,7 @@
 	},
 	{
 		"name": "$cwd.$assign",
-		"order": 26,
+		"order": 27,
 		"pvardefs": [
 			{
 				"name": "pCwd",
@@ -721,7 +731,7 @@
 	},
 	{
 		"name": "$postCommitScript",
-		"order": 27,
+		"order": 28,
 		"pvardefs": [
 
 		],
@@ -751,7 +761,7 @@
 	},
 	{
 		"name": "$postCommitScript.$assign",
-		"order": 28,
+		"order": 29,
 		"pvardefs": [
 
 		],
@@ -761,7 +771,7 @@
 	},
 	{
 		"name": "$postCommitDispatcherScript",
-		"order": 29,
+		"order": 30,
 		"pvardefs": [
 
 		],
@@ -777,7 +787,7 @@
 	},
 	{
 		"name": "$postCommitDispatcherScript.$assign",
-		"order": 30,
+		"order": 31,
 		"pvardefs": [
 
 		],

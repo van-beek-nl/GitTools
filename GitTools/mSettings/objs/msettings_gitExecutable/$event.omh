@@ -1,0 +1,10 @@
+On evClick
+	Prompt for input Default: git (Uses path environment)[pick(tvSettings.$gitExecutable="git",con(kCr,"Current: ",tvSettings.$gitExecutable),"")]/Enter git executable path Returns lvGitExecutable (Prompt above entry,Cancel button)
+	
+	If not(#F)|isclear(lvGitExecutable)
+		Quit method
+	End If
+	
+	Calculate tvGit.$gitExecutable as lvGitExecutable
+	Calculate tvSettings.$gitExecutable as lvGitExecutable
+	Do tvMenu.$buildMenu()

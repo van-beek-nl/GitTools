@@ -5,49 +5,48 @@ End While
 
 If not(tvGit.$isAvailable)
 	Do $cinst.$objs.$add("Git >= v2.23 unavailable")
-	Quit method
-End If
-
-Calculate lvLibraries as tvGitTools.$libraries
-Do lvLibraries.$sort($ref.id,kFalse)
-For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
-	Do $cinst.$objs.$add(lvLibraries.id,kTrue) Returns lvMenuEntry
-	Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.id)
-	Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.id
-End For
-
-If lvLibraries.$linecount>1
-	Do $cinst.$objs.$add("")
+Else
+	Calculate lvLibraries as tvGitTools.$libraries
+	Do lvLibraries.$sort($ref.id,kFalse)
+	For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
+		Do $cinst.$objs.$add(lvLibraries.id,kTrue) Returns lvMenuEntry
+		Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.id)
+		Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.id
+	End For
 	
-	Do $cinst.$objs.$add("Import all") Returns lvMenuEntry
-	Calculate lvMenuEntry.$enabled as kTrue
-	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$importAll()")
+	If lvLibraries.$linecount>1
+		Do $cinst.$objs.$add("")
+		
+		Do $cinst.$objs.$add("Import all") Returns lvMenuEntry
+		Calculate lvMenuEntry.$enabled as kTrue
+		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$importAll()")
+		
+		Do $cinst.$objs.$add("Export all") Returns lvMenuEntry
+		Calculate lvMenuEntry.$enabled as kTrue
+		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$exportAll()")
+	End If
 	
-	Do $cinst.$objs.$add("Export all") Returns lvMenuEntry
+	If lvLibraries.$linecount>0
+		Do $cinst.$objs.$add("")
+	End If
+	
+	# Omnis Studio v10.x and below cannot automatically scan for libraries.
+	# For these versions, we'll provide a button to manually scan.
+	Calculate lvOmnisMajorVersion as pick(pos('.',sys(1))<>0,sys(1),left(sys(1),pos('.',sys(1))-1))
+	If lvOmnisMajorVersion<=10
+		Do $cinst.$objs.$add("Scan for libraries") Returns lvMenuEntry
+		Calculate lvMenuEntry.$enabled as kTrue
+		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibraries()")
+	End If
+	
+	Do $cinst.$objs.$add("Register library") Returns lvMenuEntry
 	Calculate lvMenuEntry.$enabled as kTrue
 	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$exportAll()")
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibrary()")
 End If
-
-If lvLibraries.$linecount>0
-	Do $cinst.$objs.$add("")
-End If
-
-# Omnis Studio v10.x and below cannot automatically scan for libraries.
-# For these versions, we'll provide a button to manually scan.
-Calculate lvOmnisMajorVersion as pick(pos('.',sys(1))<>0,sys(1),left(sys(1),pos('.',sys(1))-1))
-If lvOmnisMajorVersion<=10
-	Do $cinst.$objs.$add("Scan for libraries") Returns lvMenuEntry
-	Calculate lvMenuEntry.$enabled as kTrue
-	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibraries()")
-End If
-
-Do $cinst.$objs.$add("Register library") Returns lvMenuEntry
-Calculate lvMenuEntry.$enabled as kTrue
-Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibrary()")
 
 Do $cinst.$objs.$add("Settings") Returns lvMenuEntry
 Calculate lvMenuEntry.$enabled as kTrue
