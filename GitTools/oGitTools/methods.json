@@ -456,6 +456,13 @@
 				"sublen": 100000000
 			},
 			{
+				"name": "lvMetaCommitHash",
+				"order": 8,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
 				"name": "lvNumFilesChangedSincePreviousImport",
 				"order": 10,
 				"type": "kInteger",
@@ -480,13 +487,6 @@
 			{
 				"name": "lvOutput",
 				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvPreviousImportCommitHash",
-				"order": 8,
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000

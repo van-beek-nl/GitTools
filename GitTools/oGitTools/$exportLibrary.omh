@@ -32,15 +32,15 @@ If FileOps.$doesfileexist(lvRegistration.metaPath)
 		Quit method kFalse
 	End If
 	
-	If not(lvFileOps.$readcharacter(kUniTypeUTF8,lvPreviousImportCommitHash))
+	If not(lvFileOps.$readcharacter(kUniTypeUTF8,lvMetaCommitHash))
 		Do tvLogger.$error("Export failed - Unable to read meta file (FileOps #",lvFileOps.$getlasterror(),")")
 		Quit method kFalse
 	End If
 	
 	Do lvFileOps.$closefile()
-	Do tvLogger.$debug("Library was previously imported from #",lvPreviousImportCommitHash)
+	Do tvLogger.$debug("Library meta commit hash is at #",lvMetaCommitHash)
 Else
-	Do tvLogger.$debug("Library has not been imported using GitTools before")
+	Do tvLogger.$debug("Library does not have a meta commit hash")
 End If
 
 Do tvLogger.$debug("Clearing out any pending changes in source directory ",lvRegistration.jsonPath)
@@ -86,16 +86,16 @@ If not(lvIsOk)
 End If
 
 Calculate lvExportCreatedChanges as tvGit.$isChanged(lvRegistration.jsonPath)
-Calculate lvSourceNeedsSync as lvExportCreatedChanges&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvPreviousImportCommitHash))&lvPreviousImportCommitHash<>lvLastSourceChangeCommitHash
+Calculate lvSourceNeedsSync as lvExportCreatedChanges&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvMetaCommitHash))&lvMetaCommitHash<>lvLastSourceChangeCommitHash
 
 Do tvLogger.$debug("Export created changes: ",lvExportCreatedChanges)
-Do tvLogger.$debug("Commit hashes match: ",pick(lvPreviousImportCommitHash=lvLastSourceChangeCommitHash,"NO","YES"))
+Do tvLogger.$debug("Commit hashes match: ",pick(lvMetaCommitHash=lvLastSourceChangeCommitHash,"NO","YES"))
 Do tvLogger.$debug("Export merge required: ",lvSourceNeedsSync)
 
 If lvSourceNeedsSync
 	Do tvLogger.$debug("Performing export merge")
 	Do tvLogger.$updateWorkingMessage(#NULL,"Performing export merge")
-	Do tvGit.$performExportMerge(lvRegistration.jsonPath,lvPreviousImportCommitHash)
+	Do tvGit.$performExportMerge(lvRegistration.jsonPath,lvMetaCommitHash)
 	Do tvGit.$getMergeConflicts(lvRegistration.jsonPath) Returns lvMergeConflicts
 	
 	If $cparmcount>1
