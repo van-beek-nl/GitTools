@@ -63,7 +63,7 @@ Switch platform()
 		Do FileOps.$deletefile(lvExitCodeFile)
 		
 		If pTrimOutput
-			Do method trimOutput (lvOutput) Returns lvOutput
+			Calculate lvOutput as $cinst.$trim(lvOutput)
 		End If
 		
 		Calculate pOutput as lvOutput
@@ -81,7 +81,7 @@ Switch platform()
 		Do $root.$runapplescript(con('do shell script "',pScript,'"'),lvOutput,lvError) Returns lvExitCode
 		
 		If pTrimOutput
-			Do method trimOutput (lvOutput) Returns lvOutput
+			Calculate lvOutput as $cinst.$trim(lvOutput)
 		End If
 		
 		Calculate pOutput as lvOutput

@@ -1,0 +1,9 @@
+Repeat
+	Calculate lvLengthBeforeTrim as len(pString)
+	Calculate pString as trim(pString,pLeading,pTrailing,kSp)
+	Calculate pString as trim(pString,pLeading,pTrailing,kCr)
+	Calculate pString as trim(pString,pLeading,pTrailing,kLf)
+	Calculate pString as trim(pString,pLeading,pTrailing,kTab)
+Until len(pString)=lvLengthBeforeTrim
+
+Quit method pString
