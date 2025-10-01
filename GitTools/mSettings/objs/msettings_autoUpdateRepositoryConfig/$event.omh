@@ -1,0 +1,3 @@
+On evClick
+	Calculate tvSettings.$autoUpdateRepositoryConfig as not(tvSettings.$autoUpdateRepositoryConfig)
+	Calculate $cinst.$objs.msettings_autoUpdateRepositoryConfig.$checked as tvSettings.$autoUpdateRepositoryConfig

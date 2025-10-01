@@ -1,3 +1,5 @@
 Do ivSettings.$cols.$add("logLevel",kCharacter,kSimplechar)
 Do ivSettings.$cols.$add("gitExecutable",kCharacter,kSimplechar)
+Do ivSettings.$cols.$add("autoUpdateRepositoryConfig",kBoolean)
+Calculate ivSettings.autoUpdateRepositoryConfig as #NULL
 Do $cinst.$$load()

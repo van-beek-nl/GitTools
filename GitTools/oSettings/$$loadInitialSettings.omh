@@ -12,4 +12,11 @@ If isclear(ivSettings.gitExecutable)
 	Calculate ivSettings.gitExecutable as "git"
 End If
 
+If isnull(ivSettings.autoUpdateRepositoryConfig)
+	If isclear(ivSettings.$cols.autoUpdateRepositoryConfig)
+		Do ivSettings.$cols.$add("autoUpdateRepositoryConfig",kBoolean)
+	End If
+	Calculate ivSettings.autoUpdateRepositoryConfig as kTrue
+End If
+
 Do $cinst.$$save()

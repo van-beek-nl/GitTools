@@ -1,0 +1,2 @@
+Calculate ivSettings.autoUpdateRepositoryConfig as pAutoUpdateRepositoryConfig
+Do $cinst.$$save()

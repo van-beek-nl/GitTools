@@ -719,6 +719,20 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvDidUpdateGitAttributes",
+				"order": 17,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvDidUpdateGitIgnore",
+				"order": 16,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
 				"name": "lvErrorCode",
 				"order": 2,
 				"type": "kInteger",
@@ -733,8 +747,50 @@
 				"sublen": 0
 			},
 			{
+				"name": "lvGitAttributes",
+				"order": 13,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvGitAttributesPath",
+				"order": 11,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvGitConfig",
+				"order": 10,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvGitConfigPath",
+				"order": 9,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
 				"name": "lvGitDirectory",
 				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvGitIgnore",
+				"order": 14,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvGitIgnorePath",
+				"order": 12,
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
@@ -752,6 +808,13 @@
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
+			},
+			{
+				"name": "lvIsOk",
+				"order": 15,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
 			},
 			{
 				"name": "lvPostCommitHookDirectory",

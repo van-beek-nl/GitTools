@@ -1,5 +1,6 @@
 Calculate tvGit.$cwd as pRegistration.repositoryRoot
 
+# START Post-commit hook
 Calculate lvHooksDirectory as tvFileUtilities.$join(pRegistration.repositoryRoot,tvGit.$getHooksPath())
 Calculate lvPostCommitHookDirectory as tvFileUtilities.$join(lvHooksDirectory,"post-commit.d")
 Calculate lvPostCommitHookDispatcherPath as tvFileUtilities.$join(lvHooksDirectory,"post-commit")
@@ -49,6 +50,104 @@ If not(FileOps.$doesfileexist(lvGitToolsPostCommitHookPath))
 	Do FileOps.$setunixpermissions(lvGitToolsPostCommitHookPath,'-rwxr-xr-x')
 	
 	Do tvLogger.$info("Installed post-commit hook for repository ",pRegistration.repositoryRoot)
+End If
+
+If not(tvSettings.$autoUpdateRepositoryConfig)
+	Do tvLogger.$debug("Skipping repository configuration update - autoUpdateRepositoryConfig is false")
+	Quit method kTrue
+End If
+
+# START Local git config
+# Git doesn't support CR (old-school Macintosh) line endings by default.
+# Omnis unfortunately uses these line endings for StringTables. Git sees the contents of these files as one big line.
+# This makes merge conflict resolution very difficult. The workaround here adds a custom CR-compatible diff-er that we use in .gitattributes.
+Calculate lvGitConfigPath as tvFileUtilities.$join(pRegistration.repositoryRoot,".git","config")
+If lvFile.$openfile(lvGitConfigPath)
+	Do lvFile.$readcharacter(kUniTypeUTF8,lvGitConfig)
+	
+	If pos('[diff "cr"]',lvGitConfig)=0
+		If right(lvGitConfig,1)<>kLf
+			Calculate lvGitConfig as con(lvGitConfig,kLf)
+		End If
+		Calculate lvGitConfig as con(lvGitConfig,kLf,'[diff "cr"]',kLf,"    textconv = tr '\\r' '\\n' <",kLf)
+		Do lvFile.$writecharacter(kUniTypeUTF8,lvGitConfig)
+		Do tvLogger.$info("Added CR-compatible diffing to git config for repository ",pRegistration.repositoryRoot)
+	End If
+	
+	Do lvFile.$closefile()
+Else
+	Do tvLogger.$warn("Unable to open local git config ",lvGitConfigPath)
+End If
+
+# START gitignore
+# GitTools creates several local-only files that should not be committed.
+# These files are automatically added to the repository-wide gitignore file
+Calculate lvGitIgnorePath as tvFileUtilities.$join(pRegistration.repositoryRoot,".gitignore")
+If FileOps.$doesfileexist(lvGitIgnorePath)
+	Do lvFile.$openfile(lvGitIgnorePath) Returns lvIsOk
+	Do lvFile.$readcharacter(kUniTypeUTF8,lvGitIgnore)
+Else
+	Do lvFile.$createfile(lvGitIgnorePath) Returns lvIsOk
+End If
+
+If lvIsOk
+	If pos('*.gittools.meta',lvGitIgnore)=0
+		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.gittools.meta')
+		Calculate lvDidUpdateGitIgnore as kTrue
+	End If
+	
+	If pos('*.lbs.import',lvGitIgnore)=0
+		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.lbs.import')
+		Calculate lvDidUpdateGitIgnore as kTrue
+	End If
+	
+	If pos('*.lbs.bak',lvGitIgnore)=0
+		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.lbs.bak')
+		Calculate lvDidUpdateGitIgnore as kTrue
+	End If
+	
+	Calculate lvGitIgnore as trim(lvGitIgnore,kTrue,kTrue,kLf)
+	Do lvFile.$writecharacter(kUniTypeUTF8,lvGitIgnore,kFalse,kFalse)
+	Do lvFile.$closefile()
+	
+	If lvDidUpdateGitIgnore
+		Do tvLogger.$info("Added GitTools additions to .gitignore file for repository ",pRegistration.repositoryRoot)
+	End If
+Else
+	Do tvLogger.$warn("Unable to open or create .gitignore file for repository ",pRegistration.repositoryRoot)
+End If
+
+# START gitattributes
+# Programmatically add a couple of lines to the repository's gitattributes file.
+# This improves git's compatibility with Omnis exports and enables the CR-compatible differ added to the local git config.
+Calculate lvGitAttributesPath as tvFileUtilities.$join(pRegistration.repositoryRoot,".gitattributes")
+If FileOps.$doesfileexist(lvGitAttributesPath)
+	Do lvFile.$openfile(lvGitAttributesPath) Returns lvIsOk
+	Do lvFile.$readcharacter(kUniTypeUTF8,lvGitAttributes)
+Else
+	Do lvFile.$createfile(lvGitAttributesPath) Returns lvIsOk
+End If
+
+If lvIsOk
+	If pos('*.tsv diff=cr',lvGitAttributes)=0
+		Calculate lvGitAttributes as con(lvGitAttributes,kLf,'*.tsv diff=cr')
+		Calculate lvDidUpdateGitAttributes as kTrue
+	End If
+	
+	If pos('*.df1 binary',lvGitAttributes)=0
+		Calculate lvGitAttributes as con(lvGitAttributes,kLf,'*.df1 binary')
+		Calculate lvDidUpdateGitAttributes as kTrue
+	End If
+	
+	Calculate lvGitAttributes as trim(lvGitAttributes,kTrue,kTrue,kLf)
+	Do lvFile.$writecharacter(kUniTypeUTF8,lvGitAttributes,kFalse,kFalse)
+	Do lvFile.$closefile()
+	
+	If lvDidUpdateGitAttributes
+		Do tvLogger.$info("Added GitTools additions to .gitattributes file for repository ",pRegistration.repositoryRoot)
+	End If
+Else
+	Do tvLogger.$warn("Unable to open or create .gitattributes file for repository ",pRegistration.repositoryRoot)
 End If
 
 Quit method kTrue

@@ -74,8 +74,35 @@
 		]
 	},
 	{
-		"name": "$$save",
+		"name": "$autoUpdateRepositoryConfig",
 		"order": 7,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$autoUpdateRepositoryConfig.$assign",
+		"order": 8,
+		"pvardefs": [
+			{
+				"name": "pAutoUpdateRepositoryConfig",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$save",
+		"order": 9,
 		"pvardefs": [
 
 		],
@@ -112,7 +139,7 @@
 	},
 	{
 		"name": "$$load",
-		"order": 8,
+		"order": 10,
 		"pvardefs": [
 
 		],
@@ -156,7 +183,7 @@
 	},
 	{
 		"name": "$$loadInitialSettings",
-		"order": 9,
+		"order": 11,
 		"pvardefs": [
 
 		],
@@ -166,7 +193,7 @@
 	},
 	{
 		"name": "$$openSettingsFile",
-		"order": 10,
+		"order": 12,
 		"pvardefs": [
 
 		],
