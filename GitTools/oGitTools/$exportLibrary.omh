@@ -4,7 +4,7 @@ Calculate lvRegistration as ivRegisteredLibraries
 Do tvLogger.$info("Exporting ",pLibraryID)
 Do tvLogger.$updateWorkingMessage(#NULL,"Preparing export")
 
-Do $libs.$findname(pLibraryID) Returns lvLibrary
+Do $cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath) Returns lvLibrary
 If isclear(lvLibrary)
 	Do tvLogger.$debug("Opening library ",pLibraryID," for export")
 	Open library (Do not close others,Do not open startup task) [lvRegistration.libraryPath]
