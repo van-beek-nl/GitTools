@@ -25,11 +25,11 @@ The `GitTools -> Register library` menu option lets you register a library using
 
 ## Automated git config changes
 By default, GitTools will automatically modify the following files in your git repository (relative to the repository root):
-- `.gitignore`
+- `.gitignore`  
     GitTools creates and uses several files such as meta files that track local repository changes, temporary import artifacts, and library backups. These files should not be committed to the git repository. GitTools amends the `.gitignore` file to prevent these files from being picked up by git. The changes to this file should be committed to your repository.
-- `.gitattributes`
+- `.gitattributes`  
     Git has no inherent understanding of the file formats Omnis uses. GitTools amends your repository's `.gitattributes` file to help git understand what to do with certain files. For example, this enables proper diffing of string table (.tsv) files, as these files use old-school Macintosh line endings (CR, no LF). The changes to this file should be committed to your repository.
-- `.git/config`
+- `.git/config`  
     GitTools will amend your local repository config to add the custom diff-er for CR-based line endings mentioned above. In the future, GitTools may also add support for more advanced merge logic by using a custom merge driver.
 
 You can change this behavior in the GitTools settings (Settings -> Auto update repository config).
