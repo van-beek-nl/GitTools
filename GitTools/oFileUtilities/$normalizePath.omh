@@ -1,0 +1,22 @@
+Do $cinst.$fixPathSeparators(pPath) Returns pPath
+Do split(pPath,pathsep()) Returns lvPathComponents
+
+For lvPathComponents.$line from 1 to lvPathComponents.$linecount step 1
+	If lvPathComponents.C1="."
+		Calculate lvPathComponents.$selected as kTrue
+	Else If lvPathComponents.C1=""&lvPathComponents.$line>1
+		Calculate lvPathComponents.$selected as kTrue
+	Else If lvPathComponents.C1=".."&lvPathComponents.$line>1&lvPathComponents.[lvPathComponents.$line-1].C1<>".."
+		Calculate lvPathComponents.$selected as kTrue
+		Calculate lvPathComponents.[lvPathComponents.$line-1].$selected as kTrue
+	End If
+End For
+
+Do lvPathComponents.$remove(kListDeleteSelected)
+
+Calculate pPath as ""
+For lvPathComponents.$line from 1 to lvPathComponents.$linecount step 1
+	Calculate pPath as con(pPath,pick(lvPathComponents.$line>1,"",pathsep()),lvPathComponents.C1)
+End For
+
+Quit method pPath

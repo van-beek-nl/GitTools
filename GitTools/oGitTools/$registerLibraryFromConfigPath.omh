@@ -3,7 +3,7 @@ If not(tvGit.$isAvailable)
 	Quit method kFalse
 End If
 
-Do tvFileUtilities.$fixPathSeparators(pConfigFilePath) Returns pConfigFilePath
+Do tvFileUtilities.$normalizePath(pConfigFilePath) Returns pConfigFilePath
 Calculate lvRegistration.id as tvFileUtilities.$configPathToLibraryID(pConfigFilePath)
 Calculate lvRegistration.basePath as FileOps.$parentdir(pConfigFilePath)
 Calculate lvRegistration.libraryPath as tvFileUtilities.$configPathToLibraryPath(pConfigFilePath)
@@ -31,7 +31,7 @@ If isnull(lvConfiguration)
 	Quit method kFalse
 End If
 
-Calculate lvRegistration.jsonPath as tvFileUtilities.$join(FileOps.$parentdir(lvRegistration.libraryPath),lvConfiguration.jsonPath)
+Calculate lvRegistration.jsonPath as tvFileUtilities.$normalizePath(tvFileUtilities.$join(FileOps.$parentdir(lvRegistration.libraryPath),lvConfiguration.jsonPath))
 Calculate lvRegistration.repositoryRoot as tvFileUtilities.$fixPathSeparators(tvGit.$getRepositoryRoot(lvRegistration.jsonPath))
 Calculate lvRegistration.releasePath as tvFileUtilities.$getAbsolutePath(lvConfiguration.releasePath,FileOps.$parentdir(pConfigFilePath))
 Calculate lvRegistration.preImportScript as lvConfiguration.preImportScript

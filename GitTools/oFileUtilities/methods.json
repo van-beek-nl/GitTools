@@ -414,5 +414,28 @@
 				"sublen": 100000000
 			}
 		]
+	},
+	{
+		"name": "$normalizePath",
+		"order": 13,
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvPathComponents",
+				"order": 2,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
 	}
 ]
