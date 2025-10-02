@@ -1,9 +1,9 @@
 For pErrors.$line from 1 to pErrors.$linecount step 1
-	Do tvLogger.$error("#",pErrors.errorcode," in ",pErrors.pathname," on line ",pErrors.lineno,":")
+	Do tvLogger.$error("#",pErrors.errorcode," in ",pick(isclear(pErrors.pathname),pErrors.pathname,con("class ",pErrors.class.$pathname()))," on line ",pErrors.lineno,":")
 	Do tvLogger.$error(pErrors.errortext)
 End For
 
 For pWarnings.$line from 1 to pWarnings.$linecount step 1
-	Do tvLogger.$warning("#",pErrors.errorcode," in ",pErrors.pathname," on line ",pErrors.lineno,":")
-	Do tvLogger.$warning(pErrors.errortext)
+	Do tvLogger.$error("#",pWarnings.errorcode," in ",pick(isclear(pWarnings.pathname),pWarnings.pathname,con("class ",pWarnings.class.$pathname()))," on line ",pWarnings.lineno,":")
+	Do tvLogger.$warning(pWarnings.errortext)
 End For
