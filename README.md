@@ -23,12 +23,16 @@ To automatically register a library, it must satisfy the following requirements:
 ### Manual library registration
 The `GitTools -> Register library` menu option lets you register a library using either the path to the library or the path to its config file. This will also create an empty GitTools config file if the selected library does not have one yet.
 
-Finally, GitTools generates meta files for libraries to keep track of certain information. This information is *local only*. GitTools may also leave certain other artifacts behind, such as import backups and other artifacts when its interrupted. You should add the following lines to your repository's gitignore:
-```
-*.gittools.meta
-*.lbs.import
-*.lbs.bak
-```
+## Automated git config changes
+By default, GitTools will automatically modify the following files in your git repository (relative to the repository root):
+- `.gitignore`
+    GitTools creates and uses several files such as meta files that track local repository changes, temporary import artifacts, and library backups. These files should not be committed to the git repository. GitTools amends the `.gitignore` file to prevent these files from being picked up by git. The changes to this file should be committed to your repository.
+- `.gitattributes`
+    Git has no inherent understanding of the file formats Omnis uses. GitTools amends your repository's `.gitattributes` file to help git understand what to do with certain files. For example, this enables proper diffing of string table (.tsv) files, as these files use old-school Macintosh line endings (CR, no LF). The changes to this file should be committed to your repository.
+- `.git/config`
+    GitTools will amend your local repository config to add the custom diff-er for CR-based line endings mentioned above. In the future, GitTools may also add support for more advanced merge logic by using a custom merge driver.
+
+You can change this behavior in the GitTools settings (Settings -> Auto update repository config).
 
 ## GitTools config file format
 GitTools doesn't require much in the way of configuration. Currently, *all* configuration parameters are optional. To use the GitTools defaults, simply put `{}` in your GitTools config file. You can tweak the following options:
