@@ -9,5 +9,13 @@ If not(lvFileInfo.isdirectory)
 	Calculate pPath as FileOps.$parentdir(pPath)
 End If
 
-Do $cinst.$$execute('rev-parse --is-inside-work-tree >nul 2>&1 && echo 1 || echo 0',lvOutput,pPath)
+Switch platform()
+	Case 'N'
+		Do $cinst.$$execute('rev-parse --is-inside-work-tree >nul 2>&1 && echo 1 || echo 0',lvOutput,pPath)
+		Break to end of switch
+	Case 'X','U'
+		Do $cinst.$$execute('rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo 1 || echo 0',lvOutput,pPath)
+		Break to end of switch
+End Switch
+
 Quit method lvOutput='1'

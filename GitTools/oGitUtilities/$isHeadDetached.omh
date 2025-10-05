@@ -1,2 +1,10 @@
-Do $cinst.$$execute('symbolic-ref --quiet HEAD >nul 2>&1 && echo 1 || echo 0',lvOutput)
+Switch platform()
+	Case 'N'
+		Do $cinst.$$execute('symbolic-ref --quiet HEAD >nul 2>&1 && echo 1 || echo 0',lvOutput)
+		Break to end of switch
+	Case 'U','X'
+		Do $cinst.$$execute('symbolic-ref --quiet HEAD >/dev/null 2>&1 && echo 1 || echo 0',lvOutput)
+		Break to end of switch
+End Switch
+
 Quit method lvOutput='0'

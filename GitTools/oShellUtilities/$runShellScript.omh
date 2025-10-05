@@ -78,6 +78,7 @@ Switch platform()
 		End If
 		
 	Case "X"
+		Calculate pScript as replaceall(pScript,'"','\"')
 		Do $root.$runapplescript(con('do shell script "',pScript,'"'),lvOutput,lvError) Returns lvExitCode
 		
 		If pTrimOutput

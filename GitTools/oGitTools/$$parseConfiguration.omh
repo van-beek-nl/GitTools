@@ -15,6 +15,9 @@ If isclear(lvConfiguration)
 End If
 
 If isclear(lvConfiguration.jsonPath)
+	If isclear(lvConfiguration.$cols.jsonPath)
+		Do lvConfiguration.$cols.$add("jsonPath",kCharacter,kSimplechar)
+	End If
 	Calculate lvConfiguration.jsonPath as "./src"
 End If
 

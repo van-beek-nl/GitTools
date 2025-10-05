@@ -21,4 +21,7 @@ Line:exit 0
 End text block
 
 Get text block lvScript
+If platform()='U'|platform()='X'
+	Calculate lvScript as replaceall(lvScript,kCr,kLf)
+End If
 Quit method lvScript

@@ -9,7 +9,7 @@ If isclear(lvLibrary)
 	Do tvLogger.$debug("Opening library ",pLibraryID," for export")
 	Open library (Do not close others,Do not open startup task) [lvRegistration.libraryPath]
 	If flag false
-		Quit method tvLogger.$error("Unable to open library ",lvRegistration.libraryPath)
+		Do tvLogger.$error("Unable to open library ",lvRegistration.libraryPath)
 		Quit method kFalse
 	End If
 	
@@ -24,7 +24,11 @@ End If
 
 Calculate tvGit.$cwd as lvRegistration.repositoryRoot
 Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvLastSourceChangeCommitHash
-Do tvLogger.$debug("Source was last changed in commit #",lvLastSourceChangeCommitHash)
+If not(isclear(lvLastSourceChangeCommitHash))
+	Do tvLogger.$debug("Source was last changed in commit #",lvLastSourceChangeCommitHash)
+Else
+	Do tvLogger.$debug("Source has never been committed")
+End If
 
 If FileOps.$doesfileexist(lvRegistration.metaPath)
 	If not(lvFileOps.$openfile(lvRegistration.metaPath,kTrue))
@@ -37,14 +41,17 @@ If FileOps.$doesfileexist(lvRegistration.metaPath)
 		Quit method kFalse
 	End If
 	
+	Calculate lvMetaCommitHash as tvScripting.$trim(lvMetaCommitHash)
 	Do lvFileOps.$closefile()
 	Do tvLogger.$debug("Library meta commit hash is at #",lvMetaCommitHash)
 Else
 	Do tvLogger.$debug("Library does not have a meta commit hash")
 End If
 
-Do tvLogger.$debug("Clearing out any pending changes in source directory ",lvRegistration.jsonPath)
-Do tvGit.$resetDirectory(lvRegistration.jsonPath)
+If not(isclear(lvLastSourceChangeCommitHash))
+	Do tvLogger.$debug("Clearing out any pending changes in source directory ",lvRegistration.jsonPath)
+	Do tvGit.$resetDirectory(lvRegistration.jsonPath)
+End If
 
 If not(isclear(lvRegistration.preExportScript))
 	Do tvLogger.$info("Running pre-export script")
@@ -54,6 +61,8 @@ If not(isclear(lvRegistration.preExportScript))
 		Quit method kFalse
 	End If
 End If
+
+Do tvFileUtilities.$createDirectory(lvRegistration.jsonPath)
 
 # Temporarily change export options
 Calculate lvOptionsToRestore as $root.$prefs.$exportimportjsonoptions

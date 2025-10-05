@@ -1,5 +1,13 @@
-If not($cinst.$$execute(con('log -1 --pretty=format:"%H" -- "',pPath,'"'),lvOutput))
-	Signal error -1,lvOutput
-End If
+Calculate lvScript as con('log -1 --pretty=format:"%H" -- "',pPath,'"')
 
+Switch platform()
+	Case 'N'
+		Calculate lvScript as con(lvScript,' 2>nul || echo (')
+		Break to end of switch
+	Case 'U','X'
+		Calculate lvScript as con(lvScript,' 2>/dev/null || echo ""')
+		Break to end of switch
+End Switch
+
+Do $cinst.$$execute(lvScript,lvOutput)
 Quit method lvOutput

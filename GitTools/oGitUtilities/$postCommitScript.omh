@@ -27,16 +27,18 @@ Line:    else
 Line:        META_HASH=""
 Line:    fi
 Line:
-Line:    readarray -t SOURCE_COMMITS < <(git log -2 --pretty=format:"%H" -- "$SOURCE_DIRECTORY")
-Line:    SOURCE_CURRENT_HASH="${SOURCE_COMMITS[[0]}"
-Line:    SOURCE_PREVIOUS_HASH="${SOURCE_COMMITS[[1]}"
+Line:    SOURCE_CURRENT_HASH=$(git log -2 --pretty=format:"%H" -- "$SOURCE_DIRECTORY" | sed -n '1p')
+Line:    SOURCE_PREVIOUS_HASH=$(git log -2 --pretty=format:"%H" -- "$SOURCE_DIRECTORY" | sed -n '2p')
 Line:
 Line:    if [[ "$SOURCE_CURRENT_HASH" = "$NEW_COMMIT" ] && [[ "$META_HASH" = "$SOURCE_PREVIOUS_HASH" ]; then
 Line:        echo "[[gittools] Bumping hash for $META_FILE from $META_HASH to $NEW_COMMIT"
-Line:        echo -n "$NEW_COMMIT" > "$META_FILE"
+Line:        printf "%s" "$NEW_COMMIT" > "$META_FILE"
 Line:    fi
 Line:done < "$MAPPINGS"
 End text block
 
 Get text block lvScript
+If platform()='U'|platform()='X'
+	Calculate lvScript as replaceall(lvScript,kCr,kLf)
+End If
 Quit method lvScript

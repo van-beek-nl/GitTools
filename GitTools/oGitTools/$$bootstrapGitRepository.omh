@@ -91,6 +91,11 @@ Else
 End If
 
 If lvIsOk
+	If pos('.DS_Store',lvGitIgnore)=0
+		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'.DS_Store')
+		Calculate lvDidUpdateGitIgnore as kTrue
+	End If
+	
 	If pos('*.gittools.meta',lvGitIgnore)=0
 		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.gittools.meta')
 		Calculate lvDidUpdateGitIgnore as kTrue

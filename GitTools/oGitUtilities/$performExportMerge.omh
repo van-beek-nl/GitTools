@@ -47,8 +47,10 @@ End If
 Switch platform()
 	Case 'N'
 		Calculate lvScript as con('for /f "delims=" %f in (',"'",$cinst.$$formatCommand(con('diff --name-only --cached --diff-filter=u -- "',pPath,'"')),"'",') do ',$cinst.$$formatCommand('reset "%f"'))
+		Break to end of switch
 	Case 'X','U'
 		Calculate lvScript as con($cinst.$$formatCommand('reset'),' $(',$cinst.$$formatCommand(con('diff --name-only --cached --diff-filter=u -- "',pPath,'"')),')')
+		Break to end of switch
 End Switch
 
 If not(tvScripting.$runShellScript(lvScript,lvOutput))

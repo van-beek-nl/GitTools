@@ -13,6 +13,6 @@ Repeat
 		Do tvLogger.$debug("Detected git lock file error. Retrying after ",cvLockAttemptInterval,"ms (",lvLockAttempts,"/",cvMaxLockRetries,")")
 		Do sleep(cvLockAttemptInterval)
 	End If
-Until lvIsOk|lvLockAttempts>=cvMaxLockRetries
+Until lvIsOk|lvLockAttempts=0|lvLockAttempts>=cvMaxLockRetries
 
 Quit method lvIsOk

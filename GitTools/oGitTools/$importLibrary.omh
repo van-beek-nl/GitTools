@@ -31,7 +31,9 @@ End If
 
 Calculate tvGit.$cwd as lvRegistration.repositoryRoot
 Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvImportCommitHash
-Do tvLogger.$debug("Source is at commit #",lvImportCommitHash)
+If not(isclear(lvImportCommitHash))
+	Do tvLogger.$debug("Source is at commit #",lvImportCommitHash)
+End If
 
 If not(isclear(lvRegistration.preImportScript))
 	Do tvLogger.$info("Running pre-import script")
@@ -100,25 +102,27 @@ If lvFileOpsCode<>kFileOpsOK
 	Quit method kFalse
 End If
 
-Do tvLogger.$debug("Writing import data to meta file ",lvRegistration.metaPath)
-If FileOps.$doesfileexist(lvRegistration.metaPath)
-	If not(lvFileOps.$openfile(lvRegistration.metaPath))
-		Do tvLogger.$error("Import failed - Unable to open meta file (FileOps #",lvFileOps.$getlasterror(),")")
+If not(isclear(lvImportCommitHash))
+	Do tvLogger.$debug("Writing import data to meta file ",lvRegistration.metaPath)
+	If FileOps.$doesfileexist(lvRegistration.metaPath)
+		If not(lvFileOps.$openfile(lvRegistration.metaPath))
+			Do tvLogger.$error("Import failed - Unable to open meta file (FileOps #",lvFileOps.$getlasterror(),")")
+			Quit method kFalse
+		End If
+	Else
+		If not(lvFileOps.$createfile(lvRegistration.metaPath))
+			Do tvLogger.$error("Import failed - Unable to create meta file (FileOps #",lvFileOps.$getlasterror(),")")
+			Quit method kFalse
+		End If
+	End If
+	
+	If not(lvFileOps.$writecharacter(kUniTypeUTF8,lvImportCommitHash,kFalse,kFalse))
+		Do tvLogger.$error("Import failed - Unable to write to meta file (FileOps #",lvFileOps.$getlasterror(),")")
 		Quit method kFalse
 	End If
-Else
-	If not(lvFileOps.$createfile(lvRegistration.metaPath))
-		Do tvLogger.$error("Import failed - Unable to create meta file (FileOps #",lvFileOps.$getlasterror(),")")
-		Quit method kFalse
-	End If
+	
+	Do lvFileOps.$closefile()
 End If
-
-If not(lvFileOps.$writecharacter(kUniTypeUTF8,lvImportCommitHash,kFalse,kFalse))
-	Do tvLogger.$error("Import failed - Unable to write to meta file (FileOps #",lvFileOps.$getlasterror(),")")
-	Quit method kFalse
-End If
-
-Do lvFileOps.$closefile()
 
 If lvLibraryWasOpen
 	Do tvLogger.$debug("Re-opening library ",pick(lvStartupTaskWasOpen,"without","with")," startup task")

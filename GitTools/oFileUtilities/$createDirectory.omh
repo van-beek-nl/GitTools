@@ -1,3 +1,5 @@
+Quit method FileOps.$createdir(pPath,kTrue)
+
 # Kindly stolen from http://www.studiotips.net/docs/tips/functions/fileops.html <3
 
 # Split the path and then loop through the folders path checking each directory.
