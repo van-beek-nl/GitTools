@@ -1,13 +1,11 @@
-Calculate lvScript as con('log -1 --pretty=format:"%H" -- "',pPath,'"')
+If not($cinst.$$execute(con('log -1 --pretty=format:"%H" -- "',pPath,'"'),lvOutput))
+	# Hotfix: git log returns an error when the repository exists but does not have any commits yet.
+	# For now, return an empty string when this occurs.
+	If pos('does not have any commits yet',lvOutput)>0
+		Quit method ""
+	End If
+	
+	Signal error -1,lvOutput
+End If
 
-Switch platform()
-	Case 'N'
-		Calculate lvScript as con(lvScript,' 2>nul || echo (')
-		Break to end of switch
-	Case 'U','X'
-		Calculate lvScript as con(lvScript,' 2>/dev/null || echo ""')
-		Break to end of switch
-End Switch
-
-Do $cinst.$$execute(lvScript,lvOutput)
 Quit method lvOutput
