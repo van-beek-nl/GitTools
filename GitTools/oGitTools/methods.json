@@ -23,6 +23,13 @@
 				"type": "kList",
 				"subtype": "",
 				"sublen": 0
+			},
+			{
+				"name": "lvShowingWorkingMessage",
+				"order": 2,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
 			}
 		]
 	},

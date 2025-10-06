@@ -1,5 +1,5 @@
 If isclear(cvWorkingMessage)
-	Quit method
+	Quit method kFalse
 End If
 
 If not(isnull(pTitle))
@@ -9,3 +9,5 @@ End If
 If not(isnull(pBody))
 	Calculate cvWorkingMessage.$secondary as pBody
 End If
+
+Quit method kTrue

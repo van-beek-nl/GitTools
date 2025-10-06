@@ -1,8 +1,15 @@
-# Do tvLogger.$showWorkingMessage("Registering libraries")
+Do tvLogger.$showWorkingMessage("Registering libraries") Returns lvShowingWorkingMessage
 Do tvLogger.$debug("Attempting to register all currently open libraries")
+
 Do $libs.$makelist($ref) Returns lvOpenLibraries
 For lvOpenLibraries.$line from 1 to lvOpenLibraries.$linecount step 1
-	# Do tvLogger.$updateWorkingMessage(#NULL,con(lvOpenLibraries.C1().$name," (",lvOpenLibraries.$line,"/",lvOpenLibraries.$linecount,")"))
+	If lvShowingWorkingMessage
+		Do tvLogger.$updateWorkingMessage(#NULL,con(lvOpenLibraries.C1().$name," (",lvOpenLibraries.$line,"/",lvOpenLibraries.$linecount,")"))
+	End If
+	
 	Do $cinst.$registerLibrary(lvOpenLibraries.C1)
 End For
-# Do tvLogger.$closeWorkingMessage()
+
+If lvShowingWorkingMessage
+	Do tvLogger.$closeWorkingMessage()
+End If
