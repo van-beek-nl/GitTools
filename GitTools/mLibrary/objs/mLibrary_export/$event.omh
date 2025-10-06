@@ -3,14 +3,21 @@ On evClick
 	Do tvGitTools.$exportLibrary(ivLibraryID,lvMergeConflicts) Returns lvIsOk
 	Do tvLogger.$closeWorkingMessage()
 	
-	Calculate lvResultMessage as con('Export of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
 	If not(lvIsOk)
-		Calculate lvResultMessage as con(lvResultMessage,' Check the trace log for details.')
 		Open trace log
-	Else
-		If lvMergeConflicts.$linecount>0
-			Calculate lvResultMessage as con(lvResultMessage,' Merge of exported changes with external changes caused ',lvMergeConflicts.$linecount,' merge conflict',pick(lvMergeConflicts.$linecount=1,'s',''),'.')
-		End If
+		OK message [ivLibraryID] - Export failed {Check the trace log for details.}
+	Else If lvMergeConflicts.$linecount>0
+		OK message [ivLibraryID] - Export created merge conflicts {Export created [lvMergeConflicts.$linecount] merge conflict[pick(lvMergeConflicts.$linecount=1,'s','')].}
 	End If
 	
-	OK message GitTools - Export results {[lvResultMessage]}
+	# Calculate lvResultMessage as con('Export of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
+	# If not(lvIsOk)
+	# Calculate lvResultMessage as con(lvResultMessage,' Check the trace log for details.')
+	# Open trace log
+	# Else
+	# If lvMergeConflicts.$linecount>0
+	# Calculate lvResultMessage as con(lvResultMessage,' Merge of exported changes with external changes caused ',lvMergeConflicts.$linecount,' merge conflict',pick(lvMergeConflicts.$linecount=1,'s',''),'.')
+	# End If
+	# End If
+	
+	# OK message GitTools - Export results {[lvResultMessage]}

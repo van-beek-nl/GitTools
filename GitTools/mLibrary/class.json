@@ -1,7 +1,7 @@
 {
 	"classtype": "kMenu",
 	"omnisversion": "10.2",
-	"internalversion": 74,
+	"internalversion": 78,
 	"designtaskname": "GitTools",
 	"nextident": 1020,
 	"cvardefs": [
@@ -31,7 +31,7 @@
 		"helptext": "",
 		"inheritedorder": 0,
 		"issupercomponent": false,
-		"moddate": "2025-10-02 08:22:56",
+		"moddate": "2025-10-06 07:55:14",
 		"showascheckedout": false,
 		"title": {
 			"type": 0,
