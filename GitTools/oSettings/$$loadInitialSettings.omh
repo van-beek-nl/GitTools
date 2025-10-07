@@ -1,21 +1,12 @@
 If isclear(ivSettings.logLevel)
-	If isclear(ivSettings.$cols.logLevel)
-		Do ivSettings.$cols.$add("logLevel",kCharacter,kSimplechar)
-	End If
 	Calculate ivSettings.logLevel as "info"
 End If
 
 If isclear(ivSettings.gitExecutable)
-	If isclear(ivSettings.$cols.gitExecutable)
-		Do ivSettings.$cols.$add("gitExecutable",kCharacter,kSimplechar)
-	End If
 	Calculate ivSettings.gitExecutable as "git"
 End If
 
 If isnull(ivSettings.autoUpdateRepositoryConfig)
-	If isclear(ivSettings.$cols.autoUpdateRepositoryConfig)
-		Do ivSettings.$cols.$add("autoUpdateRepositoryConfig",kBoolean)
-	End If
 	Calculate ivSettings.autoUpdateRepositoryConfig as kTrue
 End If
 
