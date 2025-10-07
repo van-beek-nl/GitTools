@@ -7,7 +7,7 @@ Line:[[ ! -d "$HOOK_DIR" ] && exit 0
 Line:
 Line:echo "[[post-commit] Executing all post-commit scripts..."
 Line:
-Line:# Iterate over all files in the directory
+Line:# Iterate over all post-commit hooks
 Line:for hook in "$HOOK_DIR"/*; do
 Line:    # Skip non-executable files
 Line:    [[ ! -x "$hook" ] && continue
@@ -22,6 +22,6 @@ End text block
 
 Get text block lvScript
 If platform()='U'|platform()='X'
-	Calculate lvScript as replaceall(lvScript,kCr,kLf)
+	Calculate lvScript as replaceall(lvScript,kCr,kLf) ## Linux and macOS shells want line feeds
 End If
 Quit method lvScript

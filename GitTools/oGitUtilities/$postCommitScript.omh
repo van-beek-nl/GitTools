@@ -1,37 +1,47 @@
 Begin text block
 Line:#!/bin/sh
 Line:
+Line:# Some git clients (such as Fork) do not set the git environment variables when executing hooks.
+Line:# The git documentation dictates that it should, so this is probably a bug in Fork.
 Line:if [[ -z "$GIT_DIR" ]; then
 Line:    echo "[[gittools] WARN: GIT_DIR environment variable not set. Assuming we're in the default location..."
 Line:    GIT_DIR="$(cd "$(dirname "${BASH_SOURCE[[0]}")/../.." && pwd)"
 Line:fi
 Line:
+Line:# GitTools maintains a meta mappings file in the .git directory, mapping each meta file to a source directory
 Line:MAPPINGS="$GIT_DIR/gittools-mapping.meta"
 Line:if [[ ! -f "$MAPPINGS" ]; then
 Line:    echo "[[gittools] Meta mappings file $MAPPINGS not found. Skipping."
 Line:    exit 0
 Line:fi
 Line:
-Line:# Get new commit hash
+Line:# Get the commit hash of the new commit
 Line:NEW_COMMIT=$(git rev-parse HEAD)
 Line:
+Line:# Loop over all meta mappings
 Line:while read -r LINE; do
 Line:    SOURCE_DIRECTORY=${LINE%|*}
 Line:    META_FILE=${LINE#*|}
 Line:
+Line:    # Skip any projects that are mapped to a non-existent source directory
 Line:    [[ -z "$SOURCE_DIRECTORY" ] && continue
 Line:
+Line:    # Read the meta commit hash from the meta file
 Line:    if [[ -f "$META_FILE" ]; then
 Line:        META_HASH=$(cat "$META_FILE" | xargs)
 Line:    else
 Line:        META_HASH=""
 Line:    fi
 Line:
+Line:    # Read the current and previous commit hashes of the source directory (not the entire repository)
 Line:    SOURCE_CURRENT_HASH=$(git log -2 --pretty=format:"%H" -- "$SOURCE_DIRECTORY" | sed -n '1p')
 Line:    SOURCE_PREVIOUS_HASH=$(git log -2 --pretty=format:"%H" -- "$SOURCE_DIRECTORY" | sed -n '2p')
 Line:
-Line:    if [[ "$SOURCE_CURRENT_HASH" = "$NEW_COMMIT" ] && [[ "$META_HASH" = "$SOURCE_PREVIOUS_HASH" ]; then
-Line:        echo "[[gittools] Bumping hash for $META_FILE from $META_HASH to $NEW_COMMIT"
+Line:    # Bump meta commit if:
+Line:    # - The source was updated in the new commit
+Line:    # - The source has not been committed yet *OR* the meta commit equals the source's previous commit hash
+Line:    if [[ "$SOURCE_CURRENT_HASH" = "$NEW_COMMIT" ] && ([[ -z "$SOURCE_PREVIOUS_HASH" ] || [[ "$META_HASH"="$SOURCE_PREVIOUS_HASH" ]); then
+Line:        echo "[[gittools] Bumping hash for $META_FILE from \"$META_HASH\" to \"$NEW_COMMIT\""
 Line:        printf "%s" "$NEW_COMMIT" > "$META_FILE"
 Line:    fi
 Line:done < "$MAPPINGS"
@@ -39,6 +49,6 @@ End text block
 
 Get text block lvScript
 If platform()='U'|platform()='X'
-	Calculate lvScript as replaceall(lvScript,kCr,kLf)
+	Calculate lvScript as replaceall(lvScript,kCr,kLf) ## Linux and macOS shells want line feeds
 End If
 Quit method lvScript
