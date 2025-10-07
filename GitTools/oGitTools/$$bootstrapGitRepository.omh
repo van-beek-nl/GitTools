@@ -91,25 +91,20 @@ Else
 End If
 
 If lvIsOk
-	If pos('.DS_Store',lvGitIgnore)=0
-		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'.DS_Store')
-		Calculate lvDidUpdateGitIgnore as kTrue
-	End If
+	Calculate lvGitIgnoreRules as split(lvGitIgnore,kLf,kTrue)
+	Do lvRequiredGitIgnoreRules.$cols.$add("rule",kCharacter,kSimplechar)
+	Do lvRequiredGitIgnoreRules.$add(".DS_Store")
+	Do lvRequiredGitIgnoreRules.$add("*.gittools.meta")
+	Do lvRequiredGitIgnoreRules.$add("*.lbs.import")
+	Do lvRequiredGitIgnoreRules.$add("*.lbs.bak")
+	Do lvRequiredGitIgnoreRules.$add("*.lbs")
 	
-	If pos('*.gittools.meta',lvGitIgnore)=0
-		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.gittools.meta')
-		Calculate lvDidUpdateGitIgnore as kTrue
-	End If
-	
-	If pos('*.lbs.import',lvGitIgnore)=0
-		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.lbs.import')
-		Calculate lvDidUpdateGitIgnore as kTrue
-	End If
-	
-	If pos('*.lbs.bak',lvGitIgnore)=0
-		Calculate lvGitIgnore as con(lvGitIgnore,kLf,'*.lbs.bak')
-		Calculate lvDidUpdateGitIgnore as kTrue
-	End If
+	For lvRequiredGitIgnoreRules.$line from 1 to lvRequiredGitIgnoreRules.$linecount step 1
+		If isclear(lvGitIgnoreRules.$first(kFalse,kFalse,$ref.C1=lvRequiredGitIgnoreRules.C1))
+			Calculate lvGitIgnore as con(lvGitIgnore,kLf,lvRequiredGitIgnoreRules.C1)
+			Calculate lvDidUpdateGitIgnore as kTrue
+		End If
+	End For
 	
 	Calculate lvGitIgnore as trim(lvGitIgnore,kTrue,kTrue,kLf)
 	Do lvFile.$writecharacter(kUniTypeUTF8,lvGitIgnore,kFalse,kFalse)
@@ -128,24 +123,26 @@ End If
 Calculate lvGitAttributesPath as tvFileUtilities.$join(pRegistration.repositoryRoot,".gitattributes")
 If FileOps.$doesfileexist(lvGitAttributesPath)
 	Do lvFile.$openfile(lvGitAttributesPath) Returns lvIsOk
-	Do lvFile.$readcharacter(kUniTypeUTF8,lvGitAttributes)
+	Do lvFile.$readcharacter(kUniTypeUTF8,lvGitAttributesText)
 Else
 	Do lvFile.$createfile(lvGitAttributesPath) Returns lvIsOk
 End If
 
 If lvIsOk
-	If pos('*.tsv diff=cr',lvGitAttributes)=0
-		Calculate lvGitAttributes as con(lvGitAttributes,kLf,'*.tsv diff=cr')
-		Calculate lvDidUpdateGitAttributes as kTrue
-	End If
+	Calculate lvGitAttributes as split(lvGitAttributesText,kLf,kTrue)
+	Do lvRequiredGitAttributes.$cols.$add("rule",kCharacter,kSimplechar)
+	Do lvRequiredGitAttributes.$add("*.tsv diff=cr")
+	Do lvRequiredGitAttributes.$add("*.df1 binary")
 	
-	If pos('*.df1 binary',lvGitAttributes)=0
-		Calculate lvGitAttributes as con(lvGitAttributes,kLf,'*.df1 binary')
-		Calculate lvDidUpdateGitAttributes as kTrue
-	End If
+	For lvRequiredGitAttributes.$line from 1 to lvRequiredGitAttributes.$linecount step 1
+		If isclear(lvGitAttributes.$first(kFalse,kFalse,$ref.C1=lvRequiredGitAttributes.C1))
+			Calculate lvGitAttributesText as con(lvGitAttributesText,kLf,lvRequiredGitAttributes.C1)
+			Calculate lvDidUpdateGitAttributes as kTrue
+		End If
+	End For
 	
-	Calculate lvGitAttributes as trim(lvGitAttributes,kTrue,kTrue,kLf)
-	Do lvFile.$writecharacter(kUniTypeUTF8,lvGitAttributes,kFalse,kFalse)
+	Calculate lvGitAttributesText as trim(lvGitAttributesText,kTrue,kTrue,kLf)
+	Do lvFile.$writecharacter(kUniTypeUTF8,lvGitAttributesText,kFalse,kFalse)
 	Do lvFile.$closefile()
 	
 	If lvDidUpdateGitAttributes

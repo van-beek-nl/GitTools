@@ -755,14 +755,21 @@
 			},
 			{
 				"name": "lvGitAttributes",
-				"order": 13,
+				"order": 18,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvGitAttributesPath",
+				"order": 11,
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
 			},
 			{
-				"name": "lvGitAttributesPath",
-				"order": 11,
+				"name": "lvGitAttributesText",
+				"order": 13,
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
@@ -803,6 +810,13 @@
 				"sublen": 100000000
 			},
 			{
+				"name": "lvGitIgnoreRules",
+				"order": 19,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
 				"name": "lvGitToolsPostCommitHookPath",
 				"order": 8,
 				"type": "kCharacter",
@@ -836,6 +850,20 @@
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
+			},
+			{
+				"name": "lvRequiredGitAttributes",
+				"order": 21,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvRequiredGitIgnoreRules",
+				"order": 20,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
 			}
 		]
 	},
