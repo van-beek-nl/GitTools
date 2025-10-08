@@ -50,10 +50,38 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvConfigText",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
 				"name": "lvConfiguration",
 				"order": 2,
 				"type": "kRow",
 				"subtype": "sLibraryConfiguration",
+				"sublen": 0
+			},
+			{
+				"name": "lvError",
+				"order": 6,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvFile",
+				"order": 3,
+				"type": "kObject",
+				"subtype": ".FileOps.FileOps",
+				"sublen": 0
+			},
+			{
+				"name": "lvParsedConfig",
+				"order": 7,
+				"type": "kRow",
+				"subtype": "",
 				"sublen": 0
 			},
 			{
@@ -631,59 +659,6 @@
 		],
 		"lvardefs": [
 
-		]
-	},
-	{
-		"name": "$$parseConfiguration",
-		"order": 16,
-		"desc": "Parses the given GitTools config file, returning the parsed data or #NULL if the config file could not be parsed.",
-		"pvardefs": [
-			{
-				"name": "pConfigPath",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"param": 1,
-				"desc": "Path to GitTools configuration file."
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvConfigFile",
-				"order": 2,
-				"type": "kObject",
-				"subtype": ".FileOps.FileOps",
-				"sublen": 0
-			},
-			{
-				"name": "lvConfigString",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvConfiguration",
-				"order": 4,
-				"type": "kRow",
-				"subtype": "sLibraryConfiguration",
-				"sublen": 0
-			},
-			{
-				"name": "lvError",
-				"order": 5,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvFileInfo",
-				"order": 6,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			}
 		]
 	},
 	{

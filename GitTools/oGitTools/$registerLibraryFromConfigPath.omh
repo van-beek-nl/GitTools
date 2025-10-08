@@ -20,15 +20,25 @@ If ivRegisteredLibraries.$search($ref.libraryPath=lvRegistration.libraryPath,kTr
 	Quit method kTrue
 End If
 
-If not(FileOps.$doesfileexist(lvRegistration.configPath))
-	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as it does not have a GitTools config file.")
+# Read config file
+If not(lvFile.$openfile(pConfigFilePath))
+	Do tvLogger.$error("Skipping registration of ",lvRegistration.id," as its config file could not be opened.")
+	Quit method kFalse
+End If
+Do lvFile.$readcharacter(kUniTypeUTF8,lvConfigText)
+Do lvFile.$closefile()
+
+# Parse config file
+Do OJSON.$jsontolistorrow(lvConfigText,lvError,kTrue) Returns lvParsedConfig
+If isnull(lvParsedConfig)
+	Do tvLogger.$error("Skipping registration of ",lvRegistration.id," as its config file could not be parsed: ",lvError)
 	Quit method kFalse
 End If
 
-Calculate lvConfiguration as $cinst.$$parseConfiguration(pConfigFilePath)
-If isnull(lvConfiguration)
-	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as its config file could not be parsed.")
-	Quit method kFalse
+# Sanitize config
+Do lvConfiguration.$assignrow(lvParsedConfig,kTrue)
+If isclear(lvConfiguration.jsonPath)
+	Calculate lvConfiguration.jsonPath as "./src"
 End If
 
 Calculate lvRegistration.jsonPath as tvFileUtilities.$normalizePath(tvFileUtilities.$join(FileOps.$parentdir(lvRegistration.libraryPath),lvConfiguration.jsonPath))
