@@ -1,6 +1,5 @@
 # Remember the branch we're on and the commit we're currently at.
 Do $cinst.$getBranch() Returns lvCurrentBranch
-Do $cinst.$getCommitHash() Returns lvCurrentCommitHash
 
 # Detach git HEAD
 If not($cinst.$$execute('checkout --detach',lvOutput))

@@ -180,33 +180,5 @@
 			"primarykey": false,
 			"userinfo": ""
 		}
-	},
-	{
-		"name": "preReleaseScript",
-		"ident": 32017,
-		"order": 14,
-		"type": "kList",
-		"subtype": "<character>",
-		"sublen": 0,
-		"properties": {
-			"desc": "",
-			"nonull": false,
-			"primarykey": false,
-			"userinfo": ""
-		}
-	},
-	{
-		"name": "postReleaseScript",
-		"ident": 32018,
-		"order": 15,
-		"type": "kList",
-		"subtype": "<character>",
-		"sublen": 0,
-		"properties": {
-			"desc": "",
-			"nonull": false,
-			"primarykey": false,
-			"userinfo": ""
-		}
 	}
 ]

@@ -1,7 +1,7 @@
 {
 	"classtype": "kSchema",
 	"omnisversion": "10.2",
-	"internalversion": 10,
+	"internalversion": 11,
 	"nextident": 32024,
 	"properties": {
 		"componenticon": 0,
@@ -12,7 +12,7 @@
 		"editor": "",
 		"editordata": "",
 		"external": true,
-		"moddate": "2025-09-18 16:10:40",
+		"moddate": "2025-10-07 14:55:04",
 		"servertablename": "",
 		"showascheckedout": false,
 		"userinfo": "",

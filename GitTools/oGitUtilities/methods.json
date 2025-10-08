@@ -279,13 +279,6 @@
 				"sublen": 100000000
 			},
 			{
-				"name": "lvCurrentCommitHash",
-				"order": 2,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
 				"name": "lvDanglingCommitHash",
 				"order": 5,
 				"type": "kCharacter",
