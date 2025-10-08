@@ -7,7 +7,7 @@ Switch platform()
 	Case 'N'
 		Quit method $cinst.$runShellScript(con('start "" "',pPath,'"'),_,_,kTrue,kFalse)
 	Case 'X'
-		Quit method $cinst.$runShellScript(con('do shell script ',"'",'open "',pPath,'"',"'"))
+		Quit method $cinst.$runShellScript(con('open "',pPath,'"'))
 	Default
 		Do tvLogger.$error("Unable to open path - unsupported platform: ",platform())
 		Quit method kFalse
