@@ -40,7 +40,7 @@ Line:
 Line:    # Bump meta commit if:
 Line:    # - The source was updated in the new commit
 Line:    # - The source has not been committed yet *OR* the meta commit equals the source's previous commit hash
-Line:    if [[ "$SOURCE_CURRENT_HASH" = "$NEW_COMMIT" ] && ([[ -z "$SOURCE_PREVIOUS_HASH" ] || [[ "$META_HASH"="$SOURCE_PREVIOUS_HASH" ]); then
+Line:    if [[ "$SOURCE_CURRENT_HASH" = "$NEW_COMMIT" ] && ([[ -z "$SOURCE_PREVIOUS_HASH" ] || [[ "$META_HASH" = "$SOURCE_PREVIOUS_HASH" ]); then
 Line:        echo "[[gittools] Bumping hash for $META_FILE from \"$META_HASH\" to \"$NEW_COMMIT\""
 Line:        printf "%s" "$NEW_COMMIT" > "$META_FILE"
 Line:    fi
