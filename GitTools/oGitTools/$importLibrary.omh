@@ -89,11 +89,13 @@ If FileOps.$doesfileexist(lvBackupPath)
 	End If
 End If
 
-Do tvLogger.$debug("Backing up existing library ",lvRegistration.libraryPath)
-Do FileOps.$movefile(lvRegistration.libraryPath,lvBackupPath) Returns lvFileOpsCode
-If lvFileOpsCode<>kFileOpsOK
-	Do tvLogger.$error("Import failed - Unable to create backup (FileOps #",lvFileOpsCode,")")
-	Quit method kFalse
+If FileOps.$doesfileexist(lvRegistration.libraryPath)
+	Do tvLogger.$debug("Backing up existing library ",lvRegistration.libraryPath)
+	Do FileOps.$movefile(lvRegistration.libraryPath,lvBackupPath) Returns lvFileOpsCode
+	If lvFileOpsCode<>kFileOpsOK
+		Do tvLogger.$error("Import failed - Unable to create backup (FileOps #",lvFileOpsCode,")")
+		Quit method kFalse
+	End If
 End If
 
 Do FileOps.$movefile(lvImportPath,lvRegistration.libraryPath) Returns lvFileOpsCode
