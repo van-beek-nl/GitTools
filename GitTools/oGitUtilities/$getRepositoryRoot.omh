@@ -9,6 +9,16 @@ If not(lvFileInfo.isdirectory)
 	Calculate pPath as FileOps.$parentdir(pPath)
 End If
 
+# We usually want to return the parent repository root for submodules and the like.
+# This is because submodules don't have a .git directory (they have a .git file instead),
+# which prevents us from doing things like installing post-commit hooks.
+If pCheckForParent
+	Do $cinst.$getParentRepositoryRoot(pPath) Returns lvOutput
+	If not(isclear(lvOutput))
+		Quit method lvOutput
+	End If
+End If
+
 If not($cinst.$$execute('rev-parse --show-toplevel',lvOutput,pPath))
 	If not($cinst.$isInRepository(pPath))
 		Quit method ""

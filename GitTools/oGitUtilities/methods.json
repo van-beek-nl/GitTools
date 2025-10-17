@@ -68,6 +68,15 @@
 				"subtype": "kSimplechar",
 				"sublen": 100000000,
 				"param": 1
+			},
+			{
+				"name": "pCheckForParent",
+				"order": 5,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kTrue"
 			}
 		],
 		"lvardefs": [
@@ -329,6 +338,29 @@
 		"order": 13,
 		"pvardefs": [
 
+		],
+		"lvardefs": [
+			{
+				"name": "lvOutput",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			}
+		]
+	},
+	{
+		"name": "$getParentRepositoryRoot",
+		"order": 14,
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
 		],
 		"lvardefs": [
 			{
