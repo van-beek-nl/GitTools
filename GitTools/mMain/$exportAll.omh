@@ -1,6 +1,21 @@
 Calculate lvLibraries as tvGitTools.$libraries
 Do lvLibraries.$sort($ref.id,kFalse)
 
+If lvLibraries.$linecount=1
+	Do tvLogger.$showWorkingMessage(con('Importing ',lvLibraries.1.id))
+	Do tvGitTools.$exportLibrary(lvLibraries.1.id,lvMergeConflicts) Returns lvIsOk
+	Do tvLogger.$closeWorkingMessage()
+	
+	If not(lvIsOk)
+		Open trace log
+		OK message [lvLibraries.1.id] - Export failed {Check the trace log for details.}
+	Else If lvMergeConflicts.$linecount>0
+		OK message [lvLibraries.1.id] - Export created merge conflicts {Export created [lvMergeConflicts.$linecount] merge conflict[pick(lvMergeConflicts.$linecount=1,'s','')].}
+	End If
+	
+	Quit method
+End If
+
 Do lvFailures.$cols.$add("id",kCharacter,kSimplechar)
 Do lvLibrariesWithMergeConflicts.$cols.$add("id",kCharacter,kSimplechar)
 Do lvLibrariesWithMergeConflicts.$cols.$add("amount",kInteger,k32bitint)

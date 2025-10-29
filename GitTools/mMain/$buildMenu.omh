@@ -7,28 +7,29 @@ If not(tvGit.$isAvailable)
 	Do $cinst.$objs.$add("Git >= v2.23 unavailable")
 Else
 	Calculate lvLibraries as tvGitTools.$libraries
-	Do lvLibraries.$sort($ref.id,kFalse)
-	For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
-		Do $cinst.$objs.$add(lvLibraries.id,kTrue) Returns lvMenuEntry
-		Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.id)
-		Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.id
-	End For
 	
 	If lvLibraries.$linecount>1
-		Do $cinst.$objs.$add("")
+		Do lvLibraries.$sort($ref.id,kFalse)
+		For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
+			Do $cinst.$objs.$add(lvLibraries.id,kTrue) Returns lvMenuEntry
+			Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.id)
+			Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.id
+		End For
 		
-		Do $cinst.$objs.$add("Import all") Returns lvMenuEntry
+		Do $cinst.$objs.$add("")
+	End If
+	
+	If lvLibraries.$linecount>0
+		Do $cinst.$objs.$add(con("Import ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all"))) Returns lvMenuEntry
 		Calculate lvMenuEntry.$enabled as kTrue
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$importAll()")
 		
-		Do $cinst.$objs.$add("Export all") Returns lvMenuEntry
+		Do $cinst.$objs.$add(con("Export ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all"))) Returns lvMenuEntry
 		Calculate lvMenuEntry.$enabled as kTrue
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$exportAll()")
-	End If
-	
-	If lvLibraries.$linecount>0
+		
 		Do $cinst.$objs.$add("")
 	End If
 	
