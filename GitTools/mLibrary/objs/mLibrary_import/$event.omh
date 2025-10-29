@@ -7,11 +7,3 @@ On evClick
 		Open trace log
 		OK message [ivLibraryID] - Import failed {Check the trace log for details.}
 	End If
-	
-	# Calculate lvResultMessage as con('Import of library ',ivLibraryID,' ',pick(lvIsOk,'failed','succeeded'),'.')
-	# If not(lvIsOk)
-	# Calculate lvResultMessage as con(lvResultMessage,' Check the trace log for details.')
-	# Open trace log
-	# End If
-	
-	# OK message GitTools - Import results {[lvResultMessage]}
