@@ -13,4 +13,4 @@ End If
 Do lvFile.$writecharacter(kUniTypeUTF8,lvScript,kFalse,kFalse)
 Do lvFile.$closefile()
 
-Quit method $cinst.$runShellScript(con('"',lvScriptPath,'" "',pSourceDirectory,'"'),,,kFalse,kFalse)
+Quit method $cinst.$runShellScript(con('"',lvScriptPath,'" "',pSourceDirectory,'"'),lvOutput,lvExitCode,kFalse,kFalse)

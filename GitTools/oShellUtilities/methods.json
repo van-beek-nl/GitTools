@@ -235,11 +235,25 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvExitCode",
+				"order": 5,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
 				"name": "lvFile",
 				"order": 2,
 				"type": "kObject",
 				"subtype": ".FileOps.FileOps",
 				"sublen": 0
+			},
+			{
+				"name": "lvOutput",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
 			},
 			{
 				"name": "lvScript",
@@ -272,11 +286,25 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvExitCode",
+				"order": 6,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
 				"name": "lvFile",
 				"order": 3,
 				"type": "kObject",
 				"subtype": ".FileOps.FileOps",
 				"sublen": 0
+			},
+			{
+				"name": "lvOutput",
+				"order": 5,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
 			},
 			{
 				"name": "lvScript",
