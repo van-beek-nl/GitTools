@@ -1,0 +1,5 @@
+If sys(6)='N'
+	Quit method $cinst.$_discardIrrelevantChanges_pwsh(pSourceDirectory)
+Else
+	Quit method $cinst.$_discardIrrelevantChanges_bash(pSourceDirectory)
+End If

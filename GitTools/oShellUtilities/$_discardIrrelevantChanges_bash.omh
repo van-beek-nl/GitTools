@@ -1,0 +1,16 @@
+Begin text block
+Line:#!/bin/bash
+Line:# TODO
+End text block
+Get text block lvScript
+
+Calculate lvScriptPath as con(tvFileUtilities.$getTempDirectory(),pathsep(),"gittools.discard-irrelevant-changes.sh")
+If FileOps.$doesfileexist(lvScriptPath)
+	Do lvFile.$openfile(lvScriptPath)
+Else
+	Do lvFile.$createfile(lvScriptPath)
+End If
+Do lvFile.$writecharacter(kUniTypeUTF8,lvScript,kFalse,kFalse)
+Do lvFile.$closefile()
+
+Quit method $cinst.$runShellScript(con('"',lvScriptPath,'" "',pSourceDirectory,'"'),,,kFalse,kFalse)

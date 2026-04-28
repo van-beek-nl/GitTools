@@ -1,5 +1,7 @@
 Do ivSettings.$cols.$add("logLevel",kCharacter,kSimplechar)
 Do ivSettings.$cols.$add("gitExecutable",kCharacter,kSimplechar)
 Do ivSettings.$cols.$add("autoUpdateRepositoryConfig",kBoolean)
+Do ivSettings.$cols.$add("discardIrrelevantChanges",kBoolean)
 Calculate ivSettings.autoUpdateRepositoryConfig as #NULL
+Calculate ivSettings.discardIrrelevantChanges as #NULL
 Do $cinst.$$load()

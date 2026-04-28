@@ -1,0 +1,106 @@
+Begin text block
+Line:param(
+Line:    [[Parameter(Mandatory)][[string]$Subdir
+Line:)
+Line:
+Line:$FilterPatterns = @("moddate", "internalversion")
+Line:
+Line:$RepoRoot = (git -C "$Subdir" rev-parse --show-toplevel).Replace('\', '/')
+Line:Set-Location $RepoRoot
+Line:
+Line:# Normalise to forward slashes and strip repo root prefix if an absolute path was given
+Line:$Subdir = $Subdir.Replace('\', '/').TrimEnd('/')
+Line:if ($Subdir.StartsWith($RepoRoot)) {
+Line:    $Subdir = $Subdir.Substring($RepoRoot.Length).TrimStart('/')
+Line:}
+Line:
+Line:$changedFiles = git diff HEAD --name-only | Where-Object { $_ -match "^$([[regex]::Escape($Subdir))/.*class\.json$" }
+Line:
+Line:if (-not $changedFiles) {
+Line:    Write-Host "No changed class.json files found in $Subdir"
+Line:    exit 0
+Line:}
+Line:
+Line:foreach ($file in $changedFiles) {
+Line:    Write-Host "Processing: $file"
+Line:
+Line:    # Skip files not in HEAD (new/untracked)
+Line:    $null = git show "HEAD:$file" 2>&1
+Line:    if ($LASTEXITCODE -ne 0) {
+Line:        Write-Host "  Skipping (not in HEAD): $file"
+Line:        continue
+Line:    }
+Line:
+Line:    # Parse the diff to build a revert map: current_line -> original_line.
+Line:    # Consecutive - and + lines are buffered and paired up; pairs where the
+Line:    # original (-) line matches a JSON key pattern ("name"\s*:) are added to the revert map.
+Line:    $revertMap = @{}
+Line:    $removedBuf = [[System.Collections.Generic.List[[string]]::new()
+Line:    $addedBuf   = [[System.Collections.Generic.List[[string]]::new()
+Line:
+Line:    function Flush-Buffers {
+Line:        if ($removedBuf.Count -eq $addedBuf.Count) {
+Line:            for ($i = 0; $i -lt $removedBuf.Count; $i++) {
+Line:                $orig = $removedBuf[[$i]
+Line:                $cur  = $addedBuf[[$i]
+Line:                foreach ($pattern in $FilterPatterns) {
+Line:                    if ($orig -match ('"' + [[regex]::Escape($pattern) + '"\s*:')) {
+Line:                        $revertMap[[$cur] = $orig
+Line:                    }
+Line:                }
+Line:            }
+Line:        }
+Line:        $removedBuf.Clear()
+Line:        $addedBuf.Clear()
+Line:    }
+Line:
+Line:    foreach ($line in (git diff HEAD -- $file)) {
+Line:        if ($line -match '^(---|\+\+\+|@@|diff |index )') {
+Line:            Flush-Buffers
+Line:        } elseif ($line -match '^-') {
+Line:            $removedBuf.Add($line.Substring(1))
+Line:        } elseif ($line -match '^\+') {
+Line:            $addedBuf.Add($line.Substring(1))
+Line:        } else {
+Line:            Flush-Buffers
+Line:        }
+Line:    }
+Line:    Flush-Buffers
+Line:
+Line:    if ($revertMap.Count -eq 0) {
+Line:        Write-Host "  Nothing to revert in: $file"
+Line:        continue
+Line:    }
+Line:
+Line:    # Apply reversions to the working copy.
+Line:    # Use an absolute path — [[System.IO.File] ignores Set-Location and resolves
+Line:    # relative paths against the .NET working directory, not PowerShell's CWD.
+Line:    $fullPath = Join-Path $RepoRoot $file
+Line:    $raw = [[System.IO.File]::ReadAllText($fullPath)
+Line:    $lines = [[System.IO.File]::ReadAllLines($fullPath)
+Line:    $eol = if ($raw -match "\r\n") { "`r`n" } else { "`n" }
+Line:    $trailingNewline = $raw.EndsWith("`n")
+Line:
+Line:    $output = foreach ($line in $lines) {
+Line:        if ($revertMap.ContainsKey($line)) { $revertMap[[$line] } else { $line }
+Line:    }
+Line:
+Line:    $result = ($output -join $eol)
+Line:    if ($trailingNewline) { $result += $eol }
+Line:    [[System.IO.File]::WriteAllText($fullPath, $result)
+Line:
+Line:    Write-Host "  Reverted $($revertMap.Count) line(s) in: $file"
+Line:}
+End text block
+Get text block lvScript
+
+Calculate lvScriptPath as con(tvFileUtilities.$getTempDirectory(),pathsep(),"gittools.discard-irrelevant-changes.ps1")
+If FileOps.$doesfileexist(lvScriptPath)
+	Do lvFile.$openfile(lvScriptPath)
+Else
+	Do lvFile.$createfile(lvScriptPath)
+End If
+Do lvFile.$writecharacter(kUniTypeUTF8,lvScript,kFalse,kFalse)
+Do lvFile.$closefile()
+
+Quit method $cinst.$runShellScript(con('powershell -ExecutionPolicy Bypass -File "',lvScriptPath,'" "',pSourceDirectory,'"'),,,kFalse,kFalse)

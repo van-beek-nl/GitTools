@@ -1,0 +1,2 @@
+Calculate ivSettings.discardIrrelevantChanges as pDiscardIrrelevantChanges
+Do $cinst.$$save()

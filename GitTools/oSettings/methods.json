@@ -101,8 +101,35 @@
 		]
 	},
 	{
-		"name": "$$save",
+		"name": "$discardIrrelevantChanges",
 		"order": 9,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$discardIrrelevantChanges.$assign",
+		"order": 10,
+		"pvardefs": [
+			{
+				"name": "pDiscardIrrelevantChanges",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$save",
+		"order": 11,
 		"pvardefs": [
 
 		],
@@ -139,7 +166,7 @@
 	},
 	{
 		"name": "$$load",
-		"order": 10,
+		"order": 12,
 		"pvardefs": [
 
 		],
@@ -183,7 +210,7 @@
 	},
 	{
 		"name": "$$loadInitialSettings",
-		"order": 11,
+		"order": 13,
 		"pvardefs": [
 
 		],
@@ -193,7 +220,7 @@
 	},
 	{
 		"name": "$$openSettingsFile",
-		"order": 12,
+		"order": 14,
 		"pvardefs": [
 
 		],

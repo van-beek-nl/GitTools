@@ -10,4 +10,8 @@ If isnull(ivSettings.autoUpdateRepositoryConfig)
 	Calculate ivSettings.autoUpdateRepositoryConfig as kTrue
 End If
 
+If isnull(ivSettings.discardIrrelevantChanges)
+	Calculate ivSettings.discardIrrelevantChanges as kTrue
+End If
+
 Do $cinst.$$save()
