@@ -1,0 +1,55 @@
+Begin text block
+Line:param(
+Line:    [[Parameter(Mandatory = $true)]
+Line:    [[string]$Path
+Line:)
+Line:
+Line:if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+Line:    Write-Warning "Path '$Path' does not exist or is not a directory."
+Line:    exit 1
+Line:}
+Line:
+Line:If (-not (Test-Path -LiteralPath (Join-Path $Path 'library.json') -PathType Leaf)) {
+Line:    Write-Warning "Path '$Path' does not contain a library.json file."
+Line:    exit 1
+Line:}
+Line:
+Line:function Remove-IfEmpty {
+Line:     param([[string]$Dir)
+Line:
+Line:    $hasContent = $false
+Line:    foreach ($sub in [[System.IO.Directory]::EnumerateDirectories($Dir)) {
+Line:        if (-not (Remove-IfEmpty $sub)) { $hasContent = $true }
+Line:    }
+Line:
+Line:    if (-not $hasContent) {
+Line:        foreach ($f in [[System.IO.Directory]::EnumerateFiles($Dir)) {
+Line:            $hasContent = $true
+Line:            break
+Line:        }
+Line:    }
+Line:
+Line:    if (-not $hasContent) {
+Line:        [[System.IO.Directory]::Delete($Dir)
+Line:        Write-Host "Removed: $Dir"
+Line:        return $true
+Line:    }
+Line:    return $false
+Line:}
+Line:
+Line:foreach ($sub in [[System.IO.Directory]::EnumerateDirectories($Path)) {
+Line:    [[void](Remove-IfEmpty $sub)
+Line:}
+End text block
+Get text block lvScript
+
+Calculate lvScriptPath as con(tvFileUtilities.$getTempDirectory(),pathsep(),"gittools.pre-import-cleanup.ps1")
+If FileOps.$doesfileexist(lvScriptPath)
+	Do lvFile.$openfile(lvScriptPath)
+Else
+	Do lvFile.$createfile(lvScriptPath)
+End If
+Do lvFile.$writecharacter(kUniTypeUTF8,lvScript,kFalse,kFalse)
+Do lvFile.$closefile()
+
+Quit method $cinst.$runShellScript(con('powershell -ExecutionPolicy Bypass -File "',lvScriptPath,'" "',pSourceDirectory,'"'),lvOutput,lvExitCode,kFalse,kFalse)

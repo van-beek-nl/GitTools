@@ -15,6 +15,9 @@ If lvMergeConflicts.$linecount>0
 	Quit method kFalse
 End If
 
+Do tvLogger.$debug("Cleaning up source directory before import")
+Do tvScripting.$preImportCleanup(lvRegistration.jsonPath)
+
 Calculate lvImportPath as con(lvRegistration.libraryPath,'.import')
 Calculate lvBackupPath as con(lvRegistration.libraryPath,'.bak')
 
