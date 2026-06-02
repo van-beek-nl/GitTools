@@ -256,7 +256,21 @@ function Write-GitToolsMeta {
     param([object] $Meta)
 
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $script:MetaPath) | Out-Null
-    $Meta | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -NoNewline -Path $script:MetaPath
+
+    # meta.json is the commit point of a state transition: the durability refs
+    # are updated first, and this write is what makes the new state official.
+    # Write to a sibling temp file then atomically rename it over the target, so
+    # an interrupted write can never leave a truncated meta.json.
+    $tempMetaPath = "$script:MetaPath.tmp"
+    $Meta | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -NoNewline -Path $tempMetaPath
+    if (Test-Path $script:MetaPath) {
+        # [NullString]::Value passes a real null for the (optional) backup-file
+        # argument; PowerShell would otherwise marshal $null as an empty string.
+        [System.IO.File]::Replace($tempMetaPath, $script:MetaPath, [NullString]::Value)
+    }
+    else {
+        [System.IO.File]::Move($tempMetaPath, $script:MetaPath)
+    }
 }
 
 function New-CleanMeta {

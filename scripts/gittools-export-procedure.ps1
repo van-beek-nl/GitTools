@@ -424,7 +424,21 @@ function Write-GitToolsMeta {
     param([object] $Meta)
 
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $script:MetaPath) | Out-Null
-    $Meta | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -NoNewline -Path $script:MetaPath
+
+    # meta.json is the commit point of a state transition: the working tree and
+    # the durability refs are updated first, and this write is what makes the new
+    # state official. Write to a sibling temp file then atomically rename it over
+    # the target, so an interrupted write can never leave a truncated meta.json.
+    $tempMetaPath = "$script:MetaPath.tmp"
+    $Meta | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -NoNewline -Path $tempMetaPath
+    if (Test-Path $script:MetaPath) {
+        # [NullString]::Value passes a real null for the (optional) backup-file
+        # argument; PowerShell would otherwise marshal $null as an empty string.
+        [System.IO.File]::Replace($tempMetaPath, $script:MetaPath, [NullString]::Value)
+    }
+    else {
+        [System.IO.File]::Move($tempMetaPath, $script:MetaPath)
+    }
 }
 
 function New-CleanMeta {
@@ -665,62 +679,71 @@ $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "gittools-export-$([Syst
 $tempJsonPath = Join-Path $tempRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
 New-Item -ItemType Directory -Force -Path $tempJsonPath | Out-Null
 
-if ($meta.baseTree) {
-    # Seed Omnis with the last reconciled export tree. This keeps the speed
-    # benefit of exporting over an existing tree without touching live source.
-    Restore-TreeToDirectory -Tree $meta.baseTree -Directory $tempJsonPath
+try {
+    if ($meta.baseTree) {
+        # Seed Omnis with the last reconciled export tree. This keeps the speed
+        # benefit of exporting over an existing tree without touching live source.
+        Restore-TreeToDirectory -Tree $meta.baseTree -Directory $tempJsonPath
+    }
+
+    Wait-ForOmnisStep "TODO: Run the Omnis JSON export into: $tempJsonPath"
+    Wait-ForOmnisStep "TODO: Run irrelevant-property cleanup against: $tempJsonPath"
+
+    $exportTree = New-TreeFromDirectory -Directory $tempJsonPath
+    Write-Host "Export tree: $exportTree"
+
+    Write-Step "Apply or merge export result"
+    if (-not $meta.baseTree) {
+        # First export or unrecoverable old metadata: there is no safe three-way
+        # base, so the temp export becomes the new live source directly.
+        Write-Host "No base tree exists yet. Applying export directly."
+        Apply-TreeToLiveJsonPath -Tree $exportTree
+        $finalSourceTree = Get-LiveJsonTree
+        Update-BaseRef -Tree $exportTree
+        Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
+        return
+    }
+
+    if ($currentSourceTree -eq $meta.baseTree) {
+        # Source did not move relative to the binary base, so no merge is needed.
+        Write-Host "Current source equals base tree. Applying export directly."
+        Apply-TreeToLiveJsonPath -Tree $exportTree
+        $finalSourceTree = Get-LiveJsonTree
+        Update-BaseRef -Tree $exportTree
+        Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
+        return
+    }
+
+    Write-Host "Current source differs from base tree. Running tree merge."
+    $merge = Invoke-MergeTree -BaseTree $meta.baseTree -CurrentSourceTree $currentSourceTree -ExportTree $exportTree
+    if ($merge.ExitCode -eq 0) {
+        # Clean merge: the live source receives the merged source tree, while
+        # baseTree advances to the raw Omnis export tree.
+        Write-Host "Merge succeeded."
+        Apply-TreeToLiveJsonPath -Tree $merge.ResultTree
+        $finalSourceTree = Get-LiveJsonTree
+        Update-BaseRef -Tree $exportTree
+        Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
+        return
+    }
+
+    # Invoke-MergeTree throws on any exit code other than 0 or 1, so reaching here
+    # means exit code 1: a genuine merge conflict, which is an acceptable outcome.
+    Write-Host "Merge completed with conflicts. Applying conflicted result to live JSON path."
+    # Leave the live JSON path in a real Git conflict state and remember enough
+    # metadata to classify resolution later.
+    Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
+    Set-PendingRefs -SourceTree $currentSourceTree -ExportTree $exportTree
+    Write-GitToolsMeta -Meta (New-PendingMeta -ExistingMeta $meta -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
+    Write-Host ""
+    Write-Host $merge.Output
+    Write-Host ""
+    Write-Host "Export completed with conflicts. Resolve the JSON path with your Git client."
 }
-
-Wait-ForOmnisStep "TODO: Run the Omnis JSON export into: $tempJsonPath"
-Wait-ForOmnisStep "TODO: Run irrelevant-property cleanup against: $tempJsonPath"
-
-$exportTree = New-TreeFromDirectory -Directory $tempJsonPath
-Write-Host "Export tree: $exportTree"
-
-Write-Step "Apply or merge export result"
-if (-not $meta.baseTree) {
-    # First export or unrecoverable old metadata: there is no safe three-way
-    # base, so the temp export becomes the new live source directly.
-    Write-Host "No base tree exists yet. Applying export directly."
-    Apply-TreeToLiveJsonPath -Tree $exportTree
-    $finalSourceTree = Get-LiveJsonTree
-    Update-BaseRef -Tree $exportTree
-    Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
-    return
+finally {
+    # Always remove the temp export directory, even on early return or failure,
+    # so it does not accumulate in the system temp folder.
+    if (Test-Path $tempRoot) {
+        Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
+    }
 }
-
-if ($currentSourceTree -eq $meta.baseTree) {
-    # Source did not move relative to the binary base, so no merge is needed.
-    Write-Host "Current source equals base tree. Applying export directly."
-    Apply-TreeToLiveJsonPath -Tree $exportTree
-    $finalSourceTree = Get-LiveJsonTree
-    Update-BaseRef -Tree $exportTree
-    Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
-    return
-}
-
-Write-Host "Current source differs from base tree. Running tree merge."
-$merge = Invoke-MergeTree -BaseTree $meta.baseTree -CurrentSourceTree $currentSourceTree -ExportTree $exportTree
-if ($merge.ExitCode -eq 0) {
-    # Clean merge: the live source receives the merged source tree, while
-    # baseTree advances to the raw Omnis export tree.
-    Write-Host "Merge succeeded."
-    Apply-TreeToLiveJsonPath -Tree $merge.ResultTree
-    $finalSourceTree = Get-LiveJsonTree
-    Update-BaseRef -Tree $exportTree
-    Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
-    return
-}
-
-# Invoke-MergeTree throws on any exit code other than 0 or 1, so reaching here
-# means exit code 1: a genuine merge conflict, which is an acceptable outcome.
-Write-Host "Merge completed with conflicts. Applying conflicted result to live JSON path."
-# Leave the live JSON path in a real Git conflict state and remember enough
-# metadata to classify resolution later.
-Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
-Set-PendingRefs -SourceTree $currentSourceTree -ExportTree $exportTree
-Write-GitToolsMeta -Meta (New-PendingMeta -ExistingMeta $meta -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
-Write-Host ""
-Write-Host $merge.Output
-Write-Host ""
-Write-Host "Export completed with conflicts. Resolve the JSON path with your Git client."

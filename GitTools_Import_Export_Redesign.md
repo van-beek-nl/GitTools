@@ -159,6 +159,17 @@ On successful import:
 - Clear any pending export-conflict metadata and delete the pending refs.
 - Set `status = clean`.
 
+## Atomicity And Cleanup
+
+`meta.json` is the commit point of every state transition. Within a single export or import, GitTools applies the working tree and updates the durability refs first, then writes `meta.json` last. The write itself goes to a sibling temp file followed by an atomic rename over the target, so an interrupted write can never leave a truncated or corrupt `meta.json`.
+
+This ordering makes interruptions safe:
+
+- Interrupted before `meta.json` is written: the new state is simply not recorded. The live JSON path may hold an applied-but-unrecorded export, but `sourceTree` still names the previous tree, so the next export treats the live path as disposable and reproduces the export from the (unchanged) binary library. No committed work is lost.
+- Interrupted after a ref update but before `meta.json`: the ref points at a tree that `meta.json` does not yet reference. Because `meta.json` is the source of truth, the next run re-derives the same result and re-advances the ref; the only residue is a duplicate lineage commit, which is harmless.
+
+Temporary export directories are removed even when the export fails or throws (a `try`/`finally` in the prototype; equivalent cleanup in the implementation). Scratch index files are likewise always removed.
+
 ## Scenario Handling
 
 ### New Repository With No Commits
