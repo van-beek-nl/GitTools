@@ -9,6 +9,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $LibraryId,
 
+    # Absolute path to the binary library (.lbs). The state key is derived from
+    # this, not from the export path, because one export feeds N library files.
+    [string] $LibraryPath,
+
     [string] $MetaPath,
 
     [switch] $NoPause
@@ -34,6 +38,51 @@ function Write-Step {
 function ConvertTo-GitPath {
     param([string] $Path)
     return ($Path -replace "\\", "/").Trim("/")
+}
+
+function Get-StateKey {
+    param(
+        [string] $LibraryPath,
+        [string] $LibraryId
+    )
+
+    # The export-to-library relationship is 1:N, so reconciliation state belongs to
+    # an individual library FILE. The key is derived from the library's own path
+    # (which may live outside the repo), never from the export path. Production
+    # (Omnis) computes the same key; this mirrors it.
+    if ($LibraryPath) {
+        # Canonicalize so the same file reached two ways yields one key. A full
+        # implementation should also resolve symlinks/real-path; this prototype at
+        # least normalizes to an absolute, separator-consistent form.
+        $canonical = [System.IO.Path]::GetFullPath($LibraryPath)
+        $name = [System.IO.Path]::GetFileNameWithoutExtension($LibraryPath)
+    }
+    else {
+        # Demonstration fallback when only an id is supplied.
+        $canonical = $LibraryId
+        $name = $LibraryId
+    }
+
+    # Case-fold only on case-insensitive filesystems (macOS/Windows), never on
+    # case-sensitive Linux where two differently-cased paths are distinct files.
+    $caseInsensitive = if ($PSVersionTable.PSVersion.Major -ge 6) { -not $IsLinux } else { $true }
+    if ($caseInsensitive) {
+        $canonical = $canonical.ToLowerInvariant()
+    }
+
+    $sha1 = [System.Security.Cryptography.SHA1]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($canonical)
+        $hash = -join ($sha1.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") })
+    }
+    finally {
+        $sha1.Dispose()
+    }
+
+    # Readable prefix for inspecting .git/gittools and refs/gittools; hash suffix
+    # makes distinct paths unable to alias onto one key.
+    $safeName = ($name -replace "[^A-Za-z0-9_.-]", "_")
+    return "$safeName-$($hash.Substring(0, 8))"
 }
 
 function Invoke-GitRaw {
@@ -199,7 +248,7 @@ function New-TreeFromDirectory {
 
 function Get-GitToolsRef {
     param([string] $Name)
-    return "refs/gittools/$script:SafeLibraryId/$Name"
+    return "refs/gittools/$script:StateKey/$Name"
 }
 
 function Get-RefTarget {
@@ -303,9 +352,9 @@ function Wait-ForOmnisStep {
 
 $script:RepoRoot = (Resolve-Path $RepoRoot).Path
 $script:JsonPath = ConvertTo-GitPath $JsonPath
-$script:SafeLibraryId = ($LibraryId -replace "[^A-Za-z0-9_.-]", "_")
+$script:StateKey = Get-StateKey -LibraryPath $LibraryPath -LibraryId $LibraryId
 $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:SafeLibraryId"
+$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:StateKey"
 
 if (-not $MetaPath) {
     $script:MetaPath = Join-Path $script:StateRoot "meta.json"

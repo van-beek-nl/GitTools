@@ -9,6 +9,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $LibraryId,
 
+    # Absolute path to the binary library (.lbs). The state key is derived from
+    # this, not from the export path, because one export feeds N library files.
+    [string] $LibraryPath,
+
     [string] $MetaPath,
 
     [switch] $NoPause
@@ -41,12 +45,63 @@ function ConvertTo-GitPath {
     return ($Path -replace "\\", "/").Trim("/")
 }
 
+function Get-StateKey {
+    param(
+        [string] $LibraryPath,
+        [string] $LibraryId
+    )
+
+    # The export-to-library relationship is 1:N, so reconciliation state belongs to
+    # an individual library FILE. The key is derived from the library's own path
+    # (which may live outside the repo), never from the export path. Production
+    # (Omnis) computes the same key; this mirrors it.
+    if ($LibraryPath) {
+        # Canonicalize so the same file reached two ways yields one key. A full
+        # implementation should also resolve symlinks/real-path; this prototype at
+        # least normalizes to an absolute, separator-consistent form.
+        $canonical = [System.IO.Path]::GetFullPath($LibraryPath)
+        $name = [System.IO.Path]::GetFileNameWithoutExtension($LibraryPath)
+    }
+    else {
+        # Demonstration fallback when only an id is supplied.
+        $canonical = $LibraryId
+        $name = $LibraryId
+    }
+
+    # Case-fold only on case-insensitive filesystems (macOS/Windows), never on
+    # case-sensitive Linux where two differently-cased paths are distinct files.
+    $caseInsensitive = if ($PSVersionTable.PSVersion.Major -ge 6) { -not $IsLinux } else { $true }
+    if ($caseInsensitive) {
+        $canonical = $canonical.ToLowerInvariant()
+    }
+
+    $sha1 = [System.Security.Cryptography.SHA1]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($canonical)
+        $hash = -join ($sha1.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") })
+    }
+    finally {
+        $sha1.Dispose()
+    }
+
+    # Readable prefix for inspecting .git/gittools and refs/gittools; hash suffix
+    # makes distinct paths unable to alias onto one key.
+    $safeName = ($name -replace "[^A-Za-z0-9_.-]", "_")
+    return "$safeName-$($hash.Substring(0, 8))"
+}
+
 function Invoke-GitRaw {
     param(
         [Parameter(Mandatory = $true)]
         [string[]] $Arguments,
 
-        [string] $IndexFile
+        [string] $IndexFile,
+
+        # When set, point Git at this directory as the working tree (via
+        # GIT_WORK_TREE). Needed for operations that compare the index against
+        # on-disk files in the temp export directory (checkout-index, diff-files,
+        # ls-files), which are how the incremental tree build finds what changed.
+        [string] $WorkTree
     )
 
     $oldIndex = $env:GIT_INDEX_FILE
@@ -55,6 +110,11 @@ function Invoke-GitRaw {
         # repository's real index. GIT_INDEX_FILE gives those operations a
         # private scratch index.
         $env:GIT_INDEX_FILE = $IndexFile
+    }
+
+    $oldWorkTree = $env:GIT_WORK_TREE
+    if ($WorkTree) {
+        $env:GIT_WORK_TREE = $WorkTree
     }
 
     try {
@@ -84,6 +144,12 @@ function Invoke-GitRaw {
         else {
             $env:GIT_INDEX_FILE = $oldIndex
         }
+        if ($null -eq $oldWorkTree) {
+            Remove-Item Env:GIT_WORK_TREE -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:GIT_WORK_TREE = $oldWorkTree
+        }
     }
 }
 
@@ -92,10 +158,12 @@ function Invoke-Git {
         [Parameter(Mandatory = $true)]
         [string[]] $Arguments,
 
-        [string] $IndexFile
+        [string] $IndexFile,
+
+        [string] $WorkTree
     )
 
-    $result = Invoke-GitRaw -Arguments $Arguments -IndexFile $IndexFile
+    $result = Invoke-GitRaw -Arguments $Arguments -IndexFile $IndexFile -WorkTree $WorkTree
     if ($result.ExitCode -ne 0) {
         throw "git $($Arguments -join ' ') failed with exit code $($result.ExitCode):$([Environment]::NewLine)$($result.Combined)"
     }
@@ -176,6 +244,21 @@ function New-TempIndexPath {
     return Join-Path ([System.IO.Path]::GetTempPath()) $name
 }
 
+function Get-AttrPath {
+    param(
+        [string] $RelativePath,
+        [string] $RepoRelativePrefix = $script:JsonPath
+    )
+
+    # The repo-relative path a file's content represents, so `hash-object --path`
+    # applies the same .gitattributes / autocrlf normalization Git used for the
+    # committed blob. Identical content then always hashes to the identical blob.
+    if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) {
+        return $RelativePath
+    }
+    return "$RepoRelativePrefix/$RelativePath"
+}
+
 function New-EmptyTree {
     $index = New-TempIndexPath
     try {
@@ -216,8 +299,7 @@ function New-TreeFromDirectory {
             # (or with --work-tree pointed outside the repo) normalization is
             # skipped and every normalized line spuriously conflicts. Mode is
             # fixed at 100644; Omnis export artifacts are never executable.
-            $attrPath = if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) { $rel } else { "$RepoRelativePrefix/$rel" }
-            $oid = Invoke-Git @("hash-object", "-w", "--path", $attrPath, $file.FullName)
+            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file.FullName)
             $entries.Add("100644 $oid`t$rel") | Out-Null
         }
 
@@ -232,6 +314,85 @@ function New-TreeFromDirectory {
     finally {
         Remove-Item $index -Force -ErrorAction SilentlyContinue
     }
+}
+
+function Initialize-ExportSeed {
+    # Materialize the temp export directory from the base tree AND populate a
+    # persistent scratch index with each file's stat info (size/mtime). After
+    # Omnis runs its incremental export over this directory, the stat info lets
+    # the tree build below find what changed without re-reading every file.
+    param(
+        [string] $BaseTree,
+        [string] $IndexFile,
+        [string] $WorkTree
+    )
+
+    New-Item -ItemType Directory -Force -Path $WorkTree | Out-Null
+
+    if ($BaseTree) {
+        Invoke-Git @("read-tree", $BaseTree) -IndexFile $IndexFile | Out-Null
+        # -u records the stat info of the checked-out files into the index; without
+        # it, read-tree leaves stat empty and every file would later look changed.
+        Invoke-Git @("checkout-index", "-a", "-f", "-u") -IndexFile $IndexFile -WorkTree $WorkTree | Out-Null
+    }
+    else {
+        # No base: start empty, so every exported file is detected as new.
+        Invoke-Git @("read-tree", "--empty") -IndexFile $IndexFile | Out-Null
+    }
+}
+
+function New-IncrementalExportTree {
+    # Build the export tree from a base-seeded index by hashing ONLY the files
+    # Omnis actually changed, instead of re-hashing the whole export. The result
+    # is identical to a full rebuild (verified): unchanged files keep the base's
+    # blob hashes, so the cost scales with the change set, not the library size.
+    param(
+        [string] $IndexFile,
+        [string] $WorkTree,
+        [string] $RepoRelativePrefix = $script:JsonPath
+    )
+
+    # Refresh the cached stat info against what is now on disk. A non-zero exit
+    # just means some entries differ, which is expected, so ignore it.
+    Invoke-GitRaw @("update-index", "-q", "--refresh") -IndexFile $IndexFile -WorkTree $WorkTree | Out-Null
+
+    $records = New-Object System.Collections.Generic.List[string]
+
+    # Tracked files whose stat changed: modified (re-hash) or deleted (drop). This
+    # comparison is stat-based and never reads the content of unchanged files.
+    $nameStatus = Invoke-Git @("diff-files", "--name-status") -IndexFile $IndexFile -WorkTree $WorkTree
+    foreach ($line in ($nameStatus -split "\r?\n")) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split "\t", 2
+        $status = $parts[0]
+        $rel = ConvertTo-GitPath $parts[1]
+        if ($status -like "D*") {
+            $records.Add("0 0000000000000000000000000000000000000000`t$rel") | Out-Null
+        }
+        else {
+            $file = Join-Path $WorkTree ($rel -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
+            $records.Add("100644 $oid`t$rel") | Out-Null
+        }
+    }
+
+    # Untracked files are new classes Omnis exported. No --exclude-standard, so
+    # files matching .gitignore are still hashed (the export is authoritative for
+    # its own path; silently dropping them would surface as phantom deletions).
+    $others = Invoke-Git @("ls-files", "--others") -IndexFile $IndexFile -WorkTree $WorkTree
+    foreach ($line in ($others -split "\r?\n")) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $rel = ConvertTo-GitPath $line
+        $file = Join-Path $WorkTree ($rel -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+        $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
+        $records.Add("100644 $oid`t$rel") | Out-Null
+    }
+
+    if ($records.Count -gt 0) {
+        Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $records.ToArray() -IndexFile $IndexFile
+    }
+
+    return Invoke-Git @("write-tree") -IndexFile $IndexFile
 }
 
 function Restore-TreeToDirectory {
@@ -268,7 +429,7 @@ function Restore-TreeToDirectory {
 
 function Get-GitToolsRef {
     param([string] $Name)
-    return "refs/gittools/$script:SafeLibraryId/$Name"
+    return "refs/gittools/$script:StateKey/$Name"
 }
 
 function Get-RefTarget {
@@ -394,7 +555,30 @@ function Read-GitToolsMeta {
 
     $text = (Get-Content -Raw -Path $script:MetaPath).Trim()
     if ($text.StartsWith("{")) {
-        return $text | ConvertFrom-Json
+        $meta = $text | ConvertFrom-Json
+
+        if ($meta.jsonPath -ne $script:JsonPath) {
+            # The export location was repointed. The state key is the library path,
+            # so it is unchanged, but the stored trees describe the OLD export path
+            # and would merge against an unrelated base. Reset to a first-export
+            # state and drop the now-meaningless durability refs.
+            Write-Step "Export path moved ('$($meta.jsonPath)' -> '$script:JsonPath'); resetting stale base"
+            $baseRef = Get-GitToolsRef "base"
+            if (Get-RefTarget $baseRef) {
+                Invoke-Git @("update-ref", "-d", $baseRef) | Out-Null
+            }
+            Clear-PendingRefs
+            return [pscustomobject]@{
+                version = 2
+                jsonPath = $script:JsonPath
+                baseTree = ""
+                sourceTree = ""
+                status = "clean"
+                pending = $null
+            }
+        }
+
+        return $meta
     }
 
     # Backwards compatibility: v1 metadata was only a commit hash. When seen,
@@ -643,9 +827,9 @@ function Apply-ConflictedMergeToLiveJsonPath {
 
 $script:RepoRoot = (Resolve-Path $RepoRoot).Path
 $script:JsonPath = ConvertTo-GitPath $JsonPath
-$script:SafeLibraryId = ($LibraryId -replace "[^A-Za-z0-9_.-]", "_")
+$script:StateKey = Get-StateKey -LibraryPath $LibraryPath -LibraryId $LibraryId
 $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:SafeLibraryId"
+$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:StateKey"
 
 if (-not $MetaPath) {
     $script:MetaPath = Join-Path $script:StateRoot "meta.json"
@@ -677,19 +861,22 @@ $currentSourceTree = Get-CurrentSourceTree -Meta $meta
 Write-Step "Prepare temp Omnis export cache"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "gittools-export-$([System.Guid]::NewGuid().ToString('N'))"
 $tempJsonPath = Join-Path $tempRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-New-Item -ItemType Directory -Force -Path $tempJsonPath | Out-Null
+# Scratch index seeded from the base. It carries each seeded file's stat info so
+# the export tree can be built by hashing only what Omnis changed.
+$exportIndex = New-TempIndexPath
 
 try {
-    if ($meta.baseTree) {
-        # Seed Omnis with the last reconciled export tree. This keeps the speed
-        # benefit of exporting over an existing tree without touching live source.
-        Restore-TreeToDirectory -Tree $meta.baseTree -Directory $tempJsonPath
-    }
+    # Seed the temp directory from the last reconciled export tree (keeping the
+    # speed benefit of exporting over an existing tree) and capture stat info in
+    # the scratch index. With no base, the directory starts empty.
+    Initialize-ExportSeed -BaseTree $meta.baseTree -IndexFile $exportIndex -WorkTree $tempJsonPath
 
     Wait-ForOmnisStep "TODO: Run the Omnis JSON export into: $tempJsonPath"
     Wait-ForOmnisStep "TODO: Run irrelevant-property cleanup against: $tempJsonPath"
 
-    $exportTree = New-TreeFromDirectory -Directory $tempJsonPath
+    # Build the export tree incrementally: hash only the files whose stat changed
+    # since the seed (plus new files), not the whole export.
+    $exportTree = New-IncrementalExportTree -IndexFile $exportIndex -WorkTree $tempJsonPath
     Write-Host "Export tree: $exportTree"
 
     Write-Step "Apply or merge export result"
@@ -753,9 +940,12 @@ try {
     Write-Host "Export completed with conflicts. Resolve the JSON path with your Git client."
 }
 finally {
-    # Always remove the temp export directory, even on early return or failure,
-    # so it does not accumulate in the system temp folder.
+    # Always remove the temp export directory and its scratch index, even on early
+    # return or failure, so they do not accumulate in the system temp folder.
     if (Test-Path $tempRoot) {
         Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
+    }
+    if (Test-Path $exportIndex) {
+        Remove-Item -Force $exportIndex -ErrorAction SilentlyContinue
     }
 }
