@@ -96,7 +96,7 @@ The live JSON path is not touched until the temp export has succeeded.
 
 ### 4. Merge Or Apply
 
-If there is no base yet, apply `exportTree` directly to the live JSON path.
+If there is no base yet, apply `exportTree` directly to the live JSON path. There is no safe three-way base in this case, so no merge is possible. The only hazard is overwriting committed source whose change direction is unknowable without a base: if `HEAD:<jsonPath>` exists and differs from `exportTree`, GitTools warns loudly that the export will overwrite the committed source before applying, and leaves the result uncommitted so the user can review the diff (or import first to take the repository's version instead). When `HEAD` has no source at the path, or the export already equals `HEAD:<jsonPath>`, it applies silently. Uncommitted live JSON is disposable by policy and never triggers the warning.
 
 If `currentSourceTree == baseTree`, apply `exportTree` directly to the live JSON path.
 
@@ -175,6 +175,10 @@ Temporary export directories are removed even when the export fails or throws (a
 ### New Repository With No Commits
 
 No commit hash is required. Export starts with no base and writes a first `baseTree`. Import hashes the live JSON path directly and records that tree.
+
+### First Export With No Base But Committed Source Exists
+
+If no base exists yet but `HEAD:<jsonPath>` already has committed source (for example a fresh clone where the user exports before importing, or unrecoverable old metadata), the change direction cannot be known. If the export equals the committed source, it applies silently. If it differs, GitTools warns that applying will overwrite the committed source and proceeds, leaving the result uncommitted for review. The user can instead import first to adopt the repository's source as the base.
 
 ### Export, Commit, Export Again Without Import
 

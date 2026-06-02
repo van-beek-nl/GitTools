@@ -694,9 +694,21 @@ try {
 
     Write-Step "Apply or merge export result"
     if (-not $meta.baseTree) {
-        # First export or unrecoverable old metadata: there is no safe three-way
-        # base, so the temp export becomes the new live source directly.
-        Write-Host "No base tree exists yet. Applying export directly."
+        # No reconciliation base exists (first export, brand-new path, or
+        # unrecoverable old metadata), so the export is applied directly. The
+        # only hazard is overwriting committed source whose change direction we
+        # cannot know without a base. Uncommitted live JSON is disposable by
+        # policy, so the warning is scoped to a committed HEAD source that
+        # differs from the export.
+        if ((Test-PathInHead -Path $script:JsonPath) -and ((Invoke-Git @("rev-parse", "HEAD:$script:JsonPath")) -ne $exportTree)) {
+            Write-Warning "No reconciliation base exists and the committed source at '$script:JsonPath' differs from this export."
+            Write-Warning "Applying will OVERWRITE the committed source with your library's version. If colleagues advanced this"
+            Write-Warning "source, review the diff before committing, or import first to take the repository's version instead."
+        }
+        else {
+            Write-Host "No base tree exists yet. Applying export directly."
+        }
+
         Apply-TreeToLiveJsonPath -Tree $exportTree
         $finalSourceTree = Get-LiveJsonTree
         Update-BaseRef -Tree $exportTree
