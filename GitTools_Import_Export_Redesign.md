@@ -8,7 +8,7 @@ The implementation should continue to touch only the registered Omnis JSON expor
 
 ## Metadata Model
 
-Use structured v2 metadata and private cache files under `.git/gittools/<library-id>/`.
+Use structured v2 metadata stored at `.git/gittools/<library-id>/meta.json`, plus durability refs under `refs/gittools/<library-id>/` (see Durability below).
 
 ```json
 {
@@ -41,9 +41,18 @@ For a conflicted export:
 }
 ```
 
-`baseCommit` is intentionally omitted. Once comparisons, cache seeding, and merges are based on tree objects, the commit containing a tree is not needed. This is also what removes the need for a post-commit hook.
+`baseCommit` is intentionally omitted from the metadata: comparisons, seeding, and merges all operate on tree objects, so no commit hash is needed to drive them.
 
-The private cache should contain real files for at least the current `baseTree`. This prevents aggressive Git object cleanup from breaking a later export. Pending export conflicts should also cache the pending source tree and pending export tree until the pending state is cleared.
+### Durability
+
+A tree named only by `meta.json` is invisible to Git and would eventually be removed by `git gc`. To keep the trees GitTools depends on, it pins them with refs under `refs/gittools/<library-id>/`:
+
+- `base`: a commit lineage. Each accepted export or import creates a commit with `git commit-tree` (parent = the previous base commit) whose tree is the new `baseTree`, then advances the ref. This keeps `baseTree` and its blobs reachable and yields a debuggable history viewable with `git log refs/gittools/<library-id>/base`.
+- `pending-source` and `pending-export`: refs that pin the two transient trees of a conflicted export. They are deleted as soon as the pending state is resolved or discarded. (`pending.baseTree` needs no ref of its own; on a conflict `baseTree` is unchanged and is still pinned by the `base` ref.)
+
+`git commit-tree` and `git update-ref` never move `HEAD`, create no visible branch, and never fire the post-commit hook. That is what lets GitTools keep a private commit lineage without the fragility of the old detach/commit approach, and is what removes the need for the post-commit hook entirely. The committer identity and `commit.gpgsign` should be pinned for these commits so they never depend on, or get attributed to, the user's Git config.
+
+No file copies of trees are kept. The refs alone provide durability, and the temp export seed is materialized on demand from the pinned `baseTree`.
 
 ## Tree Hashing
 
@@ -77,7 +86,7 @@ Trees stay rooted at the export directory (entries keyed relative to `<jsonPath>
 
 ### 3. Temp Omnis Export
 
-- Seed a temp repo-shaped export root from the private `baseTree` cache.
+- Seed a temp repo-shaped export root from `baseTree`, materialized on demand from the pinned tree.
 - If no base exists, start with an empty temp export path.
 - Run the Omnis JSON export into the temp path.
 - Clean irrelevant properties in the temp path.
@@ -117,15 +126,15 @@ On direct apply or clean merge:
 
 - Set `baseTree = exportTree`.
 - Set `sourceTree = final live source tree`.
-- Update the private base cache from `exportTree`.
-- Clear `pending`.
+- Advance the `base` ref to a commit wrapping `exportTree`.
+- Clear `pending` and delete the pending refs.
 - Set `status = clean`.
 
 On conflicted merge:
 
-- Leave `baseTree` unchanged.
+- Leave `baseTree` unchanged (the `base` ref still pins it).
 - Store `pending.baseTree`, `pending.sourceTree`, and `pending.exportTree`.
-- Cache the pending source tree and pending export tree.
+- Pin the pending source and pending export trees with the pending refs.
 - Set `status = pendingExportConflict`.
 - Leave the conflict markers and unmerged index entries in the live JSON path for the user to resolve with their Git client.
 
@@ -146,15 +155,15 @@ On successful import:
 
 - Set `baseTree = currentSourceTree`.
 - Set `sourceTree = currentSourceTree`.
-- Update the private base cache from the live source.
-- Clear any pending export-conflict metadata.
+- Advance the `base` ref to a commit wrapping `currentSourceTree`.
+- Clear any pending export-conflict metadata and delete the pending refs.
 - Set `status = clean`.
 
 ## Scenario Handling
 
 ### New Repository With No Commits
 
-No commit hash is required. Export starts from an empty base cache and writes a first `baseTree`. Import hashes the live JSON path directly and records that tree.
+No commit hash is required. Export starts with no base and writes a first `baseTree`. Import hashes the live JSON path directly and records that tree.
 
 ### Export, Commit, Export Again Without Import
 
@@ -174,7 +183,7 @@ The live JSON source receives the merged result, `baseTree` advances to `exportT
 
 ### Conflicting Export Merge
 
-The live JSON source is left with normal Git conflicts. Metadata records pending state, and the user resolves via their Git client. This is an acceptable export outcome.
+The live JSON source is left with normal Git conflicts. Metadata records pending state, the pending refs pin the conflict trees, and the user resolves via their Git client. This is an acceptable export outcome.
 
 ### Resolved Conflict Before Next Export
 
@@ -194,7 +203,7 @@ Discarded only as part of the export flow, after the temp Omnis export has succe
 
 ## Migration And Hook Cleanup
 
-- On first read of old commit-only metadata, derive `baseTree` from `<oldCommit>:<jsonPath>` when possible and populate the private base cache.
+- On first read of old commit-only metadata, derive `baseTree` from `<oldCommit>:<jsonPath>` when possible and pin it behind the `base` ref.
 - Stop installing the GitTools post-commit hook for new registrations.
 - Remove only GitTools' own hook and mapping files during migration.
 - Preserve user hooks and any original hooks that were moved into the dispatcher directory.

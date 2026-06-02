@@ -257,19 +257,71 @@ function Restore-TreeToDirectory {
     }
 }
 
-function Update-BaseCache {
-    param([string] $Tree)
-    Restore-TreeToDirectory -Tree $Tree -Directory $script:BaseCachePath
+# --- Durability refs -------------------------------------------------------
+# baseTree and the transient pending trees are kept reachable by refs under
+# refs/gittools/<id>/ so `git gc` cannot prune them (a tree named only by
+# meta.json is invisible to Git and would be collected). The base ref is a
+# commit lineage - one commit per accepted export/import - giving a debuggable
+# history; pending refs pin the conflict trees directly and are deleted when the
+# pending state clears. commit-tree and update-ref never move HEAD and never
+# fire the post-commit hook.
+
+function Get-GitToolsRef {
+    param([string] $Name)
+    return "refs/gittools/$script:SafeLibraryId/$Name"
 }
 
-function Update-PendingExportCache {
-    param([string] $Tree)
-    Restore-TreeToDirectory -Tree $Tree -Directory $script:PendingExportCachePath
+function Get-RefTarget {
+    param([string] $Ref)
+    $result = Invoke-GitRaw @("rev-parse", "--verify", "--quiet", $Ref)
+    if ($result.ExitCode -ne 0) {
+        return ""
+    }
+    return $result.Output.Trim()
 }
 
-function Update-PendingSourceCache {
+function Update-BaseRef {
     param([string] $Tree)
-    Restore-TreeToDirectory -Tree $Tree -Directory $script:PendingSourceCachePath
+
+    # Wrap the base tree in a commit whose parent is the previous base commit, so
+    # refs/gittools/<id>/base reads as a history of accepted exports/imports.
+    # Identity and signing are pinned so the private commit never depends on (or
+    # is attributed to) the user's Git config.
+    $ref = Get-GitToolsRef "base"
+    $commitArgs = @(
+        "-c", "user.name=GitTools",
+        "-c", "user.email=gittools@localhost",
+        "-c", "commit.gpgsign=false",
+        "commit-tree", $Tree
+    )
+
+    $parent = Get-RefTarget $ref
+    if ($parent) {
+        $commitArgs += @("-p", $parent)
+    }
+    $commitArgs += @("-m", "GitTools base")
+
+    $commit = Invoke-Git $commitArgs
+    Invoke-Git @("update-ref", $ref, $commit) | Out-Null
+}
+
+function Set-PendingRefs {
+    param(
+        [string] $SourceTree,
+        [string] $ExportTree
+    )
+
+    Invoke-Git @("update-ref", (Get-GitToolsRef "pending-source"), $SourceTree) | Out-Null
+    Invoke-Git @("update-ref", (Get-GitToolsRef "pending-export"), $ExportTree) | Out-Null
+}
+
+function Clear-PendingRefs {
+    foreach ($name in @("pending-source", "pending-export")) {
+        $ref = Get-GitToolsRef $name
+        if (Get-RefTarget $ref) {
+            Invoke-Git @("update-ref", "-d", $ref) | Out-Null
+        }
+    }
 }
 
 function Get-LiveJsonTree {
@@ -354,7 +406,7 @@ function Read-GitToolsMeta {
         $result = Invoke-GitRaw @("rev-parse", "$oldCommit`:$script:JsonPath")
         if ($result.ExitCode -eq 0) {
             $baseTree = $result.Output.Trim()
-            Update-BaseCache -Tree $baseTree
+            Update-BaseRef -Tree $baseTree
         }
     }
 
@@ -447,12 +499,9 @@ function Resolve-PendingConflictIfNeeded {
             Clear-LiveJsonPath
         }
         else {
-            if (Test-Path $script:PendingSourceCachePath) {
-                Restore-TreeToDirectory -Tree $Meta.pending.sourceTree -Directory $script:JsonAbsolutePath
-            }
-            else {
-                throw "Pending source cache is missing and the repository has no HEAD to restore from."
-            }
+            # No HEAD to restore from. The pre-export source tree is pinned by
+            # the pending-source ref, so restore directly from that tree.
+            Restore-TreeToDirectory -Tree $Meta.pending.sourceTree -Directory $script:JsonAbsolutePath
         }
     }
 
@@ -461,13 +510,15 @@ function Resolve-PendingConflictIfNeeded {
         # The live source is back at the pre-export source tree. The previous
         # export side was not accepted, so keep the old merge base.
         Write-Host "Pending conflict appears to have been discarded. Keeping previous base tree."
+        Clear-PendingRefs
         return New-CleanMeta -BaseTree $Meta.pending.baseTree -SourceTree $currentTree
     }
 
     # The source tree changed after the conflicted export and no conflicts
     # remain. Treat that as the user having resolved/accepted the export side.
     Write-Host "Pending conflict appears to have been resolved or accepted. Advancing base tree to pending export."
-    Update-BaseCache -Tree $Meta.pending.exportTree
+    Update-BaseRef -Tree $Meta.pending.exportTree
+    Clear-PendingRefs
     return New-CleanMeta -BaseTree $Meta.pending.exportTree -SourceTree $currentTree
 }
 
@@ -578,12 +629,9 @@ function Apply-ConflictedMergeToLiveJsonPath {
 
 $script:RepoRoot = (Resolve-Path $RepoRoot).Path
 $script:JsonPath = ConvertTo-GitPath $JsonPath
-$safeLibraryId = ($LibraryId -replace "[^A-Za-z0-9_.-]", "_")
+$script:SafeLibraryId = ($LibraryId -replace "[^A-Za-z0-9_.-]", "_")
 $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-$script:StateRoot = Resolve-GitPrivatePath "gittools/$safeLibraryId"
-$script:BaseCachePath = Join-Path $script:StateRoot "base"
-$script:PendingExportCachePath = Join-Path $script:StateRoot "pending-export"
-$script:PendingSourceCachePath = Join-Path $script:StateRoot "pending-source"
+$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:SafeLibraryId"
 
 if (-not $MetaPath) {
     $script:MetaPath = Join-Path $script:StateRoot "meta.json"
@@ -636,7 +684,7 @@ if (-not $meta.baseTree) {
     Write-Host "No base tree exists yet. Applying export directly."
     Apply-TreeToLiveJsonPath -Tree $exportTree
     $finalSourceTree = Get-LiveJsonTree
-    Update-BaseCache -Tree $exportTree
+    Update-BaseRef -Tree $exportTree
     Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
     return
 }
@@ -646,7 +694,7 @@ if ($currentSourceTree -eq $meta.baseTree) {
     Write-Host "Current source equals base tree. Applying export directly."
     Apply-TreeToLiveJsonPath -Tree $exportTree
     $finalSourceTree = Get-LiveJsonTree
-    Update-BaseCache -Tree $exportTree
+    Update-BaseRef -Tree $exportTree
     Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
     return
 }
@@ -659,7 +707,7 @@ if ($merge.ExitCode -eq 0) {
     Write-Host "Merge succeeded."
     Apply-TreeToLiveJsonPath -Tree $merge.ResultTree
     $finalSourceTree = Get-LiveJsonTree
-    Update-BaseCache -Tree $exportTree
+    Update-BaseRef -Tree $exportTree
     Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
     return
 }
@@ -670,8 +718,7 @@ Write-Host "Merge completed with conflicts. Applying conflicted result to live J
 # Leave the live JSON path in a real Git conflict state and remember enough
 # metadata to classify resolution later.
 Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
-Update-PendingSourceCache -Tree $currentSourceTree
-Update-PendingExportCache -Tree $exportTree
+Set-PendingRefs -SourceTree $currentSourceTree -ExportTree $exportTree
 Write-GitToolsMeta -Meta (New-PendingMeta -ExistingMeta $meta -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
 Write-Host ""
 Write-Host $merge.Output

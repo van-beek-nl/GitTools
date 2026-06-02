@@ -192,25 +192,56 @@ function New-TreeFromDirectory {
     }
 }
 
-function Restore-TreeToDirectory {
-    param(
-        [string] $Tree,
-        [string] $Directory
+# --- Durability refs -------------------------------------------------------
+# The imported source tree is pinned behind refs/gittools/<id>/base so later
+# exports can seed Omnis from it even after `git gc`. commit-tree and update-ref
+# never move HEAD and never fire the post-commit hook.
+
+function Get-GitToolsRef {
+    param([string] $Name)
+    return "refs/gittools/$script:SafeLibraryId/$Name"
+}
+
+function Get-RefTarget {
+    param([string] $Ref)
+    $result = Invoke-GitRaw @("rev-parse", "--verify", "--quiet", $Ref)
+    if ($result.ExitCode -ne 0) {
+        return ""
+    }
+    return $result.Output.Trim()
+}
+
+function Update-BaseRef {
+    param([string] $Tree)
+
+    # Wrap the base tree in a commit whose parent is the previous base commit, so
+    # refs/gittools/<id>/base reads as a history of accepted imports/exports.
+    # Identity and signing are pinned so the private commit never depends on (or
+    # is attributed to) the user's Git config.
+    $ref = Get-GitToolsRef "base"
+    $commitArgs = @(
+        "-c", "user.name=GitTools",
+        "-c", "user.email=gittools@localhost",
+        "-c", "commit.gpgsign=false",
+        "commit-tree", $Tree
     )
 
-    if (Test-Path $Directory) {
-        Remove-Item -Recurse -Force $Directory
+    $parent = Get-RefTarget $ref
+    if ($parent) {
+        $commitArgs += @("-p", $parent)
     }
+    $commitArgs += @("-m", "GitTools base")
 
-    New-Item -ItemType Directory -Force -Path $Directory | Out-Null
-    $index = New-TempIndexPath
-    try {
-        # Populate the private base cache from a tree using a scratch index.
-        Invoke-Git @("read-tree", $Tree) -IndexFile $index | Out-Null
-        Invoke-Git @("--work-tree=$Directory", "checkout-index", "-a", "-f") -IndexFile $index | Out-Null
-    }
-    finally {
-        Remove-Item $index -Force -ErrorAction SilentlyContinue
+    $commit = Invoke-Git $commitArgs
+    Invoke-Git @("update-ref", $ref, $commit) | Out-Null
+}
+
+function Clear-PendingRefs {
+    foreach ($name in @("pending-source", "pending-export")) {
+        $ref = Get-GitToolsRef $name
+        if (Get-RefTarget $ref) {
+            Invoke-Git @("update-ref", "-d", $ref) | Out-Null
+        }
     }
 }
 
@@ -258,10 +289,9 @@ function Wait-ForOmnisStep {
 
 $script:RepoRoot = (Resolve-Path $RepoRoot).Path
 $script:JsonPath = ConvertTo-GitPath $JsonPath
-$safeLibraryId = ($LibraryId -replace "[^A-Za-z0-9_.-]", "_")
+$script:SafeLibraryId = ($LibraryId -replace "[^A-Za-z0-9_.-]", "_")
 $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-$script:StateRoot = Resolve-GitPrivatePath "gittools/$safeLibraryId"
-$script:BaseCachePath = Join-Path $script:StateRoot "base"
+$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:SafeLibraryId"
 
 if (-not $MetaPath) {
     $script:MetaPath = Join-Path $script:StateRoot "meta.json"
@@ -288,10 +318,12 @@ Write-Step "Omnis import placeholder"
 Wait-ForOmnisStep "TODO: Run the Omnis JSON import from: $script:JsonAbsolutePath"
 Wait-ForOmnisStep "TODO: Replace the binary library with the imported build artifact."
 
-Write-Step "Update metadata and private base cache"
-# Keep a file cache for the base tree so later exports can seed Omnis quickly
-# even if Git eventually prunes unreferenced tree objects.
-Restore-TreeToDirectory -Tree $currentSourceTree -Directory $script:BaseCachePath
+Write-Step "Update metadata and durability refs"
+# Pin the new base tree behind refs/gittools/<id>/base so later exports can seed
+# Omnis from it even after `git gc`, and clear any leftover pending-conflict refs
+# from a previous export.
+Update-BaseRef -Tree $currentSourceTree
+Clear-PendingRefs
 Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $currentSourceTree -SourceTree $currentSourceTree)
 
 Write-Host "Import metadata updated."
