@@ -97,6 +97,8 @@ Otherwise run a tree merge:
 git merge-tree --write-tree --messages --merge-base=<baseTree> <currentSourceTree> <exportTree>
 ```
 
+`git merge-tree` exits `0` on a clean merge, `1` on conflicts, and any other code on a fatal error. Only exit code `1` is treated as a conflict. Any other non-zero code must abort the export with the live JSON path left untouched, because on error the command's output is not a usable result tree and applying it would corrupt the live source and record a bogus pending conflict.
+
 If the merge succeeds:
 
 - Apply the returned result tree to the live JSON path.

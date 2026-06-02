@@ -511,6 +511,14 @@ function Invoke-MergeTree {
         $ExportTree
     )
 
+    # merge-tree exit codes: 0 = clean, 1 = conflicts (an acceptable export
+    # outcome), anything else = fatal error. A fatal error must abort before the
+    # live JSON path is touched; otherwise its error output would be applied as
+    # if it were a result tree and recorded as a bogus pending conflict.
+    if (($result.ExitCode -ne 0) -and ($result.ExitCode -ne 1)) {
+        throw "git merge-tree failed with exit code $($result.ExitCode):$([Environment]::NewLine)$($result.Combined)"
+    }
+
     # merge-tree --write-tree prints the result tree on the first line. On
     # conflicts it still returns a tree containing conflict markers, followed
     # by stage 1/2/3 records and human-readable conflict messages.
@@ -656,9 +664,11 @@ if ($merge.ExitCode -eq 0) {
     return
 }
 
+# Invoke-MergeTree throws on any exit code other than 0 or 1, so reaching here
+# means exit code 1: a genuine merge conflict, which is an acceptable outcome.
 Write-Host "Merge completed with conflicts. Applying conflicted result to live JSON path."
-# Conflict is an acceptable export outcome. Leave the live JSON path in a real
-# Git conflict state and remember enough metadata to classify resolution later.
+# Leave the live JSON path in a real Git conflict state and remember enough
+# metadata to classify resolution later.
 Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
 Update-PendingSourceCache -Tree $currentSourceTree
 Update-PendingExportCache -Tree $exportTree
