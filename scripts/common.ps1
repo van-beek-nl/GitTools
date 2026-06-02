@@ -1,44 +1,28 @@
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory = $true)]
-    [string] $RepoRoot,
-
-    [Parameter(Mandatory = $true)]
-    [string] $JsonPath,
-
-    [Parameter(Mandatory = $true)]
-    [string] $LibraryId,
-
-    # Absolute path to the binary library (.lbs). The state key is derived from
-    # this, not from the export path, because one export feeds N library files.
-    [string] $LibraryPath,
-
-    [string] $MetaPath,
-
-    [switch] $NoPause
-)
-
-# Demonstration script for the proposed GitTools export redesign.
+# Shared helpers for the GitTools import/export procedure scripts.
 #
-# This script intentionally does not call Omnis. Instead, it pauses where the
-# Omnis JSON export and cleanup should happen. The rest of the script exercises
-# the Git procedure:
-# - read or migrate GitTools v2 metadata
-# - seed a temp export directory from the private base cache
-# - hash the temp export as a Git tree
-# - apply it directly or merge it with the current source tree
-# - leave real Git conflicts in the live JSON path when a merge conflicts
+# This file defines functions only; it has no top-level side effects and is
+# meant to be dot-sourced by the four phase entry scripts:
+#   pre-export.ps1 / post-export.ps1 / pre-import.ps1 / post-import.ps1
+#
+# Output discipline (the Omnis contract): all human-readable progress goes to
+# stderr via Write-Step / Write-Note, so stdout carries ONLY machine-readable
+# values - the temp path printed by a pre-script and the RESULT line printed by
+# a post-script. Callers (Omnis) read stdout for the value and stderr for logs.
 
-Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
-
-# --- General Git helpers ---------------------------------------------------
+# --- Output helpers --------------------------------------------------------
 
 function Write-Step {
     param([string] $Message)
-    Write-Host ""
-    Write-Host "==> $Message"
+    [Console]::Error.WriteLine("")
+    [Console]::Error.WriteLine("==> $Message")
 }
+
+function Write-Note {
+    param([string] $Message)
+    [Console]::Error.WriteLine($Message)
+}
+
+# --- General Git helpers ---------------------------------------------------
 
 function ConvertTo-GitPath {
     param([string] $Path)
@@ -421,15 +405,38 @@ function New-IncrementalExportTree {
     return Invoke-Git @("write-tree") -IndexFile $IndexFile
 }
 
+function Remove-DirectoryRobust {
+    # Remove-Item -Recurse -Force intermittently fails on macOS/APFS with
+    # "Directory not empty": it races its own child deletions against the parent
+    # removal, and a transient open handle (e.g. an editor file watcher) can make
+    # a single attempt fail. [IO.Directory]::Delete($p, $true) is a single
+    # recursive delete that avoids the ordering problem; a short retry absorbs a
+    # transient busy handle.
+    param([string] $Path)
+
+    if (-not (Test-Path $Path)) {
+        return
+    }
+
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            [System.IO.Directory]::Delete($Path, $true)
+            return
+        }
+        catch [System.IO.IOException] {
+            if ($attempt -eq 5) { throw }
+            Start-Sleep -Milliseconds 100
+        }
+    }
+}
+
 function Restore-TreeToDirectory {
     param(
         [string] $Tree,
         [string] $Directory
     )
 
-    if (Test-Path $Directory) {
-        Remove-Item -Recurse -Force $Directory
-    }
+    Remove-DirectoryRobust -Path $Directory
 
     New-Item -ItemType Directory -Force -Path $Directory | Out-Null
     $index = New-TempIndexPath
@@ -446,7 +453,7 @@ function Restore-TreeToDirectory {
 
 # --- Durability refs -------------------------------------------------------
 # baseTree and the transient pending trees are kept reachable by refs under
-# refs/gittools/<id>/ so `git gc` cannot prune them (a tree named only by
+# refs/gittools/<state-key>/ so `git gc` cannot prune them (a tree named only by
 # meta.json is invisible to Git and would be collected). The base ref is a
 # commit lineage - one commit per accepted export/import - giving a debuggable
 # history; pending refs pin the conflict trees directly and are deleted when the
@@ -511,6 +518,72 @@ function Clear-PendingRefs {
     }
 }
 
+# --- Handoff file (export only) --------------------------------------------
+# Splitting the export across two processes means the in-memory state at the
+# Omnis-export boundary is gone when the post-script starts. meta.json (committed
+# state) and the temp dir / scratch index (real files) survive on their own; only
+# their paths and the computed currentSourceTree do not. Those are written here.
+# The mere PRESENCE of this file means "an export started but its post-script
+# never finished" - distinct from meta.status = pendingExportConflict, which is a
+# COMPLETED export awaiting user resolution (its handoff is already deleted).
+
+function Get-HandoffPath {
+    return Join-Path $script:StateRoot "pending-op.json"
+}
+
+function Write-Handoff {
+    param([object] $Handoff)
+
+    New-Item -ItemType Directory -Force -Path $script:StateRoot | Out-Null
+    $path = Get-HandoffPath
+    $tempPath = "$path.tmp"
+    $Handoff | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 -NoNewline -Path $tempPath
+    if (Test-Path $path) {
+        [System.IO.File]::Replace($tempPath, $path, [NullString]::Value)
+    }
+    else {
+        [System.IO.File]::Move($tempPath, $path)
+    }
+}
+
+function Read-Handoff {
+    $path = Get-HandoffPath
+    if (-not (Test-Path $path)) {
+        return $null
+    }
+    return (Get-Content -Raw -Path $path) | ConvertFrom-Json
+}
+
+function Clear-Handoff {
+    $path = Get-HandoffPath
+    if (Test-Path $path) {
+        Remove-Item $path -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-StaleHandoffSweep {
+    # Auto-clean recovery: if a handoff exists at the start of a new export, the
+    # previous export's post-script never completed. Remove its leaked temp
+    # artifacts (tolerant of already-deleted paths) and the handoff, then proceed
+    # with a fresh export. This is the cross-process equivalent of the in-process
+    # try/finally cleanup.
+    $handoff = Read-Handoff
+    if ($null -eq $handoff) {
+        return
+    }
+
+    Write-Step "Cleaning up an incomplete previous export"
+    if ($handoff.tempRoot -and (Test-Path $handoff.tempRoot)) {
+        Remove-Item -Recurse -Force $handoff.tempRoot -ErrorAction SilentlyContinue
+    }
+    if ($handoff.exportIndex -and (Test-Path $handoff.exportIndex)) {
+        Remove-Item -Force $handoff.exportIndex -ErrorAction SilentlyContinue
+    }
+    Clear-Handoff
+}
+
+# --- Live JSON path queries ------------------------------------------------
+
 function Get-LiveJsonTree {
     return New-LiveSourceTree
 }
@@ -546,23 +619,110 @@ function Clear-LiveJsonPath {
             # HEAD exists, but this export path is not tracked in HEAD yet.
             # Remove any staged entries and delete the live path manually.
             Invoke-Git @("rm", "-r", "--cached", "--ignore-unmatch", "--", $script:JsonPath) | Out-Null
-            if (Test-Path $script:JsonAbsolutePath) {
-                Remove-Item -Recurse -Force $script:JsonAbsolutePath
-            }
+            Remove-DirectoryRobust -Path $script:JsonAbsolutePath
         }
 
         Invoke-Git @("clean", "-fd", "--", $script:JsonPath) | Out-Null
     }
-    elseif (Test-Path $script:JsonAbsolutePath) {
-        Remove-Item -Recurse -Force $script:JsonAbsolutePath
+    else {
+        Remove-DirectoryRobust -Path $script:JsonAbsolutePath
+    }
+}
+
+function Remove-EmptyParents {
+    # After deleting a file, prune any directories the deletion emptied, walking
+    # upward - but never removing the export root itself and never ascending above
+    # it. git does not track empty directories, so leftover empty folders would
+    # otherwise linger in the export.
+    param(
+        [string] $Leaf,
+        [string] $Root
+    )
+
+    $root = [System.IO.Path]::GetFullPath($Root)
+    $dir = Split-Path -Parent $Leaf
+    while ($dir) {
+        $full = [System.IO.Path]::GetFullPath($dir)
+        if (($full -eq $root) -or (-not $full.StartsWith($root))) { break }
+        if (Test-Path -LiteralPath $full) {
+            if (@(Get-ChildItem -LiteralPath $full -Force).Count -ne 0) { break }
+            Remove-Item -Force -LiteralPath $full -ErrorAction SilentlyContinue
+        }
+        $dir = Split-Path -Parent $dir
     }
 }
 
 function Apply-TreeToLiveJsonPath {
+    # Make the live JSON path equal $Tree by applying ONLY the delta between what
+    # is on disk now and $Tree - never by wiping and rewriting the whole directory,
+    # which is prohibitively slow on large libraries. `git checkout-index` only
+    # ever writes the entries it is given and never removes anything, so removed
+    # paths are deleted explicitly (and emptied folders pruned), while changed and
+    # new paths are written in a single batched checkout. Cost is proportional to
+    # what the export actually changed, not to the library size.
     param([string] $Tree)
 
-    Clear-LiveJsonPath
-    Restore-TreeToDirectory -Tree $Tree -Directory $script:JsonAbsolutePath
+    # liveTree reconstructs the true on-disk content (cheaply, via the index stat
+    # cache). If it already equals the target, there is nothing to apply.
+    $liveTree = Get-LiveJsonTree
+    if ($liveTree -eq $Tree) {
+        Write-Note "Live JSON path already matches the result; nothing to apply."
+        return
+    }
+
+    # Normalize the index for the export path to HEAD - index only, no working-tree
+    # rewrite - so the applied result shows up as ordinary unstaged changes the
+    # user can review and commit (matching the prior flow's end state).
+    if (Test-HeadExists) {
+        if (Test-PathInHead -Path $script:JsonPath) {
+            Invoke-Git @("restore", "--source=HEAD", "--staged", "--", $script:JsonPath) | Out-Null
+        }
+        else {
+            Invoke-Git @("rm", "-r", "--cached", "--ignore-unmatch", "--", $script:JsonPath) | Out-Null
+        }
+    }
+
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+
+    # The delta between the on-disk content and the target tree. Both trees are
+    # rooted at the export path, so the reported paths are relative to it. Process
+    # deletions first so a path that changes type (file -> directory or vice versa,
+    # which diff-tree reports as a delete plus an add) does not collide on write.
+    $nameStatus = Invoke-Git @("diff-tree", "-r", "--no-commit-id", "--name-status", $liveTree, $Tree)
+
+    $writes = New-Object System.Collections.Generic.List[string]
+    foreach ($line in ($nameStatus -split "\r?\n")) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split "\t", 2
+        $rel = ConvertTo-GitPath $parts[1]
+        if ($parts[0] -like "D*") {
+            $abs = Join-Path $script:JsonAbsolutePath ($rel -replace "/", $sep)
+            if (Test-Path -LiteralPath $abs) {
+                Remove-Item -Force -LiteralPath $abs -ErrorAction SilentlyContinue
+            }
+            Remove-EmptyParents -Leaf $abs -Root $script:JsonAbsolutePath
+        }
+        else {
+            # Added / modified / type-changed: write the target version.
+            $writes.Add($rel) | Out-Null
+        }
+    }
+
+    if ($writes.Count -gt 0) {
+        New-Item -ItemType Directory -Force -Path $script:JsonAbsolutePath | Out-Null
+        $index = New-TempIndexPath
+        try {
+            # A scratch index of the target tree, checked out into the live path.
+            # --stdin feeds the changed paths (avoiding any command-line length
+            # limit when many files changed, e.g. a first export); checkout-index
+            # creates leading directories as needed.
+            Invoke-Git @("read-tree", $Tree) -IndexFile $index | Out-Null
+            Invoke-GitWithInput -Arguments @("--work-tree=$script:JsonAbsolutePath", "checkout-index", "-f", "--stdin") -InputLines $writes.ToArray() -IndexFile $index
+        }
+        finally {
+            Remove-Item $index -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 # --- Metadata helpers ------------------------------------------------------
@@ -688,16 +848,6 @@ function New-PendingMeta {
     }
 }
 
-function Wait-ForOmnisStep {
-    param([string] $Message)
-
-    Write-Host $Message
-    if (-not $NoPause) {
-        Write-Host -NoNewline "Press Enter when this step is complete: "
-        [Console]::ReadLine() | Out-Null
-    }
-}
-
 # --- Export state resolution -----------------------------------------------
 
 function Resolve-PendingConflictIfNeeded {
@@ -718,7 +868,7 @@ function Resolve-PendingConflictIfNeeded {
         # The agreed policy treats dirty JSON-path edits as disposable during
         # export. For pending state, discard them before deciding whether the
         # previous conflicted export was accepted or discarded.
-        Write-Host "JSON path has uncommitted changes. Discarding them before evaluating pending state."
+        Write-Note "JSON path has uncommitted changes. Discarding them before evaluating pending state."
         if (Test-HeadExists) {
             Clear-LiveJsonPath
         }
@@ -733,14 +883,14 @@ function Resolve-PendingConflictIfNeeded {
     if ($currentTree -eq $Meta.pending.sourceTree) {
         # The live source is back at the pre-export source tree. The previous
         # export side was not accepted, so keep the old merge base.
-        Write-Host "Pending conflict appears to have been discarded. Keeping previous base tree."
+        Write-Note "Pending conflict appears to have been discarded. Keeping previous base tree."
         Clear-PendingRefs
         return New-CleanMeta -BaseTree $Meta.pending.baseTree -SourceTree $currentTree
     }
 
     # The source tree changed after the conflicted export and no conflicts
     # remain. Treat that as the user having resolved/accepted the export side.
-    Write-Host "Pending conflict appears to have been resolved or accepted. Advancing base tree to pending export."
+    Write-Note "Pending conflict appears to have been resolved or accepted. Advancing base tree to pending export."
     Update-BaseRef -Tree $Meta.pending.exportTree
     Clear-PendingRefs
     return New-CleanMeta -BaseTree $Meta.pending.exportTree -SourceTree $currentTree
@@ -753,18 +903,18 @@ function Get-CurrentSourceTree {
     if ($Meta.sourceTree -and ($liveTree -eq $Meta.sourceTree)) {
         # GitTools recognizes the live path as its own last known output. This
         # is what makes export-before-commit and repeated export work.
-        Write-Host "Using live JSON path as current source."
+        Write-Note "Using live JSON path as current source."
         return $liveTree
     }
 
     if (Test-HeadExists) {
         # The live JSON path differs from GitTools' last known source. Treat
         # it as disposable and use HEAD as the source side of the merge.
-        Write-Host "Using HEAD JSON path as current source; live JSON path changes are disposable."
+        Write-Note "Using HEAD JSON path as current source; live JSON path changes are disposable."
         return Get-HeadJsonTreeOrEmpty
     }
 
-    Write-Host "Repository has no commits. Using live JSON path as current source."
+    Write-Note "Repository has no commits. Using live JSON path as current source."
     return $liveTree
 }
 
@@ -849,129 +999,57 @@ function Apply-ConflictedMergeToLiveJsonPath {
     }
 }
 
-# --- Main procedure --------------------------------------------------------
+# --- Shared state init -----------------------------------------------------
 
-$script:RepoRoot = (Resolve-Path $RepoRoot).Path
-$script:JsonPath = ConvertTo-GitPath $JsonPath
-$script:StateKey = Get-StateKey -LibraryPath $LibraryPath -LibraryId $LibraryId
-$script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-$script:StateRoot = Resolve-GitPrivatePath "gittools/$script:StateKey"
+function Initialize-GitToolsState {
+    # Derive the per-invocation script state every entry script needs. Dot-sourced
+    # into the entry script's scope, so these $script: assignments land there and
+    # are visible to every helper above (verified: $script: is shared across the
+    # dot-source boundary).
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RepoRoot,
 
-if (-not $MetaPath) {
-    $script:MetaPath = Join-Path $script:StateRoot "meta.json"
-}
-else {
-    $script:MetaPath = $MetaPath
-}
+        [Parameter(Mandatory = $true)]
+        [string] $JsonPath,
 
-New-Item -ItemType Directory -Force -Path $script:StateRoot | Out-Null
+        [Parameter(Mandatory = $true)]
+        [string] $LibraryId,
 
-Write-Step "Preflight"
-if (-not (Test-MergeTreeWriteTree)) {
-    throw "This procedure requires git merge-tree --write-tree."
-}
+        [string] $LibraryPath,
 
-if (Test-UnresolvedJsonConflicts) {
-    throw "The JSON path already contains unresolved conflicts. Resolve them before exporting."
-}
+        [string] $MetaPath
+    )
 
-$meta = Read-GitToolsMeta
-# Pending metadata is resolved before deciding the current source tree, because
-# it may advance or preserve the export merge base.
-$meta = Resolve-PendingConflictIfNeeded -Meta $meta
-Write-GitToolsMeta -Meta $meta
+    $script:RepoRoot = (Resolve-Path $RepoRoot).Path
 
-Write-Step "Determine current source"
-$currentSourceTree = Get-CurrentSourceTree -Meta $meta
-
-Write-Step "Prepare temp Omnis export cache"
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "gittools-export-$([System.Guid]::NewGuid().ToString('N'))"
-$tempJsonPath = Join-Path $tempRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-# Scratch index seeded from the base. It carries each seeded file's stat info so
-# the export tree can be built by hashing only what Omnis changed.
-$exportIndex = New-TempIndexPath
-
-try {
-    # Seed the temp directory from the last reconciled export tree (keeping the
-    # speed benefit of exporting over an existing tree) and capture stat info in
-    # the scratch index. With no base, the directory starts empty.
-    Initialize-ExportSeed -BaseTree $meta.baseTree -IndexFile $exportIndex -WorkTree $tempJsonPath
-
-    Wait-ForOmnisStep "TODO: Run the Omnis JSON export into: $tempJsonPath"
-    Wait-ForOmnisStep "TODO: Run irrelevant-property cleanup against: $tempJsonPath"
-
-    # Build the export tree incrementally: hash only the files whose stat changed
-    # since the seed (plus new files), not the whole export.
-    $exportTree = New-IncrementalExportTree -IndexFile $exportIndex -WorkTree $tempJsonPath
-    Write-Host "Export tree: $exportTree"
-
-    Write-Step "Apply or merge export result"
-    if (-not $meta.baseTree) {
-        # No reconciliation base exists (first export, brand-new path, or
-        # unrecoverable old metadata), so the export is applied directly. The
-        # only hazard is overwriting committed source whose change direction we
-        # cannot know without a base. Uncommitted live JSON is disposable by
-        # policy, so the warning is scoped to a committed HEAD source that
-        # differs from the export.
-        if ((Test-PathInHead -Path $script:JsonPath) -and ((Invoke-Git @("rev-parse", "HEAD:$script:JsonPath")) -ne $exportTree)) {
-            Write-Warning "No reconciliation base exists and the committed source at '$script:JsonPath' differs from this export."
-            Write-Warning "Applying will OVERWRITE the committed source with your library's version. If colleagues advanced this"
-            Write-Warning "source, review the diff before committing, or import first to take the repository's version instead."
+    # JsonPath is used throughout as a repository-relative Git pathspec - it must
+    # match HEAD:<jsonPath> and `-- <jsonPath>`. Accept an absolute path too (Omnis
+    # has absolute paths on hand) and rebase it onto RepoRoot rather than letting it
+    # be double-joined. A relative path is taken as already repo-relative.
+    if ([System.IO.Path]::IsPathRooted($JsonPath)) {
+        $absJson = if (Test-Path $JsonPath) { (Resolve-Path $JsonPath).Path } else { [System.IO.Path]::GetFullPath($JsonPath) }
+        $relJson = [System.IO.Path]::GetRelativePath($script:RepoRoot, $absJson)
+        $firstSegment = ($relJson -split "[\\/]", 2)[0]
+        if (($relJson -eq ".") -or ($firstSegment -eq "..")) {
+            throw "JsonPath '$JsonPath' is not inside RepoRoot '$script:RepoRoot'."
         }
-        else {
-            Write-Host "No base tree exists yet. Applying export directly."
-        }
-
-        Apply-TreeToLiveJsonPath -Tree $exportTree
-        $finalSourceTree = Get-LiveJsonTree
-        Update-BaseRef -Tree $exportTree
-        Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
-        return
+        $script:JsonPath = ConvertTo-GitPath $relJson
+    }
+    else {
+        $script:JsonPath = ConvertTo-GitPath $JsonPath
     }
 
-    if ($currentSourceTree -eq $meta.baseTree) {
-        # Source did not move relative to the binary base, so no merge is needed.
-        Write-Host "Current source equals base tree. Applying export directly."
-        Apply-TreeToLiveJsonPath -Tree $exportTree
-        $finalSourceTree = Get-LiveJsonTree
-        Update-BaseRef -Tree $exportTree
-        Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
-        return
+    $script:StateKey = Get-StateKey -LibraryPath $LibraryPath -LibraryId $LibraryId
+    $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+    $script:StateRoot = Resolve-GitPrivatePath "gittools/$script:StateKey"
+
+    if ($MetaPath) {
+        $script:MetaPath = $MetaPath
+    }
+    else {
+        $script:MetaPath = Join-Path $script:StateRoot "meta.json"
     }
 
-    Write-Host "Current source differs from base tree. Running tree merge."
-    $merge = Invoke-MergeTree -BaseTree $meta.baseTree -CurrentSourceTree $currentSourceTree -ExportTree $exportTree
-    if ($merge.ExitCode -eq 0) {
-        # Clean merge: the live source receives the merged source tree, while
-        # baseTree advances to the raw Omnis export tree.
-        Write-Host "Merge succeeded."
-        Apply-TreeToLiveJsonPath -Tree $merge.ResultTree
-        $finalSourceTree = Get-LiveJsonTree
-        Update-BaseRef -Tree $exportTree
-        Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
-        return
-    }
-
-    # Invoke-MergeTree throws on any exit code other than 0 or 1, so reaching here
-    # means exit code 1: a genuine merge conflict, which is an acceptable outcome.
-    Write-Host "Merge completed with conflicts. Applying conflicted result to live JSON path."
-    # Leave the live JSON path in a real Git conflict state and remember enough
-    # metadata to classify resolution later.
-    Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
-    Set-PendingRefs -SourceTree $currentSourceTree -ExportTree $exportTree
-    Write-GitToolsMeta -Meta (New-PendingMeta -ExistingMeta $meta -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
-    Write-Host ""
-    Write-Host $merge.Output
-    Write-Host ""
-    Write-Host "Export completed with conflicts. Resolve the JSON path with your Git client."
-}
-finally {
-    # Always remove the temp export directory and its scratch index, even on early
-    # return or failure, so they do not accumulate in the system temp folder.
-    if (Test-Path $tempRoot) {
-        Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
-    }
-    if (Test-Path $exportIndex) {
-        Remove-Item -Force $exportIndex -ErrorAction SilentlyContinue
-    }
+    New-Item -ItemType Directory -Force -Path $script:StateRoot | Out-Null
 }

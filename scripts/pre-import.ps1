@@ -1,0 +1,43 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string] $RepoRoot,
+
+    [Parameter(Mandatory = $true)]
+    [string] $JsonPath,
+
+    [Parameter(Mandatory = $true)]
+    [string] $LibraryId,
+
+    # Absolute path to the binary library (.lbs). The state key is derived from
+    # this, not from the export path, because one export feeds N library files.
+    [string] $LibraryPath,
+
+    [string] $MetaPath
+)
+
+# Pre-import phase of the GitTools import procedure.
+#
+# Import carries no transient state across the Omnis step: Omnis reads the JSON
+# to rebuild the binary and never writes the live path, so post-import.ps1 can
+# recompute the identical source tree itself, and there are no temp artifacts to
+# track. This phase therefore only guards against importing unresolved conflicts
+# (which would bake conflict markers into the binary) and prints the path Omnis
+# should import from as the only line on stdout.
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+. "$PSScriptRoot/common.ps1"
+
+Initialize-GitToolsState -RepoRoot $RepoRoot -JsonPath $JsonPath -LibraryId $LibraryId -LibraryPath $LibraryPath -MetaPath $MetaPath
+
+Write-Step "Preflight"
+if (Test-UnresolvedJsonConflicts) {
+    throw "The JSON path contains unresolved conflicts. Resolve them before importing."
+}
+
+Write-Note "Omnis should import from: $script:JsonAbsolutePath"
+
+# The only stdout line: the path Omnis imports from.
+Write-Output $script:JsonAbsolutePath

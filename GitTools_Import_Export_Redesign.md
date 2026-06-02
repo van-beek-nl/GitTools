@@ -120,6 +120,19 @@ The same principle applies to hashing the **live working source** — needed to 
 
 Scoping every command to `<jsonPath>` keeps this independent of unrelated repository state — a conflict or change in some other file never affects it, and the real index is read but never modified. The cost is proportional to the user's local edits. The one case that still does substantial hashing is a large, **uncommitted** live source that diverges wholesale from the index (for example exporting twice before committing); a persistent per-library index could close that gap too, at the cost of maintaining it.
 
+### Applying A Result Tree Incrementally
+
+Writing a result tree (a clean export, or a merged source) back to the live JSON path must be proportional too — wiping the directory and re-checking out the whole tree is prohibitively slow on large libraries and, because it deletes and recreates thousands of files on every export, repeatedly exposes a filesystem delete race (`Remove-Item -Recurse` / "Directory not empty" on macOS). The blunt wipe exists only because `git checkout-index` *writes* the entries it is given but never *removes* a working-tree file that the target tree omits — so removed classes/methods/folders would otherwise linger and be hashed back in.
+
+Apply the **delta** instead:
+
+1. If the live tree already equals the target, do nothing.
+2. Otherwise reset the index for `<jsonPath>` to `HEAD` (index only, no working-tree rewrite) so the applied result surfaces as ordinary unstaged changes the user can review and commit.
+3. `git diff-tree -r --name-status <liveTree> <targetTree>` (both rooted at the export path) gives the changed paths. Process **deletions first** — remove each file and prune any directory it empties — so a path that changes type (file ↔ directory, which `diff-tree` reports as a delete plus an add) does not collide.
+4. Write the added/modified paths in a **single** batched `git checkout-index -f --stdin` from a scratch index of the target tree (`--stdin` avoids any command-line length limit when many files changed, e.g. a first export; `checkout-index` creates leading directories).
+
+Unchanged files are never rewritten — their on-disk bytes (and inode/mtime) are left intact — so the cost scales with what the export actually changed. The rarer conflict-application path still materializes the full conflict tree, since it must additionally stage unmerged index entries; it uses a hardened recursive delete rather than the fragile cmdlet.
+
 ## Export Procedure
 
 ### 1. Preflight
@@ -223,7 +236,60 @@ This ordering makes interruptions safe:
 - Interrupted before `meta.json` is written: the new state is simply not recorded. The live JSON path may hold an applied-but-unrecorded export, but `sourceTree` still names the previous tree, so the next export treats the live path as disposable and reproduces the export from the (unchanged) binary library. No committed work is lost.
 - Interrupted after a ref update but before `meta.json`: the ref points at a tree that `meta.json` does not yet reference. Because `meta.json` is the source of truth, the next run re-derives the same result and re-advances the ref; the only residue is a duplicate lineage commit, which is harmless.
 
-Temporary export directories are removed even when the export fails or throws (a `try`/`finally` in the prototype; equivalent cleanup in the implementation). Scratch index files are likewise always removed.
+Within a single process, temporary export directories and scratch index files are removed even when the export fails or throws (a `try`/`finally` in the prototype). When the procedure is split across two processes (see Procedure Decomposition), that `try`/`finally` can no longer span the Omnis step, so cleanup ownership moves to the post-script and an orphaned-handoff sweep on the next run backstops a crash between the two.
+
+## Procedure Decomposition (Pre/Post Split)
+
+In production, Omnis drives Git by shelling out, and each individual `git` invocation carries a high per-process cost in that environment. Issuing dozens of small `git` calls per export from Omnis is therefore slow. The implementation collapses all of the Git work into **two** PowerShell processes per procedure — one that runs **before** the Omnis import/export and one that runs **after** — so Omnis pays for two process launches instead of many. The single-process prototype's in-script pause for the Omnis step becomes the boundary between those two processes.
+
+### What Crosses The Boundary
+
+Splitting one process into two means all in-memory state at the pause point is gone when the second process starts. Most of what the procedure needs already survives on its own:
+
+- **`meta.json`** is persisted committed state; the second process re-reads it.
+- The **scratch index** and the **temp export directory** are real files; they persist across the boundary by nature.
+
+The only things that do **not** survive are the *paths* of those temp artifacts (they carry random names) and the computed `currentSourceTree`. Those are written to a **handoff file**, and only on export — see below.
+
+### File Layout
+
+Five scripts under `scripts/` (no `gittools-` prefix; they already live in the GitTools library):
+
+- **`common.ps1`** — every shared helper: the `Invoke-Git*` wrappers, `Get-StateKey`, `ConvertTo-GitPath`, the durability-ref helpers, `New-LiveSourceTree`, `Initialize-ExportSeed`, `New-IncrementalExportTree`, the merge helpers, metadata read/write, the pending-conflict resolver, and the handoff helpers. Dot-sourced by all four entry scripts.
+- **`pre-export.ps1`**, **`post-export.ps1`**, **`pre-import.ps1`**, **`post-import.ps1`** — each is a thin sequence of phase steps over `common.ps1`.
+
+Each entry script re-derives its state from the same parameters at startup (a few `git rev-parse` calls); this is negligible against the per-invocation cost the split removes.
+
+### The Handoff File (Export Only)
+
+Export carries transient state across the boundary; import does not. The export handoff is a `pending-op.json` written under `.git/gittools/<state-key>/` (with `ConvertTo-Json`, since the implementation stays in PowerShell) holding `tempRoot`, `tempJsonPath`, `exportIndex`, and `currentSourceTree`. `pre-export.ps1` writes it; `post-export.ps1` reads it and deletes it on completion.
+
+The **presence** of `pending-op.json` means "an export started but its post-script never finished." This is deliberately distinct from `meta.status = pendingExportConflict`, which is a *completed* export that conflicted and awaits the user's resolution (its handoff is already deleted). The two are never conflated.
+
+Import needs no handoff: Omnis reads the JSON to rebuild the binary and never writes the live path, so `post-import.ps1` recomputes the identical source tree itself, and there are no temp artifacts to track or leak.
+
+### Boundary Mapping
+
+Export — the boundary sits at the temp Omnis export step (Export Procedure §3):
+
+- **`pre-export.ps1`**: sweep any stale handoff (see Crash Recovery); Preflight (§1), including the pending-conflict resolution and the `meta.jsonPath`-moved reset; Determine Current Source (§2); seed the temp directory and scratch index from `baseTree` (§3, through `Initialize-ExportSeed`); write the handoff; **print `tempJsonPath` to stdout**; exit 0.
+- *(Omnis exports into `tempJsonPath`, then cleans irrelevant properties.)*
+- **`post-export.ps1`**: read the handoff and the resolved `meta.json`; build `exportTree` incrementally (§3, `New-IncrementalExportTree`); run Merge Or Apply (§4) and the Metadata Update (§5); always tear down the temp directory, scratch index, and handoff — including the conflict path, which is a completed outcome; **print `RESULT=clean` or `RESULT=conflict`**.
+
+Import:
+
+- **`pre-import.ps1`**: Preflight (Import Procedure §1, the conflict guard only); **print the live JSON path to stdout**; exit 0.
+- *(Omnis imports from the live path and replaces the binary library.)*
+- **`post-import.ps1`**: recompute `currentSourceTree` (`New-LiveSourceTree`); run the Metadata Update (§3); **print `RESULT=clean`**.
+
+### Omnis Contract
+
+- **Pre-scripts** signal abort with a **non-zero exit code**; Omnis must not run its import/export step when a pre-script aborts (for example on unresolved conflicts or a missing `merge-tree --write-tree`). On success the single machine-readable stdout line is the path Omnis needs.
+- **Post-scripts** print `RESULT=clean|conflict` on stdout and **exit 0 for both** — a conflict is an acceptable outcome, not a failure. A non-zero exit from a post-script signals a genuine error.
+
+### Crash Recovery
+
+Recovery is **auto-clean on the next run** (no explicit abort entry). Before doing anything else, `pre-export.ps1` checks for an existing `pending-op.json` for this state key. If one is present, the previous export's post-script never completed: it removes the `tempRoot` and `exportIndex` recorded in that handoff (tolerant of already-deleted paths), deletes the handoff, and proceeds with a fresh export. This is the cross-process equivalent of the prototype's `try`/`finally`. Import has no temp artifacts and no handoff, so an interrupted import leaves nothing to recover — the unchanged `meta.json` simply reflects the pre-import state.
 
 ## Scenario Handling
 
@@ -310,9 +376,9 @@ The `.lbs` may live inside or outside the version-controlled directory (see Stat
 
 ## Demonstration Scripts
 
-The repository contains two PowerShell demonstration scripts:
+The repository's PowerShell demonstration scripts mirror the production layout (see Procedure Decomposition): a shared `scripts/common.ps1` dot-sourced by four phase entry points —
 
-- `scripts/gittools-export-procedure.ps1`
-- `scripts/gittools-import-procedure.ps1`
+- `scripts/pre-export.ps1` and `scripts/post-export.ps1`
+- `scripts/pre-import.ps1` and `scripts/post-import.ps1`
 
-They demonstrate the Git procedure and leave Omnis-specific import/export work as prompted manual steps.
+They demonstrate the Git procedure split around the point where Omnis-specific import/export work happens: the pre-script prints the path for that work and the post-script consumes the result. The earlier single-file prototypes (`gittools-export-procedure.ps1`, `gittools-import-procedure.ps1`) validated the same logic with an in-process pause before the split.
