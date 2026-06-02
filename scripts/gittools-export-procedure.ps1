@@ -109,14 +109,31 @@ function Invoke-GitWithInput {
         [string[]] $Arguments,
 
         [Parameter(Mandatory = $true)]
-        [string[]] $InputLines
+        [string[]] $InputLines,
+
+        [string] $IndexFile
     )
 
-    # update-index --index-info expects one record per input line. Piping a
-    # single multi-line string can be parsed differently by PowerShell/Git.
-    $output = $InputLines | & git -C $script:RepoRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "git $($Arguments -join ' ') failed with exit code ${LASTEXITCODE}:$([Environment]::NewLine)$(($output | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine)"
+    $oldIndex = $env:GIT_INDEX_FILE
+    if ($IndexFile) {
+        $env:GIT_INDEX_FILE = $IndexFile
+    }
+
+    try {
+        # update-index --index-info expects one record per input line. Piping a
+        # single multi-line string can be parsed differently by PowerShell/Git.
+        $output = $InputLines | & git -C $script:RepoRoot @Arguments 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "git $($Arguments -join ' ') failed with exit code ${LASTEXITCODE}:$([Environment]::NewLine)$(($output | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine)"
+        }
+    }
+    finally {
+        if ($null -eq $oldIndex) {
+            Remove-Item Env:GIT_INDEX_FILE -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:GIT_INDEX_FILE = $oldIndex
+        }
     }
 }
 
@@ -171,15 +188,45 @@ function New-EmptyTree {
 }
 
 function New-TreeFromDirectory {
-    param([string] $Directory)
+    param(
+        [string] $Directory,
+
+        # Repo-relative location the directory's contents represent. Used only
+        # for attribute resolution so hashing matches HEAD's normalization.
+        [string] $RepoRelativePrefix = $script:JsonPath
+    )
 
     New-Item -ItemType Directory -Force -Path $Directory | Out-Null
     $index = New-TempIndexPath
     try {
-        # Hash a plain directory as a root tree. The directory can be outside
-        # the repository; only Git object storage and a scratch index are used.
         Invoke-Git @("read-tree", "--empty") -IndexFile $index | Out-Null
-        Invoke-Git @("--work-tree=$Directory", "add", "-A", "--", ".") -IndexFile $index | Out-Null
+
+        # Enumerate files ourselves instead of using `git add`. `git add` honors
+        # .gitignore and would silently drop matching files, which would surface
+        # as phantom deletions in the merge. Walking the directory captures
+        # exactly what is on disk.
+        $entries = New-Object System.Collections.Generic.List[string]
+        foreach ($file in (Get-ChildItem -LiteralPath $Directory -Recurse -File -Force)) {
+            $rel = ConvertTo-GitPath ([System.IO.Path]::GetRelativePath($Directory, $file.FullName))
+
+            # Hash each file as if it lived at its real repository path. --path
+            # makes Git apply the same .gitattributes / autocrlf normalization it
+            # used for the committed blobs, so identical content always hashes to
+            # the identical blob across base, source and export trees. Without it
+            # (or with --work-tree pointed outside the repo) normalization is
+            # skipped and every normalized line spuriously conflicts. Mode is
+            # fixed at 100644; Omnis export artifacts are never executable.
+            $attrPath = if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) { $rel } else { "$RepoRelativePrefix/$rel" }
+            $oid = Invoke-Git @("hash-object", "-w", "--path", $attrPath, $file.FullName)
+            $entries.Add("100644 $oid`t$rel") | Out-Null
+        }
+
+        if ($entries.Count -gt 0) {
+            Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $entries.ToArray() -IndexFile $index
+        }
+
+        # Entries are keyed relative to the export directory, so the resulting
+        # tree is rooted at <jsonPath> and matches HEAD:<jsonPath>.
         return Invoke-Git @("write-tree") -IndexFile $index
     }
     finally {

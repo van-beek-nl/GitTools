@@ -45,6 +45,18 @@ For a conflicted export:
 
 The private cache should contain real files for at least the current `baseTree`. This prevents aggressive Git object cleanup from breaking a later export. Pending export conflicts should also cache the pending source tree and pending export tree until the pending state is cleared.
 
+## Tree Hashing
+
+Every tree GitTools compares or merges (`baseTree`, `sourceTree`, the current source tree, and the temp `exportTree`) must be hashed in the same normalization space as the committed source. `.gitattributes` rules and `core.autocrlf` can normalize content (most commonly CRLF to LF) when Git stores it. If one tree is hashed with that normalization applied and another without, identical content hashes to different blobs and the merge reports spurious conflicts on files no one changed.
+
+Two rules keep the trees consistent:
+
+1. **Hash content as if it lived at its real repository path.** For content that physically lives outside its tracked location (the temp Omnis export and the private base cache), hash each file with `git hash-object --path "<jsonPath>/<relativePath>"`. The `--path` argument makes Git apply the exact attribute/filter rules of the real path, even though the file is elsewhere on disk. Do **not** build these trees with `git add --work-tree=<external directory>`: that relocates `.gitattributes` lookup and silently skips normalization.
+
+2. **Enumerate files explicitly; never snapshot a directory with `git add`.** `git add` honors `.gitignore`, which would silently drop matching files from the tree and surface them as phantom deletions in the merge. Walk the directory, hash every regular file, and assemble the tree with `git update-index --index-info` into a scratch index followed by `git write-tree`.
+
+Trees stay rooted at the export directory (entries keyed relative to `<jsonPath>`), matching `HEAD:<jsonPath>`. `--path` only affects attribute resolution; it does not change the entry key.
+
 ## Export Procedure
 
 ### 1. Preflight
