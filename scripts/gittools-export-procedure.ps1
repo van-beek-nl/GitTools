@@ -270,45 +270,71 @@ function New-EmptyTree {
     }
 }
 
-function New-TreeFromDirectory {
-    param(
-        [string] $Directory,
+function New-LiveSourceTree {
+    # Hash the live JSON path into a tree, using the repository's own index as the
+    # stat and blob source. Files whose working-tree stat matches the index are
+    # taken straight from the index with no hashing; only files that differ
+    # (modified, deleted, or new) are read from disk. The result is identical to a
+    # full directory walk, but the cost is proportional to local edits, not to the
+    # library size. Everything is scoped to the JSON path, so unrelated repository
+    # state (including conflicts in other files) never affects the result.
+    param([string] $RepoRelativePrefix = $script:JsonPath)
 
-        # Repo-relative location the directory's contents represent. Used only
-        # for attribute resolution so hashing matches HEAD's normalization.
-        [string] $RepoRelativePrefix = $script:JsonPath
-    )
+    $prefix = if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) { "" } else { "$RepoRelativePrefix/" }
 
-    New-Item -ItemType Directory -Force -Path $Directory | Out-Null
     $index = New-TempIndexPath
     try {
         Invoke-Git @("read-tree", "--empty") -IndexFile $index | Out-Null
 
-        # Enumerate files ourselves instead of using `git add`. `git add` honors
-        # .gitignore and would silently drop matching files, which would surface
-        # as phantom deletions in the merge. Walking the directory captures
-        # exactly what is on disk.
-        $entries = New-Object System.Collections.Generic.List[string]
-        foreach ($file in (Get-ChildItem -LiteralPath $Directory -Recurse -File -Force)) {
-            $rel = ConvertTo-GitPath ([System.IO.Path]::GetRelativePath($Directory, $file.FullName))
+        $records = New-Object System.Collections.Generic.List[string]
+        $handled = New-Object 'System.Collections.Generic.HashSet[string]'
 
-            # Hash each file as if it lived at its real repository path. --path
-            # makes Git apply the same .gitattributes / autocrlf normalization it
-            # used for the committed blobs, so identical content always hashes to
-            # the identical blob across base, source and export trees. Without it
-            # (or with --work-tree pointed outside the repo) normalization is
-            # skipped and every normalized line spuriously conflicts. Mode is
-            # fixed at 100644; Omnis export artifacts are never executable.
-            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file.FullName)
-            $entries.Add("100644 $oid`t$rel") | Out-Null
+        # Modified / deleted tracked files, detected by stat against the REAL index
+        # (no -IndexFile here, so the repository's cached stat is used). No file
+        # content is read for unchanged entries. Strip the JSON-path prefix so the
+        # resulting tree is rooted at <jsonPath> and matches HEAD:<jsonPath>.
+        $nameStatus = Invoke-Git @("diff-files", "--name-status", "--", $script:JsonPath)
+        foreach ($line in ($nameStatus -split "\r?\n")) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $parts = $line -split "\t", 2
+            $repoPath = ConvertTo-GitPath $parts[1]
+            $rel = if ($prefix -and $repoPath.StartsWith($prefix)) { $repoPath.Substring($prefix.Length) } else { $repoPath }
+            $handled.Add($rel) | Out-Null
+            if ($parts[0] -like "D*") { continue }
+            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
+            $records.Add("100644 $oid`t$rel") | Out-Null
         }
 
-        if ($entries.Count -gt 0) {
-            Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $entries.ToArray() -IndexFile $index
+        # New untracked files. No --exclude-standard, so .gitignore'd files in the
+        # export are still captured (the export is authoritative for its own path).
+        $others = Invoke-Git @("ls-files", "--others", "--", $script:JsonPath)
+        foreach ($line in ($others -split "\r?\n")) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $repoPath = ConvertTo-GitPath $line
+            $rel = if ($prefix -and $repoPath.StartsWith($prefix)) { $repoPath.Substring($prefix.Length) } else { $repoPath }
+            $handled.Add($rel) | Out-Null
+            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
+            $records.Add("100644 $oid`t$rel") | Out-Null
         }
 
-        # Entries are keyed relative to the export directory, so the resulting
-        # tree is rooted at <jsonPath> and matches HEAD:<jsonPath>.
+        # Unchanged tracked files: reuse the blob already recorded in the index, no
+        # hashing. Mode is forced to 100644 to match the rest of the design.
+        $staged = Invoke-Git @("ls-files", "--stage", "--", $script:JsonPath)
+        foreach ($line in ($staged -split "\r?\n")) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            if ($line -match "^(\d{6}) ([0-9a-fA-F]{40,64}) [0-9]\t(.+)$") {
+                $repoPath = ConvertTo-GitPath $Matches[3]
+                $rel = if ($prefix -and $repoPath.StartsWith($prefix)) { $repoPath.Substring($prefix.Length) } else { $repoPath }
+                if ($handled.Contains($rel)) { continue }
+                $records.Add("100644 $($Matches[2])`t$rel") | Out-Null
+            }
+        }
+
+        if ($records.Count -gt 0) {
+            Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $records.ToArray() -IndexFile $index
+        }
         return Invoke-Git @("write-tree") -IndexFile $index
     }
     finally {
@@ -486,7 +512,7 @@ function Clear-PendingRefs {
 }
 
 function Get-LiveJsonTree {
-    return New-TreeFromDirectory -Directory $script:JsonAbsolutePath
+    return New-LiveSourceTree
 }
 
 function Get-HeadJsonTreeOrEmpty {

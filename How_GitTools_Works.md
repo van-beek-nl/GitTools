@@ -266,6 +266,12 @@ files keep the hash they already had. The result is the same tree it would have
 produced by hashing everything, but the work is proportional to *what changed*,
 not to the size of the library.
 
+The same shortcut is used whenever GitTools needs to hash the **source already in
+your repository** (for the comparisons below, and when importing): it asks Git
+which files differ from what's already recorded, re-hashes only those, and takes
+every unchanged file's hash straight from Git's records. So neither side of the
+comparison ever re-reads your whole library.
+
 One detail matters a lot here: GitTools hashes each changed file *as if it lived
 at its real path in the repository*. That makes Git apply the same line-ending and
 `.gitattributes` normalisation it uses for committed files. Without it, a file

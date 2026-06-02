@@ -107,7 +107,18 @@ This is done with Git's index **stat cache**, which is how `git status` stays fa
 3. **Find the change set by stat, not by hashing.** `git diff-files --name-status` reports tracked files whose stat changed (modified) or that vanished (deleted); `git ls-files --others` reports new files. Neither reads the content of unchanged files. (`ls-files --others` is used **without** `--exclude-standard`, so `.gitignore`d files in the export are still captured, consistent with rule 2 above.)
 4. **Hash only the change set, then `write-tree`.** Re-hash each modified and new file with `hash-object --path` (rule 1), record deletions, and leave every unchanged entry on its existing base blob. `git write-tree` produces a tree **byte-identical** to a full rebuild — only the changed files were read.
 
-Because no base exists on a first export, the scratch index starts empty and every exported file is reported as new, which naturally degrades to a full hash — correct, just not cheaper. The scratch index may also be persisted under `.git/gittools/<state-key>/` so even the seed step is avoided on the next export. (This optimization applies to the **export** tree, which is seeded from the base. The current-source and import trees are hashed from the live working tree, where the same stat-cache technique could be applied against the repository's own index but is out of scope here.)
+Because no base exists on a first export, the scratch index starts empty and every exported file is reported as new, which naturally degrades to a full hash — correct, just not cheaper. The scratch index may also be persisted under `.git/gittools/<state-key>/` so even the seed step is avoided on the next export.
+
+### Building The Live-Source Tree Incrementally
+
+The same principle applies to hashing the **live working source** — needed to determine the current source tree on export, to record the final source after applying a result, and to capture the source being imported. Here the stat source is the **repository's own index** rather than a seeded scratch one, and the files are already at their real path (so no `--path` work-tree juggling is needed). Scoped to `<jsonPath>`:
+
+1. `git diff-files --name-status -- <jsonPath>` reports tracked files whose working-tree stat differs from the index (modified, or deleted) — by stat, reading no unchanged content.
+2. `git ls-files --others -- <jsonPath>` (again without `--exclude-standard`) reports new untracked files.
+3. Every other tracked file is **unchanged**, so its blob is taken straight from the index (`git ls-files --stage`) with no hashing at all.
+4. Re-hash only the modified and new files (with `hash-object --path`), drop deletions, and `write-tree`. The result is byte-identical to a full directory walk.
+
+Scoping every command to `<jsonPath>` keeps this independent of unrelated repository state — a conflict or change in some other file never affects it, and the real index is read but never modified. The cost is proportional to the user's local edits. The one case that still does substantial hashing is a large, **uncommitted** live source that diverges wholesale from the index (for example exporting twice before committing); a persistent per-library index could close that gap too, at the cost of maintaining it.
 
 ## Export Procedure
 
