@@ -30,14 +30,20 @@ $ErrorActionPreference = "Stop"
 
 . "$PSScriptRoot/common.ps1"
 
+Start-Timing
+
 Initialize-GitToolsState -RepoRoot $RepoRoot -JsonPath $JsonPath -LibraryId $LibraryId -LibraryPath $LibraryPath -MetaPath $MetaPath
+Write-Timing "initialize state"
 
 Write-Step "Preflight"
 if (Test-UnresolvedJsonConflicts) {
     throw "The JSON path contains unresolved conflicts. Resolve them before importing."
 }
+Write-Timing "preflight: conflict check"
 
 Write-Note "Omnis should import from: $script:JsonAbsolutePath"
+
+Write-TimingSummary
 
 # The only stdout line: the path Omnis imports from.
 Write-Output $script:JsonAbsolutePath

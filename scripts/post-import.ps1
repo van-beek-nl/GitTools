@@ -27,13 +27,17 @@ $ErrorActionPreference = "Stop"
 
 . "$PSScriptRoot/common.ps1"
 
+Start-Timing
+
 Initialize-GitToolsState -RepoRoot $RepoRoot -JsonPath $JsonPath -LibraryId $LibraryId -LibraryPath $LibraryPath -MetaPath $MetaPath
+Write-Timing "initialize state"
 
 Write-Step "Record imported source"
 # The live JSON path is unchanged by the import (Omnis reads it to rebuild the
 # binary), so recomputing the source tree here matches what it was pre-import.
 $currentSourceTree = New-LiveSourceTree
 Write-Note "Imported source tree: $currentSourceTree"
+Write-Timing "hash imported source"
 
 Write-Step "Update metadata and durability refs"
 # Pin the new base tree behind refs/gittools/<state-key>/base so later exports can
@@ -42,6 +46,9 @@ Write-Step "Update metadata and durability refs"
 Update-BaseRef -Tree $currentSourceTree
 Clear-PendingRefs
 Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $currentSourceTree -SourceTree $currentSourceTree)
+Write-Timing "update base ref + write metadata"
 
 Write-Note "Import metadata updated."
+
+Write-TimingSummary
 Write-Output "RESULT=clean"

@@ -30,7 +30,10 @@ $ErrorActionPreference = "Stop"
 
 . "$PSScriptRoot/common.ps1"
 
+Start-Timing
+
 Initialize-GitToolsState -RepoRoot $RepoRoot -JsonPath $JsonPath -LibraryId $LibraryId -LibraryPath $LibraryPath -MetaPath $MetaPath
+Write-Timing "initialize state"
 
 $handoff = Read-Handoff
 if (($null -eq $handoff) -or ($handoff.op -ne "export")) {
@@ -38,20 +41,21 @@ if (($null -eq $handoff) -or ($handoff.op -ne "export")) {
 }
 
 # meta.json was resolved and persisted by the pre-script; re-read it for the
-# (possibly advanced) base tree. The current source tree and temp paths come
-# from the handoff.
+# (possibly advanced) base tree. The current source tree comes from the handoff;
+# the cache dir/index are persistent at the state-key-derived location.
 $meta = Read-GitToolsMeta
 $currentSourceTree = $handoff.currentSourceTree
-$tempRoot = $handoff.tempRoot
-$tempJsonPath = $handoff.tempJsonPath
-$exportIndex = $handoff.exportIndex
+$cacheDir = Get-ExportCacheDir
+$cacheIndex = Get-ExportCacheIndex
+Write-Timing "read handoff + metadata"
 
 try {
     Write-Step "Build export tree"
-    # Build incrementally: hash only the files whose stat changed since the seed
-    # (plus new files), not the whole export.
-    $exportTree = New-IncrementalExportTree -IndexFile $exportIndex -WorkTree $tempJsonPath
+    # Build incrementally: hash only the files Omnis changed since the cache index
+    # was last in step with the directory, not the whole export.
+    $exportTree = New-IncrementalExportTree -IndexFile $cacheIndex -WorkTree $cacheDir
     Write-Note "Export tree: $exportTree"
+    Write-Timing "build export tree (incremental)"
 
     Write-Step "Apply or merge export result"
     if (-not $meta.baseTree) {
@@ -71,9 +75,12 @@ try {
         }
 
         Apply-TreeToLiveJsonPath -Tree $exportTree
+        Write-Timing "apply export to live path"
         $finalSourceTree = Get-LiveJsonTree
+        Write-Timing "hash final source"
         Update-BaseRef -Tree $exportTree
         Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
+        Write-Timing "update base ref + write metadata"
         Write-Output "RESULT=clean"
         return
     }
@@ -82,23 +89,30 @@ try {
         # Source did not move relative to the binary base, so no merge is needed.
         Write-Note "Current source equals base tree. Applying export directly."
         Apply-TreeToLiveJsonPath -Tree $exportTree
+        Write-Timing "apply export to live path"
         $finalSourceTree = Get-LiveJsonTree
+        Write-Timing "hash final source"
         Update-BaseRef -Tree $exportTree
         Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
+        Write-Timing "update base ref + write metadata"
         Write-Output "RESULT=clean"
         return
     }
 
     Write-Note "Current source differs from base tree. Running tree merge."
     $merge = Invoke-MergeTree -BaseTree $meta.baseTree -CurrentSourceTree $currentSourceTree -ExportTree $exportTree
+    Write-Timing "merge-tree (three-way)"
     if ($merge.ExitCode -eq 0) {
         # Clean merge: the live source receives the merged source tree, while
         # baseTree advances to the raw Omnis export tree.
         Write-Note "Merge succeeded."
         Apply-TreeToLiveJsonPath -Tree $merge.ResultTree
+        Write-Timing "apply merged result to live path"
         $finalSourceTree = Get-LiveJsonTree
+        Write-Timing "hash final source"
         Update-BaseRef -Tree $exportTree
         Write-GitToolsMeta -Meta (New-CleanMeta -BaseTree $exportTree -SourceTree $finalSourceTree)
+        Write-Timing "update base ref + write metadata"
         Write-Output "RESULT=clean"
         return
     }
@@ -109,8 +123,10 @@ try {
     # Leave the live JSON path in a real Git conflict state and remember enough
     # metadata to classify resolution later.
     Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
+    Write-Timing "apply conflicted result to live path"
     Set-PendingRefs -SourceTree $currentSourceTree -ExportTree $exportTree
     Write-GitToolsMeta -Meta (New-PendingMeta -ExistingMeta $meta -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
+    Write-Timing "set pending refs + write metadata"
     Write-Note ""
     Write-Note $merge.Output
     Write-Note ""
@@ -118,15 +134,11 @@ try {
     Write-Output "RESULT=conflict"
 }
 finally {
-    # Always tear down the temp export directory, its scratch index, and the
-    # handoff - on every exit path, including the conflict path (a conflict is a
-    # completed export) and on a thrown error. The export is reproducible from the
-    # binary library, so discarding a partial temp export is safe.
-    if ($tempRoot -and (Test-Path $tempRoot)) {
-        Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
-    }
-    if ($exportIndex -and (Test-Path $exportIndex)) {
-        Remove-Item -Force $exportIndex -ErrorAction SilentlyContinue
-    }
+    # Clear the handoff on every exit path - including the conflict path (a conflict
+    # is a completed export) and a thrown error. The export cache is deliberately
+    # KEPT: it is the warm copy the next export reuses, and its index now matches the
+    # directory so the next build stays incremental.
     Clear-Handoff
+    Write-Timing "clear handoff"
+    Write-TimingSummary
 }

@@ -30,58 +30,64 @@ $ErrorActionPreference = "Stop"
 
 . "$PSScriptRoot/common.ps1"
 
+Start-Timing
+
 Initialize-GitToolsState -RepoRoot $RepoRoot -JsonPath $JsonPath -LibraryId $LibraryId -LibraryPath $LibraryPath -MetaPath $MetaPath
+Write-Timing "initialize state"
 
 Write-Step "Preflight"
 if (-not (Test-MergeTreeWriteTree)) {
     throw "This procedure requires git merge-tree --write-tree."
 }
+Write-Timing "preflight: merge-tree capability"
 
 # Clean up after any export whose post-script never ran, before starting a new
 # one (auto-clean recovery).
 Invoke-StaleHandoffSweep
+Write-Timing "stale-handoff sweep"
 
 if (Test-UnresolvedJsonConflicts) {
     throw "The JSON path already contains unresolved conflicts. Resolve them before exporting."
 }
+Write-Timing "preflight: conflict check"
 
 $meta = Read-GitToolsMeta
+Write-Timing "read metadata"
 # Pending metadata is resolved before deciding the current source tree, because
 # it may advance or preserve the export merge base.
 $meta = Resolve-PendingConflictIfNeeded -Meta $meta
 Write-GitToolsMeta -Meta $meta
+Write-Timing "resolve pending + write metadata"
 
 Write-Step "Determine current source"
 $currentSourceTree = Get-CurrentSourceTree -Meta $meta
+Write-Timing "determine current source (hash live)"
 
-Write-Step "Prepare temp Omnis export cache"
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "gittools-export-$([System.Guid]::NewGuid().ToString('N'))"
-$tempJsonPath = Join-Path $tempRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-# Scratch index seeded from the base. It carries each seeded file's stat info so
-# the export tree can later be built by hashing only what Omnis changed.
-$exportIndex = New-TempIndexPath
+Write-Step "Prepare export cache"
+# The persistent per-library cache Omnis exports into. It is NOT seeded from base -
+# Omnis is its sole writer and produces a complete, correct export over whatever is
+# there - so this only ensures the directory and its stat-index exist (empty on the
+# first export). See Initialize-ExportCache.
+$cacheDir = Get-ExportCacheDir
+$cacheIndex = Get-ExportCacheIndex
+Initialize-ExportCache -CacheDir $cacheDir -IndexFile $cacheIndex
+Write-Timing "prepare export cache"
 
-# Seed the temp directory from the last reconciled export tree (keeping the speed
-# benefit of exporting over an existing tree) and capture stat info in the
-# scratch index. With no base, the directory starts empty.
-Initialize-ExportSeed -BaseTree $meta.baseTree -IndexFile $exportIndex -WorkTree $tempJsonPath
-
-# Persist the transient state the post-script needs across the process boundary.
-# meta.json already holds the committed state; the scratch index and temp dir are
-# real files that survive on their own - only their paths and the current source
-# tree must be carried here.
+# The only state that must cross the process boundary: the current source tree. The
+# cache dir/index are persistent at a state-key-derived location the post-script
+# re-derives, and meta.json already holds the committed state.
 Write-Handoff -Handoff ([pscustomobject]@{
     op = "export"
-    tempRoot = $tempRoot
-    tempJsonPath = $tempJsonPath
-    exportIndex = $exportIndex
     currentSourceTree = $currentSourceTree
 })
+Write-Timing "write handoff"
 
 Write-Note "Export tree base: $($meta.baseTree)"
 Write-Note "Current source tree: $currentSourceTree"
-Write-Note "Omnis should export into: $tempJsonPath"
+Write-Note "Omnis should export into: $cacheDir"
+
+Write-TimingSummary
 
 # The only stdout line: the directory Omnis exports into. Everything else went to
 # stderr so this stays cleanly machine-readable.
-Write-Output $tempJsonPath
+Write-Output $cacheDir

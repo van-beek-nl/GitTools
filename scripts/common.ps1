@@ -22,6 +22,46 @@ function Write-Note {
     [Console]::Error.WriteLine($Message)
 }
 
+# --- Timing / benchmarking (opt-in via GITTOOLS_TIMING) --------------------
+# When the GITTOOLS_TIMING environment variable is set to a non-empty value, the
+# scripts emit per-step timings, file counts, and a total git-invocation count to
+# stderr. Off by default, so the stdout/stderr contract and normal output are
+# unchanged. Start-Timing must run before the first git call so invocations are
+# counted; every entry script calls it right after dot-sourcing this file.
+
+function Start-Timing {
+    $script:TimingEnabled = -not [string]::IsNullOrEmpty($env:GITTOOLS_TIMING)
+    $script:GitInvocations = 0
+    if ($script:TimingEnabled) {
+        $script:TimingStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $script:TimingLast = [TimeSpan]::Zero
+    }
+}
+
+function Write-Timing {
+    # Log the elapsed time of the step that just finished (the lap since the last
+    # checkpoint) alongside the running total.
+    param([string] $Label)
+    if (-not $script:TimingEnabled) { return }
+    $now = $script:TimingStopwatch.Elapsed
+    $lap = $now - $script:TimingLast
+    $script:TimingLast = $now
+    [Console]::Error.WriteLine([string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "[timing] {0,9:N1} ms step | {1,9:N1} ms total | {2}", $lap.TotalMilliseconds, $now.TotalMilliseconds, $Label))
+}
+
+function Write-TimingNote {
+    # Annotate the current step with detail (e.g. how many files were hashed).
+    param([string] $Message)
+    if (-not $script:TimingEnabled) { return }
+    [Console]::Error.WriteLine("[timing]           detail | $Message")
+}
+
+function Write-TimingSummary {
+    if (-not $script:TimingEnabled) { return }
+    $total = $script:TimingStopwatch.Elapsed
+    [Console]::Error.WriteLine([string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "[timing] ===== total {0:N1} ms over {1} git invocations =====", $total.TotalMilliseconds, $script:GitInvocations))
+}
+
 # --- General Git helpers ---------------------------------------------------
 
 function ConvertTo-GitPath {
@@ -87,6 +127,8 @@ function Invoke-GitRaw {
         # ls-files), which are how the incremental tree build finds what changed.
         [string] $WorkTree
     )
+
+    if ($script:TimingEnabled) { $script:GitInvocations++ }
 
     $oldIndex = $env:GIT_INDEX_FILE
     if ($IndexFile) {
@@ -165,6 +207,8 @@ function Invoke-GitWithInput {
 
         [string] $IndexFile
     )
+
+    if ($script:TimingEnabled) { $script:GitInvocations++ }
 
     $oldIndex = $env:GIT_INDEX_FILE
     if ($IndexFile) {
@@ -254,14 +298,110 @@ function New-EmptyTree {
     }
 }
 
+function Test-IndexHasUnmerged {
+    # write-tree (used by the New-LiveSourceTree fast path) aborts if ANY index
+    # entry is unmerged, even one outside the export path. Detect that cheaply so
+    # the caller can fall back to the path-scoped builder, which is unaffected by
+    # unrelated conflicts.
+    $result = Invoke-Git @("ls-files", "--unmerged")
+    return (-not [string]::IsNullOrWhiteSpace($result))
+}
+
 function New-LiveSourceTree {
-    # Hash the live JSON path into a tree, using the repository's own index as the
-    # stat and blob source. Files whose working-tree stat matches the index are
-    # taken straight from the index with no hashing; only files that differ
-    # (modified, deleted, or new) are read from disk. The result is identical to a
-    # full directory walk, but the cost is proportional to local edits, not to the
-    # library size. Everything is scoped to the JSON path, so unrelated repository
-    # state (including conflicts in other files) never affects the result.
+    # Build a tree of the live JSON path. Fast path: start from a COPY of the
+    # repository index - which already holds every tracked file's blob, so the tens
+    # of thousands of unchanged entries never pass through PowerShell - apply only
+    # the small working-tree delta (modified re-hashed, deleted dropped, new
+    # hashed), and let git assemble the subtree in C with `write-tree --prefix`.
+    # Cost is proportional to local edits, not library size (measured ~48x faster
+    # than rebuilding from an empty index on a 20k-file library).
+    #
+    # `write-tree` refuses to run while ANY index entry is unmerged (even outside
+    # the export path), so when the index carries conflicts - or has no index file
+    # yet - we fall back to New-LiveSourceTreeScoped, which only ever touches
+    # <jsonPath> and is therefore isolation-safe. The fast path assumes the export
+    # holds only regular (non-executable) files, true for Omnis .json/.omh output,
+    # so the copied index modes are uniformly 100644 and match the forced-100644
+    # trees the rest of the design builds.
+    param([string] $RepoRelativePrefix = $script:JsonPath)
+
+    $indexPath = Resolve-GitPrivatePath "index"
+    if ((-not (Test-Path -LiteralPath $indexPath)) -or (Test-IndexHasUnmerged)) {
+        return (New-LiveSourceTreeScoped -RepoRelativePrefix $RepoRelativePrefix)
+    }
+
+    $scratch = New-TempIndexPath
+    try {
+        # Snapshot the real index; the copy already contains every tracked blob.
+        # Entries are keyed by their FULL repo path here (not stripped to the export
+        # root); write-tree --prefix re-roots the result at the export path.
+        Copy-Item -LiteralPath $indexPath -Destination $scratch -Force
+
+        $records = New-Object System.Collections.Generic.List[string]
+
+        # Modified / deleted tracked files under the export path, by stat.
+        $nameStatus = Invoke-Git @("diff-files", "--name-status", "--", $script:JsonPath)
+        foreach ($line in ($nameStatus -split "\r?\n")) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $parts = $line -split "\t", 2
+            $repoPath = ConvertTo-GitPath $parts[1]
+            if ($parts[0] -like "D*") {
+                # Mode 0 removes the entry from the (copied) index.
+                $records.Add("0 0000000000000000000000000000000000000000`t$repoPath") | Out-Null
+                continue
+            }
+            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+            $oid = Invoke-Git @("hash-object", "-w", "--path", $repoPath, $file)
+            $records.Add("100644 $oid`t$repoPath") | Out-Null
+        }
+
+        # New untracked files. No --exclude-standard, so .gitignore'd files in the
+        # export are still captured (the export is authoritative for its own path).
+        $others = Invoke-Git @("ls-files", "--others", "--", $script:JsonPath)
+        foreach ($line in ($others -split "\r?\n")) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $repoPath = ConvertTo-GitPath $line
+            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+            $oid = Invoke-Git @("hash-object", "-w", "--path", $repoPath, $file)
+            $records.Add("100644 $oid`t$repoPath") | Out-Null
+        }
+
+        if ($records.Count -gt 0) {
+            Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $records.ToArray() -IndexFile $scratch
+        }
+
+        if ($script:TimingEnabled) {
+            $mod = @($nameStatus -split "\r?\n" | Where-Object { $_ -and ($_ -notmatch "^D") }).Count
+            $del = @($nameStatus -split "\r?\n" | Where-Object { $_ -match "^D" }).Count
+            $new = @($others -split "\r?\n" | Where-Object { $_ }).Count
+            Write-TimingNote "live source (fast): hashed $($mod + $new) ($mod modified, $new new), $del deleted, rest reused from copied index"
+        }
+
+        $prefix = if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) { "" } else { "$RepoRelativePrefix/" }
+        if ($prefix) {
+            # write-tree --prefix fails with "prefix ... not found" when nothing
+            # under the export path is tracked yet (e.g. the very first export,
+            # before the path exists). That just means the live source is empty, so
+            # fall back to the scoped builder, which yields the empty tree correctly.
+            $result = Invoke-GitRaw @("write-tree", "--prefix=$prefix") -IndexFile $scratch
+            if ($result.ExitCode -eq 0) {
+                return $result.Output.Trim()
+            }
+            return (New-LiveSourceTreeScoped -RepoRelativePrefix $RepoRelativePrefix)
+        }
+        return Invoke-Git @("write-tree") -IndexFile $scratch
+    }
+    finally {
+        Remove-Item $scratch -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function New-LiveSourceTreeScoped {
+    # Isolation-safe fallback for New-LiveSourceTree: build the tree from an EMPTY
+    # scratch index containing ONLY <jsonPath> entries, so unrelated unmerged
+    # entries elsewhere in the real index cannot affect or break it. Slower on large
+    # libraries (every unchanged entry is re-listed through PowerShell), but only
+    # reached when the index carries conflicts or there is no index file yet.
     param([string] $RepoRelativePrefix = $script:JsonPath)
 
     $prefix = if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) { "" } else { "$RepoRelativePrefix/" }
@@ -319,6 +459,14 @@ function New-LiveSourceTree {
         if ($records.Count -gt 0) {
             Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $records.ToArray() -IndexFile $index
         }
+
+        if ($script:TimingEnabled) {
+            $mod = @($nameStatus -split "\r?\n" | Where-Object { $_ -and ($_ -notmatch "^D") }).Count
+            $del = @($nameStatus -split "\r?\n" | Where-Object { $_ -match "^D" }).Count
+            $new = @($others -split "\r?\n" | Where-Object { $_ }).Count
+            Write-TimingNote "live source (scoped): hashed $($mod + $new) ($mod modified, $new new), reused $($records.Count - $mod - $new) from index, $del deleted"
+        }
+
         return Invoke-Git @("write-tree") -IndexFile $index
     }
     finally {
@@ -326,36 +474,53 @@ function New-LiveSourceTree {
     }
 }
 
-function Initialize-ExportSeed {
-    # Materialize the temp export directory from the base tree AND populate a
-    # persistent scratch index with each file's stat info (size/mtime). After
-    # Omnis runs its incremental export over this directory, the stat info lets
-    # the tree build below find what changed without re-reading every file.
+function Get-ExportCacheDir {
+    # The persistent per-library directory Omnis exports into. It is a warm copy of
+    # the last export, kept between runs purely to let Omnis export incrementally.
+    return Join-Path $script:StateRoot "export-cache"
+}
+
+function Get-ExportCacheIndex {
+    # The persistent scratch index paired with the cache directory. It records each
+    # cached file's blob + stat so the export tree can be built by hashing only what
+    # Omnis changed. It must stay in step with the directory between runs (which it
+    # does: post-export leaves it matching, and nothing else writes the cache).
+    return Join-Path $script:StateRoot "export-cache.index"
+}
+
+function Initialize-ExportCache {
+    # Ensure the persistent export cache exists, and DO NOT touch its contents.
+    #
+    # The cache is purely an accelerator for Omnis's own incremental export: Omnis
+    # is its sole writer and always produces a complete, correct export over
+    # whatever is there (pruning files for deleted classes), so a stale cache only
+    # costs Omnis some speed, never correctness. The authoritative export is the
+    # directory as it stands AFTER Omnis runs (hashed by New-IncrementalExportTree),
+    # and the merge base is the durable baseTree ref - neither depends on the cache.
+    # So there is deliberately no seeding from baseTree and no reconciliation here.
+    #
+    # On the very first export the directory and index are empty, so Omnis does a
+    # full export and post-export hashes everything once; every later export is
+    # proportional to what Omnis changed.
     param(
-        [string] $BaseTree,
-        [string] $IndexFile,
-        [string] $WorkTree
+        [string] $CacheDir,
+        [string] $IndexFile
     )
 
-    New-Item -ItemType Directory -Force -Path $WorkTree | Out-Null
-
-    if ($BaseTree) {
-        Invoke-Git @("read-tree", $BaseTree) -IndexFile $IndexFile | Out-Null
-        # -u records the stat info of the checked-out files into the index; without
-        # it, read-tree leaves stat empty and every file would later look changed.
-        Invoke-Git @("checkout-index", "-a", "-f", "-u") -IndexFile $IndexFile -WorkTree $WorkTree | Out-Null
-    }
-    else {
-        # No base: start empty, so every exported file is detected as new.
+    New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
+    if (-not (Test-Path -LiteralPath $IndexFile)) {
         Invoke-Git @("read-tree", "--empty") -IndexFile $IndexFile | Out-Null
     }
 }
 
 function New-IncrementalExportTree {
-    # Build the export tree from a base-seeded index by hashing ONLY the files
-    # Omnis actually changed, instead of re-hashing the whole export. The result
-    # is identical to a full rebuild (verified): unchanged files keep the base's
-    # blob hashes, so the cost scales with the change set, not the library size.
+    # Build the export tree by hashing ONLY the files Omnis actually changed since
+    # the persistent cache index was last in step with the directory, instead of
+    # re-hashing the whole export. The result is identical to a full rebuild
+    # (verified): unchanged files keep their existing blob hashes, so the cost
+    # scales with the change set, not the library size. The index just needs to be
+    # a consistent prior snapshot of the directory (which the persistent cache
+    # index always is - even after a crashed export - so this is self-healing).
     param(
         [string] $IndexFile,
         [string] $WorkTree,
@@ -402,7 +567,23 @@ function New-IncrementalExportTree {
         Invoke-GitWithInput -Arguments @("update-index", "--index-info") -InputLines $records.ToArray() -IndexFile $IndexFile
     }
 
-    return Invoke-Git @("write-tree") -IndexFile $IndexFile
+    if ($script:TimingEnabled) {
+        $mod = @($nameStatus -split "\r?\n" | Where-Object { $_ -and ($_ -notmatch "^D") }).Count
+        $del = @($nameStatus -split "\r?\n" | Where-Object { $_ -match "^D" }).Count
+        $new = @($others -split "\r?\n" | Where-Object { $_ }).Count
+        Write-TimingNote "export tree: hashed $($mod + $new) changed files ($mod modified, $new new), $del deleted"
+    }
+
+    $tree = Invoke-Git @("write-tree") -IndexFile $IndexFile
+
+    # update-index --index-info records blobs without stat info, so the entries we
+    # just changed would look dirty next run and be re-read. Refresh once to record
+    # their stat against the now-current files, keeping the next export proportional
+    # (it reads only this export's change set; on the first export, that is the
+    # whole library - the one-time full-hash cost).
+    Invoke-GitRaw @("update-index", "-q", "--refresh") -IndexFile $IndexFile -WorkTree $WorkTree | Out-Null
+
+    return $tree
 }
 
 function Remove-DirectoryRobust {
@@ -521,11 +702,12 @@ function Clear-PendingRefs {
 # --- Handoff file (export only) --------------------------------------------
 # Splitting the export across two processes means the in-memory state at the
 # Omnis-export boundary is gone when the post-script starts. meta.json (committed
-# state) and the temp dir / scratch index (real files) survive on their own; only
-# their paths and the computed currentSourceTree do not. Those are written here.
-# The mere PRESENCE of this file means "an export started but its post-script
-# never finished" - distinct from meta.status = pendingExportConflict, which is a
-# COMPLETED export awaiting user resolution (its handoff is already deleted).
+# state) survives on its own, and the export cache + its index are persistent at a
+# location both phases derive from the state key - so the only thing that must be
+# carried across is the computed currentSourceTree. The mere PRESENCE of this file
+# means "an export started but its post-script never finished" - distinct from
+# meta.status = pendingExportConflict, which is a COMPLETED export awaiting user
+# resolution (its handoff is already deleted).
 
 function Get-HandoffPath {
     return Join-Path $script:StateRoot "pending-op.json"
@@ -562,24 +744,15 @@ function Clear-Handoff {
 }
 
 function Invoke-StaleHandoffSweep {
-    # Auto-clean recovery: if a handoff exists at the start of a new export, the
-    # previous export's post-script never completed. Remove its leaked temp
-    # artifacts (tolerant of already-deleted paths) and the handoff, then proceed
-    # with a fresh export. This is the cross-process equivalent of the in-process
-    # try/finally cleanup.
-    $handoff = Read-Handoff
-    if ($null -eq $handoff) {
-        return
+    # A leftover handoff means a previous export's post-script never completed.
+    # There is nothing transient to clean up now: the export cache is persistent
+    # and self-healing (its index stays a valid prior snapshot of the directory, so
+    # the next New-IncrementalExportTree still reconstructs the correct tree). Just
+    # clear the stale handoff so this export can proceed.
+    if (Read-Handoff) {
+        Write-Step "Clearing an incomplete previous export"
+        Clear-Handoff
     }
-
-    Write-Step "Cleaning up an incomplete previous export"
-    if ($handoff.tempRoot -and (Test-Path $handoff.tempRoot)) {
-        Remove-Item -Recurse -Force $handoff.tempRoot -ErrorAction SilentlyContinue
-    }
-    if ($handoff.exportIndex -and (Test-Path $handoff.exportIndex)) {
-        Remove-Item -Force $handoff.exportIndex -ErrorAction SilentlyContinue
-    }
-    Clear-Handoff
 }
 
 # --- Live JSON path queries ------------------------------------------------
@@ -722,6 +895,11 @@ function Apply-TreeToLiveJsonPath {
         finally {
             Remove-Item $index -Force -ErrorAction SilentlyContinue
         }
+    }
+
+    if ($script:TimingEnabled) {
+        $del = @($nameStatus -split "\r?\n" | Where-Object { $_ -match "^D" }).Count
+        Write-TimingNote "apply delta: wrote $($writes.Count) files, deleted $del"
     }
 }
 

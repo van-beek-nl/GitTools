@@ -82,7 +82,7 @@ A tree named only by `meta.json` is invisible to Git and would eventually be rem
 
 `git commit-tree` and `git update-ref` never move `HEAD`, create no visible branch, and never fire the post-commit hook. That is what lets GitTools keep a private commit lineage without the fragility of the old detach/commit approach, and is what removes the need for the post-commit hook entirely. The committer identity and `commit.gpgsign` should be pinned for these commits so they never depend on, or get attributed to, the user's Git config.
 
-No file copies of trees are kept. The refs alone provide durability, and the temp export seed is materialized on demand from the pinned `baseTree`.
+No file copies of trees are kept for durability. The refs alone provide durability; the per-library export cache (see Building The Export Tree Incrementally) is a convenience for Omnis's incremental export, not a source of truth, and may be deleted at any time (the next export simply rebuilds it).
 
 ## Tree Hashing
 
@@ -98,16 +98,19 @@ Trees stay rooted at the export directory (entries keyed relative to `<jsonPath>
 
 ### Building The Export Tree Incrementally
 
-Re-hashing every file on every export does not scale: large libraries export thousands of files, and hashing all of them (worse, one `hash-object` process per file) makes each export pay for the whole library even when one method changed. Omnis already exports **incrementally** — it seeds from a previous export and rewrites only what changed — so the tree build should cost the same: proportional to the change set, not the library size.
+Re-hashing every file on every export does not scale: large libraries export thousands of files, and hashing all of them (worse, one `hash-object` process per file) makes each export pay for the whole library even when one method changed. Omnis already exports **incrementally** — it exports over a previous export directory and rewrites only what changed — so the tree build should cost the same: proportional to the change set, not the library size.
 
 This is done with Git's index **stat cache**, which is how `git status` stays fast on large repositories: the index records each file's size and mtime, so Git can tell what changed without reading content.
 
-1. **Seed a scratch index from `baseTree` and record stat info.** Materialize the temp export directory from `baseTree` with `git checkout-index -a -u` (the `-u` writes the checked-out files' stat info into the scratch index). The index now mirrors the base, with stat that matches the files on disk.
-2. **Let Omnis export over that directory.** It rewrites only changed files and deletes removed ones.
-3. **Find the change set by stat, not by hashing.** `git diff-files --name-status` reports tracked files whose stat changed (modified) or that vanished (deleted); `git ls-files --others` reports new files. Neither reads the content of unchanged files. (`ls-files --others` is used **without** `--exclude-standard`, so `.gitignore`d files in the export are still captured, consistent with rule 2 above.)
-4. **Hash only the change set, then `write-tree`.** Re-hash each modified and new file with `hash-object --path` (rule 1), record deletions, and leave every unchanged entry on its existing base blob. `git write-tree` produces a tree **byte-identical** to a full rebuild — only the changed files were read.
+**A persistent warm cache, written only by Omnis.** Omnis exports into a per-library directory kept under `.git/gittools/<state-key>/export-cache/`, paired with a persistent scratch index `export-cache.index`. The cache exists *purely* to make Omnis's own export faster — Omnis is its sole writer and always produces a complete, correct export over whatever is there (pruning files for deleted classes), so GitTools **never seeds it from `baseTree` and never reconciles it**. A stale cache (after an import, a conflict, or a crash) only costs Omnis some incremental benefit on the next export, never correctness: the authoritative export is the directory *as Omnis leaves it*, and the merge base is the durable `baseTree` ref — neither depends on the cache. This deliberately removes the old per-export `checkout-index` materialisation of the whole base (profiled at ~3.9 s of an ~8 s export on a 36k-file library).
 
-Because no base exists on a first export, the scratch index starts empty and every exported file is reported as new, which naturally degrades to a full hash — correct, just not cheaper. The scratch index may also be persisted under `.git/gittools/<state-key>/` so even the seed step is avoided on the next export.
+The build then is:
+
+1. **Let Omnis export over the cache directory.** It rewrites only changed files and deletes removed ones.
+2. **Find the change set by stat, not by hashing.** `git diff-files --name-status` reports cached files whose stat changed (modified) or that vanished (deleted); `git ls-files --others` reports new files. Neither reads the content of unchanged files. (`ls-files --others` is used **without** `--exclude-standard`, so `.gitignore`d files in the export are still captured, consistent with rule 2 above.)
+3. **Hash only the change set, then `write-tree`.** Re-hash each modified and new file with `hash-object --path` (rule 1), record deletions, and leave every unchanged entry on its existing blob. `git write-tree` produces a tree **byte-identical** to a full rebuild — only the changed files were read. A final `update-index --refresh` records stat for the just-changed entries so the *next* export stays proportional.
+
+The only invariant required is that the scratch index is a **consistent prior snapshot** of the cache directory — which holds across runs (post-export leaves the index matching the directory, and nothing else writes the cache) and even across a crashed export (the index simply remains an older valid snapshot, and `diff-files` against the current directory still reconstructs the correct tree). So crash recovery needs no cleanup. On the **first** export the directory and index are empty, so Omnis does a full export and every file is reported as new — a one-time full hash; every later export is proportional.
 
 ### Building The Live-Source Tree Incrementally
 
@@ -119,6 +122,8 @@ The same principle applies to hashing the **live working source** — needed to 
 4. Re-hash only the modified and new files (with `hash-object --path`), drop deletions, and `write-tree`. The result is byte-identical to a full directory walk.
 
 Scoping every command to `<jsonPath>` keeps this independent of unrelated repository state — a conflict or change in some other file never affects it, and the real index is read but never modified. The cost is proportional to the user's local edits. The one case that still does substantial hashing is a large, **uncommitted** live source that diverges wholesale from the index (for example exporting twice before committing); a persistent per-library index could close that gap too, at the cost of maintaining it.
+
+**Fast path (avoid the per-entry round trip).** Step 3 above, written naively, rebuilds the tree by listing every tracked entry (`ls-files --stage`) and piping all of them back into a fresh scratch index — tens of thousands of lines marshalled through the shell on each call, which profiling showed dominates the export (≈4 s of a ~8 s pre-export on a 36k-file library, despite hashing nothing). Instead, **copy the repository index** to a scratch file (the copy already holds every tracked blob), apply only the small working-tree delta to it (modified re-hashed, deleted removed with a mode-0 record, new hashed — all keyed by full repo path), and let git assemble the subtree in C with `git write-tree --prefix=<jsonPath>/`. This produced a byte-identical tree ~7× faster on a 10k-file library (and far more on larger ones), because the unchanged entries never enter the shell. `git write-tree` aborts if **any** index entry is unmerged — even one outside `<jsonPath>` — so when the index carries conflicts (or there is no index file yet) the build falls back to the path-scoped reconstruction above, which only ever touches `<jsonPath>` and is therefore unaffected by unrelated conflicts. The fast path relies on the export holding only regular (non-executable) files — true for Omnis `.json`/`.omh` output — so the index modes it reuses are uniformly `100644`, matching the forced-`100644` trees built elsewhere.
 
 ### Applying A Result Tree Incrementally
 
@@ -152,15 +157,14 @@ Unchanged files are never rewritten — their on-disk bytes (and inode/mtime) ar
 - Else if `HEAD` exists, use `HEAD:<jsonPath>` and treat dirty live JSON changes as disposable.
 - Else use the live JSON path tree. This supports repositories with no commits yet.
 
-### 3. Temp Omnis Export
+### 3. Omnis Export Into The Warm Cache
 
-- Seed a temp repo-shaped export root from `baseTree`, materialized on demand from the pinned tree, recording stat info into a scratch index (see Building The Export Tree Incrementally).
-- If no base exists, start with an empty temp export path and an empty scratch index.
-- Run the Omnis JSON export into the temp path.
-- Clean irrelevant properties in the temp path.
-- Build `exportTree` incrementally from the scratch index, hashing only the files Omnis changed.
+- Ensure the persistent export cache (`.git/gittools/<state-key>/export-cache/`) and its scratch index exist; do **not** seed or reconcile their contents (see Building The Export Tree Incrementally). On the first export both are empty.
+- Run the Omnis JSON export into the cache directory.
+- Clean irrelevant properties in the cache directory.
+- Build `exportTree` incrementally from the persistent scratch index, hashing only the files Omnis changed.
 
-The live JSON path is not touched until the temp export has succeeded.
+The live JSON path is not touched until the export has succeeded.
 
 ### 4. Merge Or Apply
 
@@ -236,7 +240,7 @@ This ordering makes interruptions safe:
 - Interrupted before `meta.json` is written: the new state is simply not recorded. The live JSON path may hold an applied-but-unrecorded export, but `sourceTree` still names the previous tree, so the next export treats the live path as disposable and reproduces the export from the (unchanged) binary library. No committed work is lost.
 - Interrupted after a ref update but before `meta.json`: the ref points at a tree that `meta.json` does not yet reference. Because `meta.json` is the source of truth, the next run re-derives the same result and re-advances the ref; the only residue is a duplicate lineage commit, which is harmless.
 
-Within a single process, temporary export directories and scratch index files are removed even when the export fails or throws (a `try`/`finally` in the prototype). When the procedure is split across two processes (see Procedure Decomposition), that `try`/`finally` can no longer span the Omnis step, so cleanup ownership moves to the post-script and an orphaned-handoff sweep on the next run backstops a crash between the two.
+There is no per-export temporary state to clean up: the export cache is persistent and self-healing (see Building The Export Tree Incrementally), so an export interrupted before its post-script ran leaves only a stale handoff, which the next export clears. The cache itself is always safe to keep or delete.
 
 ## Procedure Decomposition (Pre/Post Split)
 
@@ -247,34 +251,34 @@ In production, Omnis drives Git by shelling out, and each individual `git` invoc
 Splitting one process into two means all in-memory state at the pause point is gone when the second process starts. Most of what the procedure needs already survives on its own:
 
 - **`meta.json`** is persisted committed state; the second process re-reads it.
-- The **scratch index** and the **temp export directory** are real files; they persist across the boundary by nature.
+- The **export cache** and its **scratch index** are persistent files at a fixed, state-key-derived location (`.git/gittools/<state-key>/export-cache[.index]`); both processes re-derive their paths.
 
-The only things that do **not** survive are the *paths* of those temp artifacts (they carry random names) and the computed `currentSourceTree`. Those are written to a **handoff file**, and only on export — see below.
+The only thing that does **not** survive is the computed `currentSourceTree`. It is written to a **handoff file**, and only on export — see below.
 
 ### File Layout
 
 Five scripts under `scripts/` (no `gittools-` prefix; they already live in the GitTools library):
 
-- **`common.ps1`** — every shared helper: the `Invoke-Git*` wrappers, `Get-StateKey`, `ConvertTo-GitPath`, the durability-ref helpers, `New-LiveSourceTree`, `Initialize-ExportSeed`, `New-IncrementalExportTree`, the merge helpers, metadata read/write, the pending-conflict resolver, and the handoff helpers. Dot-sourced by all four entry scripts.
+- **`common.ps1`** — every shared helper: the `Invoke-Git*` wrappers, `Get-StateKey`, `ConvertTo-GitPath`, the durability-ref helpers, `New-LiveSourceTree`, `Initialize-ExportCache`, `New-IncrementalExportTree`, the merge helpers, metadata read/write, the pending-conflict resolver, and the handoff helpers. Dot-sourced by all four entry scripts.
 - **`pre-export.ps1`**, **`post-export.ps1`**, **`pre-import.ps1`**, **`post-import.ps1`** — each is a thin sequence of phase steps over `common.ps1`.
 
 Each entry script re-derives its state from the same parameters at startup (a few `git rev-parse` calls); this is negligible against the per-invocation cost the split removes.
 
 ### The Handoff File (Export Only)
 
-Export carries transient state across the boundary; import does not. The export handoff is a `pending-op.json` written under `.git/gittools/<state-key>/` (with `ConvertTo-Json`, since the implementation stays in PowerShell) holding `tempRoot`, `tempJsonPath`, `exportIndex`, and `currentSourceTree`. `pre-export.ps1` writes it; `post-export.ps1` reads it and deletes it on completion.
+Export carries one piece of transient state across the boundary; import does not. The export handoff is a `pending-op.json` written under `.git/gittools/<state-key>/` (with `ConvertTo-Json`, since the implementation stays in PowerShell) holding just `op` and `currentSourceTree` — the cache paths are deterministic from the state key, so they need not be carried. `pre-export.ps1` writes it; `post-export.ps1` reads it and deletes it on completion.
 
 The **presence** of `pending-op.json` means "an export started but its post-script never finished." This is deliberately distinct from `meta.status = pendingExportConflict`, which is a *completed* export that conflicted and awaits the user's resolution (its handoff is already deleted). The two are never conflated.
 
-Import needs no handoff: Omnis reads the JSON to rebuild the binary and never writes the live path, so `post-import.ps1` recomputes the identical source tree itself, and there are no temp artifacts to track or leak.
+Import needs no handoff: Omnis reads the JSON to rebuild the binary and never writes the live path, so `post-import.ps1` recomputes the identical source tree itself, and there is no export cache involved.
 
 ### Boundary Mapping
 
-Export — the boundary sits at the temp Omnis export step (Export Procedure §3):
+Export — the boundary sits at the Omnis export step (Export Procedure §3):
 
-- **`pre-export.ps1`**: sweep any stale handoff (see Crash Recovery); Preflight (§1), including the pending-conflict resolution and the `meta.jsonPath`-moved reset; Determine Current Source (§2); seed the temp directory and scratch index from `baseTree` (§3, through `Initialize-ExportSeed`); write the handoff; **print `tempJsonPath` to stdout**; exit 0.
-- *(Omnis exports into `tempJsonPath`, then cleans irrelevant properties.)*
-- **`post-export.ps1`**: read the handoff and the resolved `meta.json`; build `exportTree` incrementally (§3, `New-IncrementalExportTree`); run Merge Or Apply (§4) and the Metadata Update (§5); always tear down the temp directory, scratch index, and handoff — including the conflict path, which is a completed outcome; **print `RESULT=clean` or `RESULT=conflict`**.
+- **`pre-export.ps1`**: sweep any stale handoff (see Crash Recovery); Preflight (§1), including the pending-conflict resolution and the `meta.jsonPath`-moved reset; Determine Current Source (§2); ensure the persistent export cache exists without touching its contents (§3, `Initialize-ExportCache`); write the handoff; **print the cache directory to stdout**; exit 0.
+- *(Omnis exports into the cache directory, then cleans irrelevant properties.)*
+- **`post-export.ps1`**: read the handoff and the resolved `meta.json`; build `exportTree` incrementally from the persistent cache (§3, `New-IncrementalExportTree`); run Merge Or Apply (§4) and the Metadata Update (§5); clear the handoff on every path — including the conflict path, a completed outcome — while **keeping** the cache; **print `RESULT=clean` or `RESULT=conflict`**.
 
 Import:
 
@@ -289,7 +293,7 @@ Import:
 
 ### Crash Recovery
 
-Recovery is **auto-clean on the next run** (no explicit abort entry). Before doing anything else, `pre-export.ps1` checks for an existing `pending-op.json` for this state key. If one is present, the previous export's post-script never completed: it removes the `tempRoot` and `exportIndex` recorded in that handoff (tolerant of already-deleted paths), deletes the handoff, and proceeds with a fresh export. This is the cross-process equivalent of the prototype's `try`/`finally`. Import has no temp artifacts and no handoff, so an interrupted import leaves nothing to recover — the unchanged `meta.json` simply reflects the pre-import state.
+Recovery is **auto-clean on the next run** (no explicit abort entry). Before doing anything else, `pre-export.ps1` checks for an existing `pending-op.json` for this state key. If one is present, the previous export's post-script never completed — but there is nothing to undo: the export cache is persistent and self-healing (its index stays a valid prior snapshot, so the next `New-IncrementalExportTree` still reconstructs the correct tree), and `meta.json` was never advanced. So recovery is simply to clear the stale handoff and proceed. Import has no handoff, so an interrupted import leaves nothing to recover — the unchanged `meta.json` reflects the pre-import state.
 
 ## Scenario Handling
 
