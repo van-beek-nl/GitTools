@@ -872,49 +872,40 @@ function Remove-EmptyParents {
     }
 }
 
-function Apply-TreeToLiveJsonPath {
-    # Make the live JSON path equal $Tree by applying ONLY the delta between what
-    # is on disk now and $Tree - never by wiping and rewriting the whole directory,
-    # which is prohibitively slow on large libraries. `git checkout-index` only
-    # ever writes the entries it is given and never removes anything, so removed
-    # paths are deleted explicitly (and emptied folders pruned), while changed and
-    # new paths are written in a single batched checkout. Cost is proportional to
-    # what the export actually changed, not to the library size.
-    param([string] $Tree)
+function ConvertTo-PrefixedJsonPath {
+    # Turn a path reported relative to the export tree (rooted at <jsonPath>) into a
+    # repository-relative pathspec matching HEAD:<jsonPath> and `-- <path>`.
+    param([string] $Relative)
+    if ($script:JsonPath -eq ".") { return $Relative }
+    return "$script:JsonPath/$Relative"
+}
 
-    # liveTree reconstructs the true on-disk content (cheaply, via the index stat
-    # cache). If it already equals the target, there is nothing to apply.
-    $liveTree = Get-LiveJsonTree
-    if ($liveTree -eq $Tree) {
-        Write-Note "Live JSON path already matches the result; nothing to apply."
-        return
-    }
-
-    # Normalize the index for the export path to HEAD - index only, no working-tree
-    # rewrite - so the applied result shows up as ordinary unstaged changes the
-    # user can review and commit (matching the prior flow's end state).
-    if (Test-HeadExists) {
-        if (Test-PathInHead -Path $script:JsonPath) {
-            Invoke-Git @("restore", "--source=HEAD", "--staged", "--", $script:JsonPath) | Out-Null
-        }
-        else {
-            Invoke-Git @("rm", "-r", "--cached", "--ignore-unmatch", "--", $script:JsonPath) | Out-Null
-        }
-    }
+function Write-LiveJsonPathDelta {
+    # Make the live JSON path's CONTENT equal $Tree by applying ONLY the delta
+    # between what is on disk now ($LiveTree) and $Tree - never by wiping and
+    # rewriting the whole directory, which is prohibitively slow on large libraries.
+    # `git checkout-index` only ever writes the entries it is given and never removes
+    # anything, so removed paths are deleted explicitly (and emptied folders pruned),
+    # while changed and new paths are written in a single batched checkout. This
+    # touches the WORKING TREE only - never the real index. Returns the changed paths
+    # (repo-relative, prefixed) so callers can adjust the index for just those.
+    param([string] $Tree, [string] $LiveTree)
 
     $sep = [System.IO.Path]::DirectorySeparatorChar
 
     # The delta between the on-disk content and the target tree. Both trees are
-    # rooted at the export path, so the reported paths are relative to it. Process
-    # deletions first so a path that changes type (file -> directory or vice versa,
+    # rooted at the export path, so the reported paths are relative to it. Deletions
+    # are handled before writes so a path that changes type (file <-> directory,
     # which diff-tree reports as a delete plus an add) does not collide on write.
-    $nameStatus = Invoke-Git @("diff-tree", "-r", "--no-commit-id", "--name-status", $liveTree, $Tree)
+    $nameStatus = Invoke-Git @("diff-tree", "-r", "--no-commit-id", "--name-status", $LiveTree, $Tree)
 
     $writes = New-Object System.Collections.Generic.List[string]
+    $changed = New-Object System.Collections.Generic.List[string]
     foreach ($line in ($nameStatus -split "\r?\n")) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $parts = $line -split "\t", 2
         $rel = ConvertTo-GitPath $parts[1]
+        $changed.Add((ConvertTo-PrefixedJsonPath $rel)) | Out-Null
         if ($parts[0] -like "D*") {
             $abs = Join-Path $script:JsonAbsolutePath ($rel -replace "/", $sep)
             if (Test-Path -LiteralPath $abs) {
@@ -948,6 +939,52 @@ function Apply-TreeToLiveJsonPath {
         $del = @($nameStatus -split "\r?\n" | Where-Object { $_ -match "^D" }).Count
         Write-TimingNote "apply delta: wrote $($writes.Count) files, deleted $del"
     }
+
+    return ,@($changed.ToArray())
+}
+
+function Reset-StagedChangesToHead {
+    # Unstage just the changed paths that the user (or a prior export) had STAGED,
+    # so this export's changes surface as ordinary unstaged edits - WITHOUT disturbing
+    # anything the user staged that this export did not touch. Resetting a path whose
+    # index already equals HEAD is a no-op, and a brand-new untracked path is not in
+    # the index at all (so `restore --staged` would error on it), so the reset is
+    # scoped to the intersection of "currently staged vs HEAD" and "changed here".
+    param([string[]] $ChangedPaths)
+
+    if ((-not $ChangedPaths) -or ($ChangedPaths.Count -eq 0)) { return }
+    if (-not (Test-HeadExists)) { return }
+
+    $staged = Invoke-Git @("diff", "--cached", "--name-only", "--", $script:JsonPath)
+    if ([string]::IsNullOrWhiteSpace($staged)) { return }
+    $stagedSet = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($p in ($staged -split "\r?\n")) {
+        $t = (ConvertTo-GitPath $p).Trim()
+        if ($t) { [void]$stagedSet.Add($t) }
+    }
+
+    $toReset = @($ChangedPaths | Where-Object { $stagedSet.Contains($_) })
+    if ($toReset.Count -eq 0) { return }
+    Invoke-GitWithInput -Arguments @("restore", "--staged", "--source=HEAD", "--pathspec-from-file=-", "--") -InputLines $toReset
+}
+
+function Apply-TreeToLiveJsonPath {
+    # Apply $Tree to the live JSON path as a content delta (see Write-LiveJsonPathDelta),
+    # then unstage just the changed-and-staged paths so the result shows as ordinary
+    # unstaged edits - leaving any unrelated content the user already staged intact.
+    param([string] $Tree)
+
+    # liveTree reconstructs the true on-disk content (cheaply, via the index stat
+    # cache). If it already equals the target, there is nothing to apply - and the
+    # index is deliberately left untouched (any staging the user did is preserved).
+    $liveTree = Get-LiveJsonTree
+    if ($liveTree -eq $Tree) {
+        Write-Note "Live JSON path already matches the result; nothing to apply."
+        return
+    }
+
+    $changed = Write-LiveJsonPathDelta -Tree $Tree -LiveTree $liveTree
+    Reset-StagedChangesToHead -ChangedPaths $changed
 }
 
 # --- Metadata helpers ------------------------------------------------------
@@ -1260,12 +1297,19 @@ function Apply-ConflictedMergeToLiveJsonPath {
         throw "merge-tree did not return a result tree."
     }
 
-    Clear-LiveJsonPath
-    # First write the conflict-marker files returned by merge-tree.
-    Restore-TreeToDirectory -Tree $MergeResult.ResultTree -Directory $script:JsonAbsolutePath
+    # Materialize the conflicted result tree (cleanly merged content plus conflict
+    # markers) as a content delta against what is on disk now - the same proportional
+    # write the clean path uses, instead of wiping and re-checking-out the whole
+    # directory. On a large library with a small conflict this writes only the few
+    # files that actually differ.
+    $liveTree = Get-LiveJsonTree
+    $changed = Write-LiveJsonPathDelta -Tree $MergeResult.ResultTree -LiveTree $liveTree
 
-    # Stage the full result so cleanly merged files are in stage 0.
-    Invoke-Git @("add", "-A", "--", $script:JsonPath) | Out-Null
+    # Leave the cleanly-merged changes UNSTAGED, exactly like a clean export, so the
+    # user reviews and stages them deliberately (only the unmerged conflict entries
+    # below are special). This unstages just changed-and-staged paths; conflicted
+    # paths get their stage-0 entry replaced wholesale next.
+    Reset-StagedChangesToHead -ChangedPaths $changed
 
     $stageLines = New-Object System.Collections.Generic.List[string]
     $conflictPaths = New-Object System.Collections.Generic.HashSet[string]
@@ -1274,15 +1318,15 @@ function Apply-ConflictedMergeToLiveJsonPath {
             $mode = $Matches[1]
             $objectId = $Matches[2]
             $stage = $Matches[3]
-            $relativeConflictPath = ConvertTo-GitPath $Matches[4]
-            $prefixedPath = if ($script:JsonPath -eq ".") { $relativeConflictPath } else { "$script:JsonPath/$relativeConflictPath" }
+            $prefixedPath = ConvertTo-PrefixedJsonPath (ConvertTo-GitPath $Matches[4])
             $conflictPaths.Add($prefixedPath) | Out-Null
             $stageLines.Add("$mode $objectId $stage`t$prefixedPath") | Out-Null
         }
     }
 
-    # Replace stage-0 entries for conflicted paths with the actual unmerged
-    # stage records. This is the step that makes Git clients show "UU".
+    # Replace each conflicted path's stage-0 entry with the actual unmerged stage
+    # 1/2/3 records. This is the step that makes Git clients show "UU" (the working
+    # tree already holds the marker content written by the delta above).
     foreach ($path in $conflictPaths) {
         Invoke-Git @("update-index", "--force-remove", "--", $path) | Out-Null
     }
