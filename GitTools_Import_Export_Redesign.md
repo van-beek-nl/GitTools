@@ -48,7 +48,7 @@ For a conflicted export:
   "pending": {
     "baseTree": "<previous baseTree>",
     "sourceTree": "<source tree before export merge>",
-    "exportTree": "<temp Omnis export tree>"
+    "exportTree": "<Omnis export tree>"
   }
 }
 ```
@@ -86,11 +86,11 @@ No file copies of trees are kept for durability. The refs alone provide durabili
 
 ## Tree Hashing
 
-Every tree GitTools compares or merges (`baseTree`, `sourceTree`, the current source tree, and the temp `exportTree`) must be hashed in the same normalization space as the committed source. `.gitattributes` rules and `core.autocrlf` can normalize content (most commonly CRLF to LF) when Git stores it. If one tree is hashed with that normalization applied and another without, identical content hashes to different blobs and the merge reports spurious conflicts on files no one changed.
+Every tree GitTools compares or merges (`baseTree`, `sourceTree`, the current source tree, and the `exportTree`) must be hashed in the same normalization space as the committed source. `.gitattributes` rules and `core.autocrlf` can normalize content (most commonly CRLF to LF) when Git stores it. If one tree is hashed with that normalization applied and another without, identical content hashes to different blobs and the merge reports spurious conflicts on files no one changed.
 
 Two rules keep the trees consistent:
 
-1. **Hash content as if it lived at its real repository path.** For content that physically lives outside its tracked location (the temp Omnis export and the private base cache), hash each file with `git hash-object --path "<jsonPath>/<relativePath>"`. The `--path` argument makes Git apply the exact attribute/filter rules of the real path, even though the file is elsewhere on disk. Do **not** build these trees with `git add --work-tree=<external directory>`: that relocates `.gitattributes` lookup and silently skips normalization.
+1. **Hash content as if it lived at its real repository path.** For content that physically lives outside its tracked location (the Omnis export in the cache directory), hash each file with `git hash-object --path "<jsonPath>/<relativePath>"`. The `--path` argument makes Git apply the exact attribute/filter rules of the real path, even though the file is elsewhere on disk. Do **not** build these trees with `git add --work-tree=<external directory>`: that relocates `.gitattributes` lookup and silently skips normalization.
 
 2. **Enumerate files explicitly; never snapshot a directory with `git add`.** `git add` honors `.gitignore`, which would silently drop matching files from the tree and surface them as phantom deletions in the merge. Walk the directory, hash every regular file, and assemble the tree with `git update-index --index-info` into a scratch index followed by `git write-tree`.
 
@@ -276,8 +276,8 @@ Import needs no handoff: Omnis reads the JSON to rebuild the binary and never wr
 
 Export — the boundary sits at the Omnis export step (Export Procedure §3):
 
-- **`pre-export.ps1`**: sweep any stale handoff (see Crash Recovery); Preflight (§1), including the pending-conflict resolution and the `meta.jsonPath`-moved reset; Determine Current Source (§2); ensure the persistent export cache exists without touching its contents (§3, `Initialize-ExportCache`); write the handoff; **print the cache directory to stdout**; exit 0.
-- *(Omnis exports into the cache directory, then cleans irrelevant properties.)*
+- **`pre-export.ps1`**: sweep any stale handoff (see Crash Recovery); Preflight (§1), including the pending-conflict resolution and the `meta.jsonPath`-moved reset; Determine Current Source (§2); ensure the persistent export cache exists without touching its contents (§3, `Initialize-ExportCache`); write the handoff; exit 0. It prints **nothing** on stdout — the cache directory is deterministic from the git dir and state key, so Omnis derives it itself (via the same `git rev-parse --git-path gittools/<state-key>/export-cache` the scripts use) rather than being handed it.
+- *(Omnis derives the cache directory, exports into it, then cleans irrelevant properties.)*
 - **`post-export.ps1`**: read the handoff and the resolved `meta.json`; build `exportTree` incrementally from the persistent cache (§3, `New-IncrementalExportTree`); run Merge Or Apply (§4) and the Metadata Update (§5); clear the handoff on every path — including the conflict path, a completed outcome — while **keeping** the cache; **print `RESULT=clean` or `RESULT=conflict`**.
 
 Import:
@@ -288,7 +288,7 @@ Import:
 
 ### Omnis Contract
 
-- **Pre-scripts** signal abort with a **non-zero exit code**; Omnis must not run its import/export step when a pre-script aborts (for example on unresolved conflicts or a missing `merge-tree --write-tree`). On success the single machine-readable stdout line is the path Omnis needs.
+- **Pre-scripts** signal abort with a **non-zero exit code**; Omnis must not run its import/export step when a pre-script aborts (for example on unresolved conflicts or a missing `merge-tree --write-tree`). On success, `pre-import.ps1` prints the single machine-readable stdout line Omnis needs (the live JSON path); `pre-export.ps1` prints nothing, since Omnis derives the export cache directory itself.
 - **Post-scripts** print `RESULT=clean|conflict` on stdout and **exit 0 for both** — a conflict is an acceptable outcome, not a failure. A non-zero exit from a post-script signals a genuine error.
 
 ### Crash Recovery
@@ -315,7 +315,7 @@ No post-commit hook is needed. `baseTree` advances during the first successful e
 
 ### Pull Before Export
 
-If the current source differs from `baseTree`, GitTools merges current source with the temp binary export using `baseTree` as the merge base.
+If the current source differs from `baseTree`, GitTools merges current source with the Omnis export using `baseTree` as the merge base.
 
 ### Clean Export Merge
 
@@ -341,11 +341,11 @@ Untouched.
 
 ### Dirty Files Inside The JSON Path During Export
 
-Discarded only as part of the export flow, after the temp Omnis export has succeeded. This matches the current GitTools behavior.
+Discarded only as part of the export flow, after the Omnis export has succeeded. This matches the current GitTools behavior.
 
 ## Migration And Hook Cleanup
 
-- On first read of old commit-only metadata, derive `baseTree` from `<oldCommit>:<jsonPath>` when possible and pin it behind the `base` ref.
+- No in-place upgrade of old commit-only `.meta` files: v2 starts from a clean first-export/import state rather than deriving `baseTree` from the legacy commit hash. (The first export or import after adopting v2 establishes the base.)
 - Stop installing the GitTools post-commit hook for new registrations.
 - Remove only GitTools' own hook and mapping files during migration.
 - Preserve user hooks and any original hooks that were moved into the dispatcher directory.
@@ -385,4 +385,4 @@ The repository's PowerShell demonstration scripts mirror the production layout (
 - `scripts/pre-export.ps1` and `scripts/post-export.ps1`
 - `scripts/pre-import.ps1` and `scripts/post-import.ps1`
 
-They demonstrate the Git procedure split around the point where Omnis-specific import/export work happens: the pre-script prints the path for that work and the post-script consumes the result. The earlier single-file prototypes (`gittools-export-procedure.ps1`, `gittools-import-procedure.ps1`) validated the same logic with an in-process pause before the split.
+They demonstrate the Git procedure split around the point where Omnis-specific import/export work happens: the pre-script prepares state for that work (pre-import prints the path to import from; pre-export prints nothing, as Omnis derives the export cache directory itself) and the post-script consumes the result. The earlier single-file prototypes (`gittools-export-procedure.ps1`, `gittools-import-procedure.ps1`) validated the same logic with an in-process pause before the split.

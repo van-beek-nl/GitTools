@@ -19,11 +19,14 @@ param(
 # Pre-export phase of the GitTools export procedure.
 #
 # Runs every Git step that must happen BEFORE Omnis exports the library: it
-# resolves metadata, decides the current source tree, and seeds a temp export
-# directory (plus a stat-carrying scratch index) from the reconciliation base.
-# It then records the transient state in a handoff file and prints the temp
-# directory Omnis should export into as the only line on stdout. post-export.ps1
-# consumes that directory afterward.
+# resolves metadata, resolves any pending conflict, decides the current source
+# tree, and ensures the persistent export cache exists. It then records the one
+# piece of transient state (the current source tree) in a handoff file that
+# post-export.ps1 consumes afterward.
+#
+# This phase prints NOTHING on stdout. Omnis derives the export cache directory
+# itself from the git dir + state key (the same location Initialize-ExportCache
+# ensures here and post-export.ps1 re-derives), so there is no path to return.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -60,7 +63,13 @@ Write-GitToolsMeta -Meta $meta
 Write-Timing "resolve pending + write metadata"
 
 Write-Step "Determine current source"
-$currentSourceTree = Get-CurrentSourceTree -Meta $meta
+# Resolves both the source side of the merge and the base to merge against. On the
+# fallback path (the live source was moved by a pull, discard, or partial commit)
+# the base is recomputed as the true common ancestor rather than the stale advanced
+# baseTree - see Resolve-CurrentSourceAndBase.
+$resolved = Resolve-CurrentSourceAndBase -Meta $meta
+$currentSourceTree = $resolved.SourceTree
+$mergeBase = $resolved.MergeBase
 Write-Timing "determine current source (hash live)"
 
 Write-Step "Prepare export cache"
@@ -73,21 +82,21 @@ $cacheIndex = Get-ExportCacheIndex
 Initialize-ExportCache -CacheDir $cacheDir -IndexFile $cacheIndex
 Write-Timing "prepare export cache"
 
-# The only state that must cross the process boundary: the current source tree. The
-# cache dir/index are persistent at a state-key-derived location the post-script
-# re-derives, and meta.json already holds the committed state.
+# The state that must cross the process boundary: the current source tree and the
+# resolved merge base. Both depend on the live JSON path and HEAD as they stand
+# BEFORE Omnis exports, so they are decided here and handed to the post-script
+# rather than recomputed afterward (the cache dir/index are persistent at a
+# state-key-derived location the post-script re-derives, and meta.json holds the
+# committed state).
 Write-Handoff -Handoff ([pscustomobject]@{
     op = "export"
     currentSourceTree = $currentSourceTree
+    mergeBase = $mergeBase
 })
 Write-Timing "write handoff"
 
-Write-Note "Export tree base: $($meta.baseTree)"
+Write-Note "Merge base: $(if ($mergeBase) { $mergeBase } else { '<none>' })"
 Write-Note "Current source tree: $currentSourceTree"
-Write-Note "Omnis should export into: $cacheDir"
+Write-Note "Export cache: $cacheDir"
 
 Write-TimingSummary
-
-# The only stdout line: the directory Omnis exports into. Everything else went to
-# stderr so this stays cleanly machine-readable.
-Write-Output $cacheDir

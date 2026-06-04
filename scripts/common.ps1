@@ -6,8 +6,10 @@
 #
 # Output discipline (the Omnis contract): all human-readable progress goes to
 # stderr via Write-Step / Write-Note, so stdout carries ONLY machine-readable
-# values - the temp path printed by a pre-script and the RESULT line printed by
-# a post-script. Callers (Omnis) read stdout for the value and stderr for logs.
+# values - the path printed by pre-import and the RESULT line printed by a
+# post-script. (pre-export prints nothing: Omnis derives the export directory
+# itself from the git dir + state key.) Callers (Omnis) read stdout for the
+# value and stderr for logs.
 
 # --- Output helpers --------------------------------------------------------
 
@@ -123,7 +125,7 @@ function Invoke-GitRaw {
 
         # When set, point Git at this directory as the working tree (via
         # GIT_WORK_TREE). Needed for operations that compare the index against
-        # on-disk files in the temp export directory (checkout-index, diff-files,
+        # on-disk files in the export cache directory (checkout-index, diff-files,
         # ls-files), which are how the incremental tree build finds what changed.
         [string] $WorkTree
     )
@@ -233,6 +235,41 @@ function Invoke-GitWithInput {
     }
 }
 
+function Invoke-GitHashObjectBatch {
+    # Hash many files in ONE git process via --stdin-paths (newline-framed),
+    # instead of spawning one `hash-object` per file - the dominant cost on a
+    # cold or large export (a 7k-file first export went from ~230s of per-file
+    # process spawns to ~1s). git writes one object id per input path, in input
+    # order, to stdout.
+    #
+    # Attribute normalization (.gitattributes / autocrlf) still applies, resolved
+    # from each path as given - identical to the old `hash-object --path` form for
+    # the root and global rules these exports use. The export directory is
+    # overwritten wholesale by Omnis and so can never contain a nested
+    # .gitattributes, which is the only case where per-path resolution would have
+    # differed.
+    param([string[]] $Files)
+
+    if ((-not $Files) -or ($Files.Count -eq 0)) { return ,@() }
+    if ($script:TimingEnabled) { $script:GitInvocations++ }
+
+    $errorFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $out = $Files | & git -C $script:RepoRoot hash-object -w --stdin-paths 2> $errorFile
+        if ($LASTEXITCODE -ne 0) {
+            $err = if (Test-Path $errorFile) { Get-Content -Raw -Path $errorFile } else { "" }
+            throw "git hash-object --stdin-paths failed with exit code ${LASTEXITCODE}:$([Environment]::NewLine)$err"
+        }
+        # Leading comma: keep this a single array even when one path was hashed, so
+        # PowerShell does not unwrap a 1-element result to a scalar string (which
+        # would make the caller's $oids[$i] index into the oid's characters).
+        return ,@($out | ForEach-Object { $_.ToString().Trim() })
+    }
+    finally {
+        Remove-Item $errorFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Resolve-GitPrivatePath {
     param([string] $RelativeGitPath)
 
@@ -270,21 +307,6 @@ function Test-MergeTreeWriteTree {
 function New-TempIndexPath {
     $name = "gittools-index-$([System.Guid]::NewGuid().ToString('N'))"
     return Join-Path ([System.IO.Path]::GetTempPath()) $name
-}
-
-function Get-AttrPath {
-    param(
-        [string] $RelativePath,
-        [string] $RepoRelativePrefix = $script:JsonPath
-    )
-
-    # The repo-relative path a file's content represents, so `hash-object --path`
-    # applies the same .gitattributes / autocrlf normalization Git used for the
-    # committed blob. Identical content then always hashes to the identical blob.
-    if ([string]::IsNullOrEmpty($RepoRelativePrefix) -or ($RepoRelativePrefix -eq ".")) {
-        return $RelativePath
-    }
-    return "$RepoRelativePrefix/$RelativePath"
 }
 
 function New-EmptyTree {
@@ -338,6 +360,9 @@ function New-LiveSourceTree {
         Copy-Item -LiteralPath $indexPath -Destination $scratch -Force
 
         $records = New-Object System.Collections.Generic.List[string]
+        # Changed/new files to hash in a single batched call (see New-IncrementalExportTree).
+        $hashPaths = New-Object System.Collections.Generic.List[string]
+        $hashFiles = New-Object System.Collections.Generic.List[string]
 
         # Modified / deleted tracked files under the export path, by stat.
         $nameStatus = Invoke-Git @("diff-files", "--name-status", "--", $script:JsonPath)
@@ -350,9 +375,8 @@ function New-LiveSourceTree {
                 $records.Add("0 0000000000000000000000000000000000000000`t$repoPath") | Out-Null
                 continue
             }
-            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-            $oid = Invoke-Git @("hash-object", "-w", "--path", $repoPath, $file)
-            $records.Add("100644 $oid`t$repoPath") | Out-Null
+            $hashPaths.Add($repoPath) | Out-Null
+            $hashFiles.Add((Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar))) | Out-Null
         }
 
         # New untracked files. No --exclude-standard, so .gitignore'd files in the
@@ -361,9 +385,15 @@ function New-LiveSourceTree {
         foreach ($line in ($others -split "\r?\n")) {
             if ([string]::IsNullOrWhiteSpace($line)) { continue }
             $repoPath = ConvertTo-GitPath $line
-            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-            $oid = Invoke-Git @("hash-object", "-w", "--path", $repoPath, $file)
-            $records.Add("100644 $oid`t$repoPath") | Out-Null
+            $hashPaths.Add($repoPath) | Out-Null
+            $hashFiles.Add((Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar))) | Out-Null
+        }
+
+        if ($hashFiles.Count -gt 0) {
+            $oids = Invoke-GitHashObjectBatch -Files $hashFiles.ToArray()
+            for ($i = 0; $i -lt $hashPaths.Count; $i++) {
+                $records.Add("100644 $($oids[$i])`t$($hashPaths[$i])") | Out-Null
+            }
         }
 
         if ($records.Count -gt 0) {
@@ -412,6 +442,9 @@ function New-LiveSourceTreeScoped {
 
         $records = New-Object System.Collections.Generic.List[string]
         $handled = New-Object 'System.Collections.Generic.HashSet[string]'
+        # Changed/new files to hash in a single batched call (see New-IncrementalExportTree).
+        $hashRels = New-Object System.Collections.Generic.List[string]
+        $hashFiles = New-Object System.Collections.Generic.List[string]
 
         # Modified / deleted tracked files, detected by stat against the REAL index
         # (no -IndexFile here, so the repository's cached stat is used). No file
@@ -425,9 +458,8 @@ function New-LiveSourceTreeScoped {
             $rel = if ($prefix -and $repoPath.StartsWith($prefix)) { $repoPath.Substring($prefix.Length) } else { $repoPath }
             $handled.Add($rel) | Out-Null
             if ($parts[0] -like "D*") { continue }
-            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
-            $records.Add("100644 $oid`t$rel") | Out-Null
+            $hashRels.Add($rel) | Out-Null
+            $hashFiles.Add((Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar))) | Out-Null
         }
 
         # New untracked files. No --exclude-standard, so .gitignore'd files in the
@@ -438,9 +470,15 @@ function New-LiveSourceTreeScoped {
             $repoPath = ConvertTo-GitPath $line
             $rel = if ($prefix -and $repoPath.StartsWith($prefix)) { $repoPath.Substring($prefix.Length) } else { $repoPath }
             $handled.Add($rel) | Out-Null
-            $file = Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
-            $records.Add("100644 $oid`t$rel") | Out-Null
+            $hashRels.Add($rel) | Out-Null
+            $hashFiles.Add((Join-Path $script:RepoRoot ($repoPath -replace "/", [System.IO.Path]::DirectorySeparatorChar))) | Out-Null
+        }
+
+        if ($hashFiles.Count -gt 0) {
+            $oids = Invoke-GitHashObjectBatch -Files $hashFiles.ToArray()
+            for ($i = 0; $i -lt $hashRels.Count; $i++) {
+                $records.Add("100644 $($oids[$i])`t$($hashRels[$i])") | Out-Null
+            }
         }
 
         # Unchanged tracked files: reuse the blob already recorded in the index, no
@@ -523,8 +561,7 @@ function New-IncrementalExportTree {
     # index always is - even after a crashed export - so this is self-healing).
     param(
         [string] $IndexFile,
-        [string] $WorkTree,
-        [string] $RepoRelativePrefix = $script:JsonPath
+        [string] $WorkTree
     )
 
     # Refresh the cached stat info against what is now on disk. A non-zero exit
@@ -532,6 +569,11 @@ function New-IncrementalExportTree {
     Invoke-GitRaw @("update-index", "-q", "--refresh") -IndexFile $IndexFile -WorkTree $WorkTree | Out-Null
 
     $records = New-Object System.Collections.Generic.List[string]
+    # Files needing a fresh blob, collected for a single batched hash (one git
+    # process for all of them) rather than one hash-object per file. $hashRels and
+    # $hashFiles stay index-aligned: the i-th returned oid is for $hashRels[i].
+    $hashRels = New-Object System.Collections.Generic.List[string]
+    $hashFiles = New-Object System.Collections.Generic.List[string]
 
     # Tracked files whose stat changed: modified (re-hash) or deleted (drop). This
     # comparison is stat-based and never reads the content of unchanged files.
@@ -545,9 +587,8 @@ function New-IncrementalExportTree {
             $records.Add("0 0000000000000000000000000000000000000000`t$rel") | Out-Null
         }
         else {
-            $file = Join-Path $WorkTree ($rel -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-            $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
-            $records.Add("100644 $oid`t$rel") | Out-Null
+            $hashRels.Add($rel) | Out-Null
+            $hashFiles.Add((Join-Path $WorkTree ($rel -replace "/", [System.IO.Path]::DirectorySeparatorChar))) | Out-Null
         }
     }
 
@@ -558,9 +599,15 @@ function New-IncrementalExportTree {
     foreach ($line in ($others -split "\r?\n")) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $rel = ConvertTo-GitPath $line
-        $file = Join-Path $WorkTree ($rel -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-        $oid = Invoke-Git @("hash-object", "-w", "--path", (Get-AttrPath -RelativePath $rel -RepoRelativePrefix $RepoRelativePrefix), $file)
-        $records.Add("100644 $oid`t$rel") | Out-Null
+        $hashRels.Add($rel) | Out-Null
+        $hashFiles.Add((Join-Path $WorkTree ($rel -replace "/", [System.IO.Path]::DirectorySeparatorChar))) | Out-Null
+    }
+
+    if ($hashFiles.Count -gt 0) {
+        $oids = Invoke-GitHashObjectBatch -Files $hashFiles.ToArray()
+        for ($i = 0; $i -lt $hashRels.Count; $i++) {
+            $records.Add("100644 $($oids[$i])`t$($hashRels[$i])") | Out-Null
+        }
     }
 
     if ($records.Count -gt 0) {
@@ -918,54 +965,30 @@ function Read-GitToolsMeta {
     }
 
     $text = (Get-Content -Raw -Path $script:MetaPath).Trim()
-    if ($text.StartsWith("{")) {
-        $meta = $text | ConvertFrom-Json
+    $meta = $text | ConvertFrom-Json
 
-        if ($meta.jsonPath -ne $script:JsonPath) {
-            # The export location was repointed. The state key is the library path,
-            # so it is unchanged, but the stored trees describe the OLD export path
-            # and would merge against an unrelated base. Reset to a first-export
-            # state and drop the now-meaningless durability refs.
-            Write-Step "Export path moved ('$($meta.jsonPath)' -> '$script:JsonPath'); resetting stale base"
-            $baseRef = Get-GitToolsRef "base"
-            if (Get-RefTarget $baseRef) {
-                Invoke-Git @("update-ref", "-d", $baseRef) | Out-Null
-            }
-            Clear-PendingRefs
-            return [pscustomobject]@{
-                version = 2
-                jsonPath = $script:JsonPath
-                baseTree = ""
-                sourceTree = ""
-                status = "clean"
-                pending = $null
-            }
+    if ($meta.jsonPath -ne $script:JsonPath) {
+        # The export location was repointed. The state key is the library path,
+        # so it is unchanged, but the stored trees describe the OLD export path
+        # and would merge against an unrelated base. Reset to a first-export
+        # state and drop the now-meaningless durability refs.
+        Write-Step "Export path moved ('$($meta.jsonPath)' -> '$script:JsonPath'); resetting stale base"
+        $baseRef = Get-GitToolsRef "base"
+        if (Get-RefTarget $baseRef) {
+            Invoke-Git @("update-ref", "-d", $baseRef) | Out-Null
         }
-
-        return $meta
-    }
-
-    # Backwards compatibility: v1 metadata was only a commit hash. When seen,
-    # derive the path tree at that commit and immediately switch to v2 shape.
-    Write-Step "Migrating old commit-only metadata"
-    $oldCommit = $text
-    $baseTree = ""
-    if ($oldCommit) {
-        $result = Invoke-GitRaw @("rev-parse", "$oldCommit`:$script:JsonPath")
-        if ($result.ExitCode -eq 0) {
-            $baseTree = $result.Output.Trim()
-            Update-BaseRef -Tree $baseTree
+        Clear-PendingRefs
+        return [pscustomobject]@{
+            version = 2
+            jsonPath = $script:JsonPath
+            baseTree = ""
+            sourceTree = ""
+            status = "clean"
+            pending = $null
         }
     }
 
-    return [pscustomobject]@{
-        version = 2
-        jsonPath = $script:JsonPath
-        baseTree = $baseTree
-        sourceTree = $baseTree
-        status = "clean"
-        pending = $null
-    }
+    return $meta
 }
 
 function Write-GitToolsMeta {
@@ -1006,8 +1029,13 @@ function New-CleanMeta {
 }
 
 function New-PendingMeta {
+    # BaseTree is the base the conflicting merge actually ran against (the resolved
+    # common ancestor on the fallback path, or the advanced baseTree on the
+    # continuation path) - NOT necessarily the old meta.baseTree. Recording the
+    # real base is what lets Resolve-PendingConflictIfNeeded classify a later
+    # discard-vs-accept correctly.
     param(
-        [object] $ExistingMeta,
+        [string] $BaseTree,
         [string] $CurrentSourceTree,
         [string] $ExportTree
     )
@@ -1015,11 +1043,11 @@ function New-PendingMeta {
     return [pscustomobject]@{
         version = 2
         jsonPath = $script:JsonPath
-        baseTree = $ExistingMeta.baseTree
+        baseTree = $BaseTree
         sourceTree = $CurrentSourceTree
         status = "pendingExportConflict"
         pending = [pscustomobject]@{
-            baseTree = $ExistingMeta.baseTree
+            baseTree = $BaseTree
             sourceTree = $CurrentSourceTree
             exportTree = $ExportTree
         }
@@ -1074,26 +1102,113 @@ function Resolve-PendingConflictIfNeeded {
     return New-CleanMeta -BaseTree $Meta.pending.exportTree -SourceTree $currentTree
 }
 
-function Get-CurrentSourceTree {
+function Get-BaseLineageTrees {
+    # The set of tree ids GitTools has recorded as a reconciliation base - one per
+    # import or accepted export, newest first - read from the base ref's commit
+    # lineage (each base commit wraps its base tree directly, so the commit trees
+    # ARE the recorded base trees). These are what the committed source is matched
+    # against to find the true common ancestor on the fallback path. Empty when no
+    # base ref exists yet (a fresh clone that has never imported or exported here:
+    # gittools refs are local and are not pushed).
+    $ref = Get-GitToolsRef "base"
+    if (-not (Get-RefTarget $ref)) {
+        return ,@()
+    }
+    $result = Invoke-GitRaw @("rev-list", "--format=%T", "--no-commit-header", $ref)
+    if ($result.ExitCode -ne 0) {
+        return ,@()
+    }
+    # Leading comma: keep this an array even with a single base commit, so callers
+    # can use .Count and index it (PowerShell would otherwise unwrap a 1-element
+    # array to a scalar on return).
+    return ,@($result.Output -split "\r?\n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
+function Resolve-FallbackMergeBase {
+    # The merge base to use when the live source is NOT GitTools' own last output -
+    # a pull, a discard, or a partial commit has moved it. In that case the advanced
+    # baseTree is stale: it can sit AHEAD of the committed source (e.g. a deletion
+    # exported then discarded) or diverged from it, and using it makes a three-way
+    # merge mis-attribute changes (silently resurrecting deletions, or dropping a
+    # colleague's committed work).
+    #
+    # The correct base is the true common ancestor: the most recent commit reachable
+    # from HEAD whose <jsonPath> subtree GitTools recorded as a base (an import or a
+    # prior export). That is exactly where this library's lineage and the committed
+    # source last agreed - the same point `git merge-base` would find if the
+    # library's private lineage were a branch. Merging against it reproduces the
+    # library's changes, preserves genuine source-side divergence, and surfaces real
+    # delete/modify and modify/modify conflicts.
+    #
+    # The match is purely local (this clone's recorded lineage vs this HEAD's
+    # history), so colleagues importing at other commits never affect it. Returns ""
+    # only when no recorded base is reachable from HEAD - a fresh clone or a rewritten
+    # history - which the caller treats as a no-base apply.
+    param([int] $MaxCommits = 5000)
+
+    if (-not (Test-HeadExists)) {
+        return ""
+    }
+    $lineage = Get-BaseLineageTrees
+    if ($lineage.Count -eq 0) {
+        return ""
+    }
+    $lineageSet = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($t in $lineage) { [void]$lineageSet.Add($t) }
+
+    # Commits that touched the export path, newest first. --full-history keeps
+    # commits that ordinary history simplification would prune on the side of a
+    # merge, so a base recorded only on a merged-in branch is still found. The match
+    # returns the SUBTREE id, not the commit, so it is unaffected by which commit
+    # last carried that subtree.
+    $result = Invoke-GitRaw @("rev-list", "--full-history", "--max-count=$MaxCommits", "HEAD", "--", $script:JsonPath)
+    if ($result.ExitCode -ne 0) {
+        return ""
+    }
+    foreach ($commit in ($result.Output -split "\r?\n")) {
+        $c = $commit.Trim()
+        if (-not $c) { continue }
+        $sub = Invoke-GitRaw @("rev-parse", "--verify", "--quiet", "${c}:$script:JsonPath")
+        if ($sub.ExitCode -ne 0) { continue }
+        $subTree = $sub.Output.Trim()
+        if ($lineageSet.Contains($subTree)) {
+            return $subTree
+        }
+    }
+    return ""
+}
+
+function Resolve-CurrentSourceAndBase {
+    # Decide the source side of the export merge AND the base to merge it against.
+    #
+    # Continuation path - the live JSON path is still GitTools' own last output
+    # (export-before-commit, repeated export before committing): use it as the
+    # source and the advanced baseTree as the base. This is the common fast path and
+    # is what makes iterative export work without false conflicts.
+    #
+    # Fallback path - the live source is no longer GitTools' last output, so a pull,
+    # discard, or partial commit moved it. The live edits are disposable; HEAD is the
+    # source side. The advanced baseTree is now unreliable, so the base is recomputed
+    # as the true common ancestor from HEAD's history (see Resolve-FallbackMergeBase).
+    # A "" base there means no recorded ancestor is reachable; the export then applies
+    # as if it had no base, with the overwrite warning.
     param([object] $Meta)
 
     $liveTree = Get-LiveJsonTree
     if ($Meta.sourceTree -and ($liveTree -eq $Meta.sourceTree)) {
-        # GitTools recognizes the live path as its own last known output. This
-        # is what makes export-before-commit and repeated export work.
         Write-Note "Using live JSON path as current source."
-        return $liveTree
+        return [pscustomobject]@{ SourceTree = $liveTree; MergeBase = $Meta.baseTree }
     }
 
     if (Test-HeadExists) {
-        # The live JSON path differs from GitTools' last known source. Treat
-        # it as disposable and use HEAD as the source side of the merge.
         Write-Note "Using HEAD JSON path as current source; live JSON path changes are disposable."
-        return Get-HeadJsonTreeOrEmpty
+        $base = Resolve-FallbackMergeBase
+        Write-Note "Resolved merge base (true common ancestor): $(if ($base) { $base } else { '<none - applying as first export>' })"
+        return [pscustomobject]@{ SourceTree = (Get-HeadJsonTreeOrEmpty); MergeBase = $base }
     }
 
     Write-Note "Repository has no commits. Using live JSON path as current source."
-    return $liveTree
+    return [pscustomobject]@{ SourceTree = $liveTree; MergeBase = $Meta.baseTree }
 }
 
 # --- Merge helpers ---------------------------------------------------------

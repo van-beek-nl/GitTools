@@ -18,12 +18,14 @@ param(
 
 # Post-export phase of the GitTools export procedure.
 #
-# Runs after Omnis has exported into the temp directory recorded by
-# pre-export.ps1 and cleaned irrelevant properties. It builds the export tree
-# incrementally, then applies or three-way merges it into the live JSON path,
-# updates the durability refs and metadata, and tears down the temp artifacts.
-# Prints RESULT=clean or RESULT=conflict on stdout; exits non-zero only on a
-# genuine error (a conflict is an acceptable, successful outcome).
+# Runs after Omnis has exported into the persistent export cache (whose location
+# both phases derive from the git dir + state key) and cleaned irrelevant
+# properties. It builds the export tree incrementally from that cache, then
+# applies or three-way merges it into the live JSON path, and updates the
+# durability refs and metadata. The cache is deliberately KEPT as the warm copy
+# for the next export; only the handoff is cleared. Prints RESULT=clean or
+# RESULT=conflict on stdout; exits non-zero only on a genuine error (a conflict
+# is an acceptable, successful outcome).
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -40,14 +42,17 @@ if (($null -eq $handoff) -or ($handoff.op -ne "export")) {
     throw "No pending export to finalize. Run pre-export.ps1 first."
 }
 
-# meta.json was resolved and persisted by the pre-script; re-read it for the
-# (possibly advanced) base tree. The current source tree comes from the handoff;
-# the cache dir/index are persistent at the state-key-derived location.
-$meta = Read-GitToolsMeta
+# The current source tree AND the merge base were both decided by the pre-script
+# (they depend on the live path and HEAD as they stood before Omnis exported, and
+# the pre-script already resolved + persisted meta.json), so they are taken from the
+# handoff rather than recomputed. The cache dir/index are persistent at the
+# state-key location. The fresh metadata written below is built from the export
+# result, so the prior meta.json is not re-read here.
 $currentSourceTree = $handoff.currentSourceTree
+$mergeBase = $handoff.mergeBase
 $cacheDir = Get-ExportCacheDir
 $cacheIndex = Get-ExportCacheIndex
-Write-Timing "read handoff + metadata"
+Write-Timing "read handoff"
 
 try {
     Write-Step "Build export tree"
@@ -58,13 +63,13 @@ try {
     Write-Timing "build export tree (incremental)"
 
     Write-Step "Apply or merge export result"
-    if (-not $meta.baseTree) {
-        # No reconciliation base exists (first export, brand-new path, or
-        # unrecoverable old metadata), so the export is applied directly. The
-        # only hazard is overwriting committed source whose change direction we
-        # cannot know without a base. Uncommitted live JSON is disposable by
-        # policy, so the warning is scoped to a committed HEAD source that
-        # differs from the export.
+    if (-not $mergeBase) {
+        # No reconciliation base (first export, brand-new path, unrecoverable old
+        # metadata, or the source moved with no recorded common ancestor reachable
+        # from HEAD), so the export is applied directly. The only hazard is
+        # overwriting committed source whose change direction we cannot know without
+        # a base. Uncommitted live JSON is disposable by policy, so the warning is
+        # scoped to a committed HEAD source that differs from the export.
         if ((Test-PathInHead -Path $script:JsonPath) -and ((Invoke-Git @("rev-parse", "HEAD:$script:JsonPath")) -ne $exportTree)) {
             Write-Note "WARNING: No reconciliation base exists and the committed source at '$script:JsonPath' differs from this export."
             Write-Note "Applying will OVERWRITE the committed source with your library's version. If colleagues advanced this"
@@ -85,8 +90,8 @@ try {
         return
     }
 
-    if ($currentSourceTree -eq $meta.baseTree) {
-        # Source did not move relative to the binary base, so no merge is needed.
+    if ($currentSourceTree -eq $mergeBase) {
+        # Source did not move relative to the merge base, so no merge is needed.
         Write-Note "Current source equals base tree. Applying export directly."
         Apply-TreeToLiveJsonPath -Tree $exportTree
         Write-Timing "apply export to live path"
@@ -100,7 +105,7 @@ try {
     }
 
     Write-Note "Current source differs from base tree. Running tree merge."
-    $merge = Invoke-MergeTree -BaseTree $meta.baseTree -CurrentSourceTree $currentSourceTree -ExportTree $exportTree
+    $merge = Invoke-MergeTree -BaseTree $mergeBase -CurrentSourceTree $currentSourceTree -ExportTree $exportTree
     Write-Timing "merge-tree (three-way)"
     if ($merge.ExitCode -eq 0) {
         # Clean merge: the live source receives the merged source tree, while
@@ -125,7 +130,7 @@ try {
     Apply-ConflictedMergeToLiveJsonPath -MergeResult $merge
     Write-Timing "apply conflicted result to live path"
     Set-PendingRefs -SourceTree $currentSourceTree -ExportTree $exportTree
-    Write-GitToolsMeta -Meta (New-PendingMeta -ExistingMeta $meta -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
+    Write-GitToolsMeta -Meta (New-PendingMeta -BaseTree $mergeBase -CurrentSourceTree $currentSourceTree -ExportTree $exportTree)
     Write-Timing "set pending refs + write metadata"
     Write-Note ""
     Write-Note $merge.Output
