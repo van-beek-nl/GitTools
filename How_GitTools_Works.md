@@ -96,9 +96,11 @@ When you export a library, GitTools does roughly this:
 1. **Checks the coast is clear.** If your source folder already has unresolved
    merge conflicts from earlier, GitTools stops and asks you to sort those out
    first — it won't pile new changes on top of a mess.
-2. **Exports the library to a private scratch area first.** Your real source
-   folder is *not* touched yet. Working in a scratch copy means that if anything
-   goes wrong, your real files are untouched.
+2. **Exports the library to a private working area first.** Omnis writes the
+   export into a private per-library folder inside `.git`, not into your source
+   folder — so your real source is *not* touched yet, and if anything goes wrong
+   your files are untouched. (GitTools keeps that folder between exports so
+   Omnis's own export stays fast; it never pre-fills or edits it.)
 3. **Compares three things:** the base (last agreed version), your current source
    in the repo, and the fresh export from Omnis.
    - If your source hasn't moved since the base, the new export is simply written
@@ -114,7 +116,7 @@ Notice what GitTools does **not** do: it does not create commits for you, it doe
 not move you to a different branch, and it does not touch any files outside your
 library's source folder. The export shows up as ordinary, reviewable changes.
 
-> **Why a scratch area and a merge instead of just overwriting?**
+> **Why a separate area and a merge instead of just overwriting?**
 > Because overwriting is how work gets lost. If GitTools just dumped the export
 > over your source, a colleague's change that you had pulled in would vanish
 > without warning. Merging against the base keeps both sides.
@@ -191,7 +193,7 @@ your files behind your back.
 A few design choices are worth knowing because they're the reason GitTools is
 hard to hurt yourself with:
 
-- **Your real source is touched last.** Exports happen in a scratch area first;
+- **Your real source is touched last.** Exports happen in a private area first;
   only a successful result is written into your folder.
 - **The "agreed" state is saved as the very last step,** after everything else has
   succeeded. If an export is interrupted halfway, GitTools simply hasn't recorded
@@ -257,14 +259,16 @@ touched.
 
 The catch is that re-hashing *every* file on every export would be slow for a
 large library. GitTools avoids that by leaning on the same incremental export
-Omnis already does. Before the export, the temporary folder is seeded from the
-last agreed version, and GitTools notes each file's size and timestamp. Omnis
-then rewrites only the classes that changed. To build the tree, GitTools asks Git
-which files have a different size or timestamp than before — a quick check that
-doesn't involve reading their contents — and **only re-hashes those**. Unchanged
-files keep the hash they already had. The result is the same tree it would have
-produced by hashing everything, but the work is proportional to *what changed*,
-not to the size of the library.
+Omnis already does. Omnis exports into a **persistent** private folder that is
+kept between runs — never pre-filled or touched by GitTools, which only reads
+what Omnis leaves there — so Omnis itself rewrites only the classes that changed
+and leaves the rest in place. GitTools records each file's size and timestamp,
+and to build the tree it asks Git which files have a different size or timestamp
+than last time — a quick check that doesn't read their contents — and **only
+re-hashes those**, taking every unchanged file's hash straight from the previous
+records. The result is the same tree it would have produced by hashing
+everything, but the work is proportional to *what changed*, not to the size of
+the library.
 
 The same shortcut is used whenever GitTools needs to hash the **source already in
 your repository** (for the comparisons below, and when importing): it asks Git
@@ -280,15 +284,28 @@ that is identical apart from invisible line-ending normalisation would look
 
 ### Detecting whether the source has moved
 
-Because everything is a tree hash, the checks are simple comparisons:
+Because everything is a tree hash, the checks are simple comparisons. GitTools
+remembers the last source tree it produced, which lets it tell two situations
+apart:
 
-- **Source unchanged since the base?** If your current source tree equals the base
-  tree, nothing moved — GitTools just writes the new export out.
-- **Source moved?** If they differ (typically because you pulled a teammate's
-  work), GitTools merges.
-- **Is this my own un-committed export?** GitTools remembers the last source tree
-  it produced, so when you export twice before committing it recognises the live
-  folder as its own output rather than treating it as a surprise.
+- **You're still iterating on your own export.** If the live source folder is
+  exactly what GitTools last wrote (you exported, perhaps again, but haven't
+  pulled or committed yet), it keeps using the remembered base — that's what lets
+  you export repeatedly before committing without spurious conflicts.
+- **The source has moved out from under it.** If the live source is *not* what
+  GitTools last produced — you pulled a teammate's work, discarded changes, or
+  committed only *part* of a previous export — then the remembered base can no
+  longer be trusted as the "last agreed version": your committed source may have
+  moved behind it, or off in a different direction. So GitTools looks back through
+  your branch's own history for the most recent version it had previously recorded
+  (an earlier export or import) and uses *that* as the merge base.
+
+That re-found ancestor is the true "last agreed version" for your current
+situation, and it's what makes the tricky cases come out right: a class you
+deleted stays deleted, work-in-progress you discarded from the folder reappears
+from the library, a teammate's committed change is preserved, and a genuine clash
+where you and a teammate changed the same thing becomes a real conflict instead of
+one side silently winning.
 
 ### Doing the merge without disturbing anything
 
@@ -302,11 +319,18 @@ tree containing conflict markers plus a list of which files conflicted.
 ### Surfacing conflicts as normal Git conflicts
 
 When the merge conflicts, GitTools writes the conflicted result into your source
-folder and then stages the **unmerged versions** of the conflicted files into the
-index — the base/yours/theirs entries that Git tracks during a conflict. That is
-exactly the state an ordinary `git merge` leaves behind, which is *why* your
-editor or Git client shows its usual unmerged-file conflict and offers its normal
-resolve tools. There is nothing GitTools-specific to learn.
+folder and marks the conflicted files in the index with their **unmerged
+versions** — the base/yours/theirs entries that Git tracks during a conflict.
+That's the same state an ordinary `git merge` leaves for a *conflicted* file,
+which is *why* your editor or Git client shows its usual unmerged-file conflict
+and offers its normal resolve tools — there's nothing GitTools-specific to learn.
+
+One small, deliberate difference: the *cleanly* merged changes are left
+**unstaged** for you to review, whereas a real `git merge` would stage them. A
+nice side effect is that those non-conflicting changes survive if you abort the
+conflict; the flip side is that anything *you* stage before aborting is discarded
+along with the conflict — but that's simply how Git's own merge-abort behaves.
+Resolve the conflict and commit as usual, and it's ordinary Git from there.
 
 ### Remembering the base so Git won't discard it
 
@@ -317,22 +341,25 @@ points a **private ref** at it (under `refs/gittools/…`):
   points to. A tree mentioned only inside a metadata file would eventually be
   swept away; a ref is the "keep this" anchor that prevents it.
 - **Why a commit, not just the bare tree?** Chaining one commit per accepted base
-  gives a small private history you can inspect (a `git log` on that ref) for
-  debugging — and because it's not a branch, it never appears in your normal
-  history.
+  gives a small private history — handy to inspect with `git log` on that ref,
+  and, more importantly, it's the very list GitTools walks back through to re-find
+  the true common ancestor when your source has moved (see above). Because it's
+  not a branch, it never appears in your normal history.
 
 These operations never fire a post-commit hook and never move `HEAD`. (Earlier
 versions of GitTools *did* move `HEAD` and relied on a hook to do their merges —
 that was the source of past fragility. The current design avoids both.)
 
-### Keeping its scratch work out of your way
+### Keeping its working files out of your way
 
 - **Throwaway index.** All tree-building uses a temporary index file, so your real
   staged changes are never disturbed.
-- **Scratch export folder.** Omnis exports into a temporary folder (seeded from the
-  base so incremental exports stay fast), and your real source folder is only
-  written once a good result exists. Temp folders and scratch indexes are always
-  cleaned up, even if the export fails partway.
+- **Private export folder.** Omnis exports into a private per-library folder inside
+  `.git` — kept between runs so Omnis's own incremental export stays fast, and
+  never seeded or edited by GitTools — and your real source folder is only written
+  once a good result exists. Throwaway indexes are always cleaned up, even if the
+  export fails partway; the export folder is deliberately kept as the warm copy for
+  next time.
 
 ### Telling libraries apart
 

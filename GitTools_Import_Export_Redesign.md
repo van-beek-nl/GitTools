@@ -1,388 +1,494 @@
-# GitTools Import/Export Redesign
+# GitTools Import/Export Design
 
-## Summary
+GitTools turns an Omnis binary library (`.lbs`) into a folder of text source
+(`.json` / `.omh`) that Git can version, review, and merge, and turns that source
+back into a binary library. This document describes how the **export** and
+**import** procedures reconcile three drifting versions of the source — the
+binary library, the local committed/working source, and what teammates have
+pushed — without ever silently overwriting anyone's work.
 
-This design replaces the current detach/reset/commit export merge with a tree-based flow that does not move `HEAD`, does not create visible branches or commits, and does not need a post-commit hook. GitTools stores one reconciled base tree per registered library and uses that tree both as the Omnis export cache seed and as the merge base for source/export reconciliation.
+The procedures are demonstrated by four PowerShell scripts under `scripts/`. In
+production the same logic runs inside Omnis (`$execute`); the scripts are the
+reference implementation and test surface. The plain-language companion is
+[How_GitTools_Works.md](How_GitTools_Works.md); the superseded design is kept as
+`GitTools_Import_Export_Redesign.old.md`.
 
-The implementation should continue to touch only the registered Omnis JSON export path. Other repository files remain normal Git-managed files and are not changed by GitTools import/export logic.
+---
 
-## Approach And Alternatives
+## 1. Design goals and the approach chosen
 
-The reconciliation is a three-way merge: a common base (the last accepted export), the current Git source, and the fresh Omnis export. Three ways to perform that merge were considered.
+The reconciliation is fundamentally a **three-way merge**: a common base (the
+last point the library and the source agreed), the current Git source, and the
+fresh Omnis export. Three ways to perform that merge were considered:
 
-1. **v1 — detach `HEAD`, soft-reset to the last-import commit, commit the dangling export, merge back.** This is the approach being replaced. It mutates `HEAD`, leaves the repository in a detached state if interrupted, and the dangling commit fires the post-commit hook — which is what corrupted the library's commit-hash `.meta` files. It is fragile precisely because it drives the merge through the repository's live `HEAD` and index.
+1. **v1 — detach `HEAD`, soft-reset to the last-import commit, commit the
+   dangling export, merge back.** This mutates `HEAD`, leaves the repo detached
+   if interrupted, and fires the post-commit hook (which corrupted the old
+   commit-hash `.meta` files). It drove the merge through the repository's live
+   `HEAD` and index — the source of its fragility.
+2. **A real linked worktree per export.** Avoids touching the primary `HEAD`, but
+   still performs a full checkout and a real merge on disk, needs a temporary
+   worktree created and cleaned under `.git/worktrees/`, and shares the ref store
+   anyway — filesystem and lifecycle overhead with no isolation benefit.
+3. **Chosen — `git merge-tree --write-tree` plus a private `commit-tree`
+   lineage.** The merge runs entirely in memory against three tree objects and
+   returns a result tree (or conflict stages) without ever creating a worktree,
+   moving `HEAD`, or touching the real index. Durability comes from refs under
+   `refs/gittools/<state-key>/` built with `commit-tree` / `update-ref`, which
+   never fire the post-commit hook. This removes both v1 failure modes by
+   construction.
 
-2. **A real linked worktree per export** (the working name this branch carried). Add a throwaway `git worktree`, check the base out into it, merge there, then copy the result back. It avoids touching the primary `HEAD`, but it still performs a full checkout and a real merge on disk, needs a temporary worktree created and cleaned up under `.git/worktrees/`, and shares the same ref store (so it offers no isolation advantage over the chosen approach while adding filesystem and lifecycle overhead).
+**Requirements.** Git ≥ 2.38 (for `merge-tree --write-tree`; the design also uses
+`restore --pathspec-from-file`, `rev-list --no-commit-header`, and
+`update-index --index-info`). No external dependencies beyond Git and the host
+shell, so the same logic ports to bash, PowerShell, and Omnis. Git output is
+parsed newline-delimited, never `-z`/NUL.
 
-3. **Chosen — `git merge-tree --write-tree` plus a private `commit-tree` lineage.** The merge runs entirely in memory against three tree objects and returns a result tree (or conflict stages) without ever creating a worktree, moving `HEAD`, or touching the real index. Durability comes from refs under `refs/gittools/<state-key>/` built with `git commit-tree`/`git update-ref`, which never fire the post-commit hook. This removes both v1 failure modes by construction (no `HEAD` mutation, no hook), needs no temporary worktree, and keeps a debuggable private history. Its one requirement is Git ≥ 2.38 for `merge-tree --write-tree`, checked in Preflight.
+---
 
-The "worktree" naming on this branch refers to the general goal (reconcile without disturbing the working tree), not to alternative 2 specifically; the design realizes that goal with `merge-tree`.
+## 2. The four phases and the Omnis contract
 
-## Metadata Model
+Each Omnis operation is split into a **pre** and **post** script around the point
+where Omnis itself reads or writes files. The split exists because the export's
+transient state (which source tree we are reconciling against) must be decided
+*before* Omnis overwrites the export directory, and consumed *after*.
 
-Use structured v2 metadata stored at `.git/gittools/<state-key>/meta.json`, plus durability refs under `refs/gittools/<state-key>/` (see Durability below). The `<state-key>` identifies one library file, not one export path — see State Key below.
+| Script | Runs | Responsibility |
+|--------|------|----------------|
+| `pre-export.ps1`  | before Omnis exports | preflight; resolve any pending conflict; decide the current source tree **and** the merge base; ensure the export cache exists; write the handoff |
+| `post-export.ps1` | after Omnis exports  | build the export tree from the cache; apply or three-way-merge it into the live source; update metadata + refs; clear the handoff |
+| `pre-import.ps1`  | before Omnis imports | preflight (refuse to import unresolved conflicts); print the path to import from |
+| `post-import.ps1` | after Omnis imports  | record the imported source as the new base |
+
+**Output discipline (the contract with Omnis).** All human-readable progress
+goes to **stderr** (`Write-Step` / `Write-Note`, plus opt-in `GITTOOLS_TIMING`
+diagnostics). **stdout** carries only machine-readable values:
+
+- `pre-export.ps1` prints **nothing** — Omnis derives the export directory itself
+  from the git dir + state key (`git rev-parse --git-path
+  gittools/<state-key>/export-cache`), so no path needs returning.
+- `pre-import.ps1` prints the single absolute path Omnis imports from.
+- `post-export.ps1` / `post-import.ps1` print `RESULT=clean` or `RESULT=conflict`.
+
+Pre-scripts signal **abort with a non-zero exit code**; Omnis must not run its
+import/export step when a pre-script aborts. A conflict is **not** an error — it
+is a successful, expected outcome that exits zero with `RESULT=conflict`.
+
+---
+
+## 3. Per-library state
+
+### 3.1 The state key (why per-library, not per-path)
+
+The export-to-library relationship is **1:N**: several `.lbs` files may be built
+from one shared source folder and worked on independently, each importing and
+exporting at different moments. Reconciliation state therefore belongs to an
+individual **library file**, not the shared export path. Keying by the export
+path would collapse all N copies into one slot and destroy exactly that per-copy
+divergence.
+
+The **state key** is `<sanitized-filename>-<hash8>`, where `hash8` is the first 8
+hex chars of the SHA-1 of the library's canonical absolute path (lowercased on
+case-insensitive filesystems, left as-is on Linux). The filename prefix keeps
+`.git/gittools/` and `refs/gittools/` readable; the hash suffix stops two
+same-named libraries in different folders from aliasing onto one key. Omnis
+computes the identical key; `Get-StateKey` mirrors it.
+
+Keying by library path has one accepted cost: **moving the `.lbs` changes its
+key**, so the moved library re-baselines on its next export (it applies directly
+or merges against the recomputed base rather than continuing the old lineage).
+This is never destructive — the no-base path is backstopped by the
+overwrite-warning guard (§6).
+
+### 3.2 Metadata (`meta.json`)
+
+Stored at `.git/gittools/<state-key>/meta.json`:
 
 ```json
 {
   "version": 2,
-  "jsonPath": "relative/path/to/export",
-  "baseTree": "<tree hash>",
-  "sourceTree": "<tree hash>",
-  "status": "clean",
+  "jsonPath": "<repo-relative export path>",
+  "baseTree": "<tree id>",
+  "sourceTree": "<tree id>",
+  "status": "clean | pendingExportConflict",
   "pending": null
 }
 ```
 
-Fields:
-
-- `baseTree`: the latest binary-equivalent export tree accepted as the merge base.
-- `sourceTree`: the latest clean live source tree GitTools intentionally produced or imported.
-- `status`: either `clean` or `pendingExportConflict`.
-- `pending`: only populated after an export merge leaves conflicts in the live tree.
-
-For a conflicted export:
-
-```json
-{
-  "status": "pendingExportConflict",
-  "pending": {
-    "baseTree": "<previous baseTree>",
-    "sourceTree": "<source tree before export merge>",
-    "exportTree": "<Omnis export tree>"
-  }
-}
-```
-
-`baseCommit` is intentionally omitted from the metadata: comparisons, seeding, and merges all operate on tree objects, so no commit hash is needed to drive them.
-
-### State Key
-
-The relationship between a JSON export and a binary library is **1:N**, not 1:1. A user may build several `.lbs` files from one export and work in them independently — each importing and exporting at different moments, so each carries its own last-reconciled tree. The reconciliation state therefore belongs to the **individual library file**, not to the shared export path. (This is why v1 stored its `.meta` beside each `.lbs`.) Keying state by `jsonPath` would collapse all N copies into one slot and corrupt exactly that per-copy divergence.
-
-The state key is derived from the library file's own identity:
-
-```
-<state-key> = <libraryFilename>-<hash8(canonicalLibraryPath)>
-```
-
-- The `<libraryFilename>` prefix keeps keys human-readable when inspecting `.git/gittools/` or `refs/gittools/`; the hash suffix guarantees distinct paths never alias (a naive character-substitution of the path could map `libs/a` and `libs-a` to the same key).
-- The library file may live **outside** the version-controlled directory — users sometimes keep `.lbs` files out of the repo rather than gitignoring them. Keying by the library path (rather than a repo-relative path) handles that: state still lives in the export repo's `.git` (the repo is unambiguous — it is the one containing `jsonPath`), but the key is independent of repo layout.
-- `canonicalLibraryPath` **must** be canonicalized before hashing, or the same file reached two ways produces two keys: resolve symlinks/aliases to a real path (macOS `/Users` vs `/System/Volumes/Data/Users`, symlinked project dirs, Windows UNC vs mapped drives), and case-fold **only on case-insensitive filesystems** (macOS/Windows — the same `core.ignorecase` distinction as the case-collision note under Assumptions). The canonical key must be computed by one authority (in production, Omnis) so it is stable across invocations.
-
-Keying by library path has one accepted cost: **moving the `.lbs` changes its key**, so the moved library re-baselines (its next export applies directly or merges against `HEAD` rather than continuing the old lineage). This is never destructive — the no-base path is backstopped by the "warn before overwriting committed source" guard (see Merge Or Apply) — and copies (which must stay distinct) matter more than moves (which are rare). A post-implementation enhancement can recover the cost on demand: when a new library path registers, look for a **stale** entry (matching filename, whose absolute path no longer exists) and offer to re-wire it; if several stale entries share the filename, let the user pick.
-
-Because the key is the library path and `jsonPath` is independent of it, repointing a library's export location leaves the key unchanged while `baseTree` still describes the old location. The Metadata Update and read steps therefore reset the base when `meta.jsonPath` no longer matches the configured path (see Export Procedure).
-
-### Durability
-
-A tree named only by `meta.json` is invisible to Git and would eventually be removed by `git gc`. To keep the trees GitTools depends on, it pins them with refs under `refs/gittools/<state-key>/`:
-
-- `base`: a commit lineage. Each accepted export or import creates a commit with `git commit-tree` (parent = the previous base commit) whose tree is the new `baseTree`, then advances the ref. This keeps `baseTree` and its blobs reachable and yields a debuggable history viewable with `git log refs/gittools/<state-key>/base`.
-- `pending-source` and `pending-export`: refs that pin the two transient trees of a conflicted export. They are deleted as soon as the pending state is resolved or discarded. (`pending.baseTree` needs no ref of its own; on a conflict `baseTree` is unchanged and is still pinned by the `base` ref.)
-
-`git commit-tree` and `git update-ref` never move `HEAD`, create no visible branch, and never fire the post-commit hook. That is what lets GitTools keep a private commit lineage without the fragility of the old detach/commit approach, and is what removes the need for the post-commit hook entirely. The committer identity and `commit.gpgsign` should be pinned for these commits so they never depend on, or get attributed to, the user's Git config.
-
-No file copies of trees are kept for durability. The refs alone provide durability; the per-library export cache (see Building The Export Tree Incrementally) is a convenience for Omnis's incremental export, not a source of truth, and may be deleted at any time (the next export simply rebuilds it).
-
-## Tree Hashing
-
-Every tree GitTools compares or merges (`baseTree`, `sourceTree`, the current source tree, and the `exportTree`) must be hashed in the same normalization space as the committed source. `.gitattributes` rules and `core.autocrlf` can normalize content (most commonly CRLF to LF) when Git stores it. If one tree is hashed with that normalization applied and another without, identical content hashes to different blobs and the merge reports spurious conflicts on files no one changed.
-
-Two rules keep the trees consistent:
-
-1. **Hash content as if it lived at its real repository path.** For content that physically lives outside its tracked location (the Omnis export in the cache directory), hash each file with `git hash-object --path "<jsonPath>/<relativePath>"`. The `--path` argument makes Git apply the exact attribute/filter rules of the real path, even though the file is elsewhere on disk. Do **not** build these trees with `git add --work-tree=<external directory>`: that relocates `.gitattributes` lookup and silently skips normalization.
-
-2. **Enumerate files explicitly; never snapshot a directory with `git add`.** `git add` honors `.gitignore`, which would silently drop matching files from the tree and surface them as phantom deletions in the merge. Walk the directory, hash every regular file, and assemble the tree with `git update-index --index-info` into a scratch index followed by `git write-tree`.
-
-Trees stay rooted at the export directory (entries keyed relative to `<jsonPath>`), matching `HEAD:<jsonPath>`. `--path` only affects attribute resolution; it does not change the entry key.
-
-### Building The Export Tree Incrementally
-
-Re-hashing every file on every export does not scale: large libraries export thousands of files, and hashing all of them (worse, one `hash-object` process per file) makes each export pay for the whole library even when one method changed. Omnis already exports **incrementally** — it exports over a previous export directory and rewrites only what changed — so the tree build should cost the same: proportional to the change set, not the library size.
-
-This is done with Git's index **stat cache**, which is how `git status` stays fast on large repositories: the index records each file's size and mtime, so Git can tell what changed without reading content.
-
-**A persistent warm cache, written only by Omnis.** Omnis exports into a per-library directory kept under `.git/gittools/<state-key>/export-cache/`, paired with a persistent scratch index `export-cache.index`. The cache exists *purely* to make Omnis's own export faster — Omnis is its sole writer and always produces a complete, correct export over whatever is there (pruning files for deleted classes), so GitTools **never seeds it from `baseTree` and never reconciles it**. A stale cache (after an import, a conflict, or a crash) only costs Omnis some incremental benefit on the next export, never correctness: the authoritative export is the directory *as Omnis leaves it*, and the merge base is the durable `baseTree` ref — neither depends on the cache. This deliberately removes the old per-export `checkout-index` materialisation of the whole base (profiled at ~3.9 s of an ~8 s export on a 36k-file library).
-
-The build then is:
-
-1. **Let Omnis export over the cache directory.** It rewrites only changed files and deletes removed ones.
-2. **Find the change set by stat, not by hashing.** `git diff-files --name-status` reports cached files whose stat changed (modified) or that vanished (deleted); `git ls-files --others` reports new files. Neither reads the content of unchanged files. (`ls-files --others` is used **without** `--exclude-standard`, so `.gitignore`d files in the export are still captured, consistent with rule 2 above.)
-3. **Hash only the change set, then `write-tree`.** Re-hash each modified and new file with `hash-object --path` (rule 1), record deletions, and leave every unchanged entry on its existing blob. `git write-tree` produces a tree **byte-identical** to a full rebuild — only the changed files were read. A final `update-index --refresh` records stat for the just-changed entries so the *next* export stays proportional.
-
-The only invariant required is that the scratch index is a **consistent prior snapshot** of the cache directory — which holds across runs (post-export leaves the index matching the directory, and nothing else writes the cache) and even across a crashed export (the index simply remains an older valid snapshot, and `diff-files` against the current directory still reconstructs the correct tree). So crash recovery needs no cleanup. On the **first** export the directory and index are empty, so Omnis does a full export and every file is reported as new — a one-time full hash; every later export is proportional.
-
-### Building The Live-Source Tree Incrementally
-
-The same principle applies to hashing the **live working source** — needed to determine the current source tree on export, to record the final source after applying a result, and to capture the source being imported. Here the stat source is the **repository's own index** rather than a seeded scratch one, and the files are already at their real path (so no `--path` work-tree juggling is needed). Scoped to `<jsonPath>`:
-
-1. `git diff-files --name-status -- <jsonPath>` reports tracked files whose working-tree stat differs from the index (modified, or deleted) — by stat, reading no unchanged content.
-2. `git ls-files --others -- <jsonPath>` (again without `--exclude-standard`) reports new untracked files.
-3. Every other tracked file is **unchanged**, so its blob is taken straight from the index (`git ls-files --stage`) with no hashing at all.
-4. Re-hash only the modified and new files (with `hash-object --path`), drop deletions, and `write-tree`. The result is byte-identical to a full directory walk.
-
-Scoping every command to `<jsonPath>` keeps this independent of unrelated repository state — a conflict or change in some other file never affects it, and the real index is read but never modified. The cost is proportional to the user's local edits. The one case that still does substantial hashing is a large, **uncommitted** live source that diverges wholesale from the index (for example exporting twice before committing); a persistent per-library index could close that gap too, at the cost of maintaining it.
-
-**Fast path (avoid the per-entry round trip).** Step 3 above, written naively, rebuilds the tree by listing every tracked entry (`ls-files --stage`) and piping all of them back into a fresh scratch index — tens of thousands of lines marshalled through the shell on each call, which profiling showed dominates the export (≈4 s of a ~8 s pre-export on a 36k-file library, despite hashing nothing). Instead, **copy the repository index** to a scratch file (the copy already holds every tracked blob), apply only the small working-tree delta to it (modified re-hashed, deleted removed with a mode-0 record, new hashed — all keyed by full repo path), and let git assemble the subtree in C with `git write-tree --prefix=<jsonPath>/`. This produced a byte-identical tree ~7× faster on a 10k-file library (and far more on larger ones), because the unchanged entries never enter the shell. `git write-tree` aborts if **any** index entry is unmerged — even one outside `<jsonPath>` — so when the index carries conflicts (or there is no index file yet) the build falls back to the path-scoped reconstruction above, which only ever touches `<jsonPath>` and is therefore unaffected by unrelated conflicts. The fast path relies on the export holding only regular (non-executable) files — true for Omnis `.json`/`.omh` output — so the index modes it reuses are uniformly `100644`, matching the forced-`100644` trees built elsewhere.
-
-### Applying A Result Tree Incrementally
-
-Writing a result tree (a clean export, or a merged source) back to the live JSON path must be proportional too — wiping the directory and re-checking out the whole tree is prohibitively slow on large libraries and, because it deletes and recreates thousands of files on every export, repeatedly exposes a filesystem delete race (`Remove-Item -Recurse` / "Directory not empty" on macOS). The blunt wipe exists only because `git checkout-index` *writes* the entries it is given but never *removes* a working-tree file that the target tree omits — so removed classes/methods/folders would otherwise linger and be hashed back in.
-
-Apply the **delta** instead:
-
-1. If the live tree already equals the target, do nothing.
-2. Otherwise reset the index for `<jsonPath>` to `HEAD` (index only, no working-tree rewrite) so the applied result surfaces as ordinary unstaged changes the user can review and commit.
-3. `git diff-tree -r --name-status <liveTree> <targetTree>` (both rooted at the export path) gives the changed paths. Process **deletions first** — remove each file and prune any directory it empties — so a path that changes type (file ↔ directory, which `diff-tree` reports as a delete plus an add) does not collide.
-4. Write the added/modified paths in a **single** batched `git checkout-index -f --stdin` from a scratch index of the target tree (`--stdin` avoids any command-line length limit when many files changed, e.g. a first export; `checkout-index` creates leading directories).
-
-Unchanged files are never rewritten — their on-disk bytes (and inode/mtime) are left intact — so the cost scales with what the export actually changed. The rarer conflict-application path still materializes the full conflict tree, since it must additionally stage unmerged index entries; it uses a hardened recursive delete rather than the fragile cmdlet.
-
-## Export Procedure
-
-### 1. Preflight
-
-- Require a Git version that supports `git merge-tree --write-tree`.
-- Read the metadata for this library's state key. If `meta.jsonPath` differs from the currently configured export path, the export location was repointed and the stored trees describe the old location: discard `baseTree`, `sourceTree`, and `pending`, delete the durability refs, and continue as a first export. (The state key is the library path, which is unchanged by repointing, so this reset is what keeps a moved export path from merging against an unrelated base.)
-- If unresolved Git conflicts already exist under the JSON path, abort the export and tell the user to resolve them first.
-- If metadata has `status = pendingExportConflict` and no unresolved conflicts remain:
-  - If the JSON path has uncommitted changes, discard them first, restoring from `HEAD` when available or from the pending source cache otherwise.
-  - Recompute the clean source tree.
-  - If the clean source tree equals `pending.sourceTree`, treat the prior conflict as discarded. Keep `baseTree` unchanged and clear `pending`.
-  - If the clean source tree differs from `pending.sourceTree`, treat the prior conflict as resolved or accepted. Set `baseTree = pending.exportTree`, set `sourceTree = currentSourceTree`, update the base cache, and clear `pending`.
-
-### 2. Determine Current Source
-
-- If the live JSON path tree equals `sourceTree`, use the live tree. This lets GitTools recognize its own previous uncommitted export output.
-- Else if `HEAD` exists, use `HEAD:<jsonPath>` and treat dirty live JSON changes as disposable.
-- Else use the live JSON path tree. This supports repositories with no commits yet.
-
-### 3. Omnis Export Into The Warm Cache
-
-- Ensure the persistent export cache (`.git/gittools/<state-key>/export-cache/`) and its scratch index exist; do **not** seed or reconcile their contents (see Building The Export Tree Incrementally). On the first export both are empty.
-- Run the Omnis JSON export into the cache directory.
-- Clean irrelevant properties in the cache directory.
-- Build `exportTree` incrementally from the persistent scratch index, hashing only the files Omnis changed.
-
-The live JSON path is not touched until the export has succeeded.
-
-### 4. Merge Or Apply
-
-If there is no base yet, apply `exportTree` directly to the live JSON path. There is no safe three-way base in this case, so no merge is possible. The only hazard is overwriting committed source whose change direction is unknowable without a base: if `HEAD:<jsonPath>` exists and differs from `exportTree`, GitTools warns loudly that the export will overwrite the committed source before applying, and leaves the result uncommitted so the user can review the diff (or import first to take the repository's version instead). When `HEAD` has no source at the path, or the export already equals `HEAD:<jsonPath>`, it applies silently. Uncommitted live JSON is disposable by policy and never triggers the warning.
-
-If `currentSourceTree == baseTree`, apply `exportTree` directly to the live JSON path.
-
-Otherwise run a tree merge:
-
-```text
-git merge-tree --write-tree --messages --merge-base=<baseTree> <currentSourceTree> <exportTree>
-```
-
-`git merge-tree` exits `0` on a clean merge, `1` on conflicts, and any other code on a fatal error. Only exit code `1` is treated as a conflict. Any other non-zero code must abort the export with the live JSON path left untouched, because on error the command's output is not a usable result tree and applying it would corrupt the live source and record a bogus pending conflict.
-
-If the merge succeeds:
-
-- Apply the returned result tree to the live JSON path.
-- Update metadata and cache as a successful export.
-
-If the merge conflicts:
-
-- Apply the returned conflict-marker tree to the live JSON path.
-- Update the real Git index with the conflict stage entries from `merge-tree`, prefixed with the JSON path, so Git clients show normal unresolved conflicts.
-- Report the conflict output.
-- Treat the export procedure as completed with conflicts, not as a fatal failed export.
-
-### 5. Metadata Update
-
-On direct apply or clean merge:
-
-- Set `baseTree = exportTree`.
-- Set `sourceTree = final live source tree`.
-- Advance the `base` ref to a commit wrapping `exportTree`.
-- Clear `pending` and delete the pending refs.
-- Set `status = clean`.
-
-On conflicted merge:
-
-- Leave `baseTree` unchanged (the `base` ref still pins it).
-- Store `pending.baseTree`, `pending.sourceTree`, and `pending.exportTree`.
-- Pin the pending source and pending export trees with the pending refs.
-- Set `status = pendingExportConflict`.
-- Leave the conflict markers and unmerged index entries in the live JSON path for the user to resolve with their Git client.
-
-## Import Procedure
-
-### 1. Preflight
-
-- If unresolved Git conflicts exist under the JSON path, abort import.
-- Build `currentSourceTree` from the live JSON path.
-
-### 2. Omnis Import
-
-Run the Omnis import from the live JSON path and perform the current binary library replacement behavior.
-
-### 3. Metadata Update
-
-On successful import:
-
-- Set `baseTree = currentSourceTree`.
-- Set `sourceTree = currentSourceTree`.
-- Advance the `base` ref to a commit wrapping `currentSourceTree`.
-- Clear any pending export-conflict metadata and delete the pending refs.
-- Set `status = clean`.
-
-## Atomicity And Cleanup
-
-`meta.json` is the commit point of every state transition. Within a single export or import, GitTools applies the working tree and updates the durability refs first, then writes `meta.json` last. The write itself goes to a sibling temp file followed by an atomic rename over the target, so an interrupted write can never leave a truncated or corrupt `meta.json`.
-
-This ordering makes interruptions safe:
-
-- Interrupted before `meta.json` is written: the new state is simply not recorded. The live JSON path may hold an applied-but-unrecorded export, but `sourceTree` still names the previous tree, so the next export treats the live path as disposable and reproduces the export from the (unchanged) binary library. No committed work is lost.
-- Interrupted after a ref update but before `meta.json`: the ref points at a tree that `meta.json` does not yet reference. Because `meta.json` is the source of truth, the next run re-derives the same result and re-advances the ref; the only residue is a duplicate lineage commit, which is harmless.
-
-There is no per-export temporary state to clean up: the export cache is persistent and self-healing (see Building The Export Tree Incrementally), so an export interrupted before its post-script ran leaves only a stale handoff, which the next export clears. The cache itself is always safe to keep or delete.
-
-## Procedure Decomposition (Pre/Post Split)
-
-In production, Omnis drives Git by shelling out, and each individual `git` invocation carries a high per-process cost in that environment. Issuing dozens of small `git` calls per export from Omnis is therefore slow. The implementation collapses all of the Git work into **two** PowerShell processes per procedure — one that runs **before** the Omnis import/export and one that runs **after** — so Omnis pays for two process launches instead of many. The single-process prototype's in-script pause for the Omnis step becomes the boundary between those two processes.
-
-### What Crosses The Boundary
-
-Splitting one process into two means all in-memory state at the pause point is gone when the second process starts. Most of what the procedure needs already survives on its own:
-
-- **`meta.json`** is persisted committed state; the second process re-reads it.
-- The **export cache** and its **scratch index** are persistent files at a fixed, state-key-derived location (`.git/gittools/<state-key>/export-cache[.index]`); both processes re-derive their paths.
-
-The only thing that does **not** survive is the computed `currentSourceTree`. It is written to a **handoff file**, and only on export — see below.
-
-### File Layout
-
-Five scripts under `scripts/` (no `gittools-` prefix; they already live in the GitTools library):
-
-- **`common.ps1`** — every shared helper: the `Invoke-Git*` wrappers, `Get-StateKey`, `ConvertTo-GitPath`, the durability-ref helpers, `New-LiveSourceTree`, `Initialize-ExportCache`, `New-IncrementalExportTree`, the merge helpers, metadata read/write, the pending-conflict resolver, and the handoff helpers. Dot-sourced by all four entry scripts.
-- **`pre-export.ps1`**, **`post-export.ps1`**, **`pre-import.ps1`**, **`post-import.ps1`** — each is a thin sequence of phase steps over `common.ps1`.
-
-Each entry script re-derives its state from the same parameters at startup (a few `git rev-parse` calls); this is negligible against the per-invocation cost the split removes.
-
-### The Handoff File (Export Only)
-
-Export carries one piece of transient state across the boundary; import does not. The export handoff is a `pending-op.json` written under `.git/gittools/<state-key>/` (with `ConvertTo-Json`, since the implementation stays in PowerShell) holding just `op` and `currentSourceTree` — the cache paths are deterministic from the state key, so they need not be carried. `pre-export.ps1` writes it; `post-export.ps1` reads it and deletes it on completion.
-
-The **presence** of `pending-op.json` means "an export started but its post-script never finished." This is deliberately distinct from `meta.status = pendingExportConflict`, which is a *completed* export that conflicted and awaits the user's resolution (its handoff is already deleted). The two are never conflated.
-
-Import needs no handoff: Omnis reads the JSON to rebuild the binary and never writes the live path, so `post-import.ps1` recomputes the identical source tree itself, and there is no export cache involved.
-
-### Boundary Mapping
-
-Export — the boundary sits at the Omnis export step (Export Procedure §3):
-
-- **`pre-export.ps1`**: sweep any stale handoff (see Crash Recovery); Preflight (§1), including the pending-conflict resolution and the `meta.jsonPath`-moved reset; Determine Current Source (§2); ensure the persistent export cache exists without touching its contents (§3, `Initialize-ExportCache`); write the handoff; exit 0. It prints **nothing** on stdout — the cache directory is deterministic from the git dir and state key, so Omnis derives it itself (via the same `git rev-parse --git-path gittools/<state-key>/export-cache` the scripts use) rather than being handed it.
-- *(Omnis derives the cache directory, exports into it, then cleans irrelevant properties.)*
-- **`post-export.ps1`**: read the handoff and the resolved `meta.json`; build `exportTree` incrementally from the persistent cache (§3, `New-IncrementalExportTree`); run Merge Or Apply (§4) and the Metadata Update (§5); clear the handoff on every path — including the conflict path, a completed outcome — while **keeping** the cache; **print `RESULT=clean` or `RESULT=conflict`**.
-
-Import:
-
-- **`pre-import.ps1`**: Preflight (Import Procedure §1, the conflict guard only); **print the live JSON path to stdout**; exit 0.
-- *(Omnis imports from the live path and replaces the binary library.)*
-- **`post-import.ps1`**: recompute `currentSourceTree` (`New-LiveSourceTree`); run the Metadata Update (§3); **print `RESULT=clean`**.
-
-### Omnis Contract
-
-- **Pre-scripts** signal abort with a **non-zero exit code**; Omnis must not run its import/export step when a pre-script aborts (for example on unresolved conflicts or a missing `merge-tree --write-tree`). On success, `pre-import.ps1` prints the single machine-readable stdout line Omnis needs (the live JSON path); `pre-export.ps1` prints nothing, since Omnis derives the export cache directory itself.
-- **Post-scripts** print `RESULT=clean|conflict` on stdout and **exit 0 for both** — a conflict is an acceptable outcome, not a failure. A non-zero exit from a post-script signals a genuine error.
-
-### Crash Recovery
-
-Recovery is **auto-clean on the next run** (no explicit abort entry). Before doing anything else, `pre-export.ps1` checks for an existing `pending-op.json` for this state key. If one is present, the previous export's post-script never completed — but there is nothing to undo: the export cache is persistent and self-healing (its index stays a valid prior snapshot, so the next `New-IncrementalExportTree` still reconstructs the correct tree), and `meta.json` was never advanced. So recovery is simply to clear the stale handoff and proceed. Import has no handoff, so an interrupted import leaves nothing to recover — the unchanged `meta.json` reflects the pre-import state.
-
-## Scenario Handling
-
-### New Repository With No Commits
-
-No commit hash is required. Export starts with no base and writes a first `baseTree`. Import hashes the live JSON path directly and records that tree.
-
-### First Export With No Base But Committed Source Exists
-
-If no base exists yet but `HEAD:<jsonPath>` already has committed source (for example a fresh clone where the user exports before importing, or unrecoverable old metadata), the change direction cannot be known. If the export equals the committed source, it applies silently. If it differs, GitTools warns that applying will overwrite the committed source and proceeds, leaving the result uncommitted for review. The user can instead import first to adopt the repository's source as the base.
-
-### Export, Commit, Export Again Without Import
-
-No post-commit hook is needed. `baseTree` advances during the first successful export, before the user commits. The second export therefore uses the correct base and does not create false sibling conflicts.
-
-### Export Twice Before Committing
-
-`sourceTree` lets GitTools recognize that the live uncommitted JSON source is the output of the previous export. The next export uses that live source instead of falling back to `HEAD`.
-
-### Pull Before Export
-
-If the current source differs from `baseTree`, GitTools merges current source with the Omnis export using `baseTree` as the merge base.
-
-### Clean Export Merge
-
-The live JSON source receives the merged result, `baseTree` advances to `exportTree`, and `sourceTree` records the final live source tree.
-
-### Conflicting Export Merge
-
-The live JSON source is left with normal Git conflicts. Metadata records pending state, the pending refs pin the conflict trees, and the user resolves via their Git client. This is an acceptable export outcome.
-
-### Resolved Conflict Before Next Export
-
-If pending metadata exists and the clean JSON path differs from `pending.sourceTree`, GitTools treats the pending export as accepted. `baseTree` advances to `pending.exportTree`.
-
-### Discarded Conflict Before Next Export
-
-If pending metadata exists and the clean JSON path equals `pending.sourceTree`, GitTools treats the pending export as discarded. `baseTree` remains unchanged, and a later export can reproduce the conflict.
-
-This comparison is intentionally ambiguous and resolved toward safety. Two different user actions leave the clean source equal to `pending.sourceTree` and cannot be told apart: a genuine discard (reverting the export), and resolving the conflict by taking the incoming/source side wholesale when the export had no cleanly-merged side changes. GitTools always assumes discard and keeps `baseTree`. The cost is a known, accepted limitation: a conflict resolved entirely in favour of the incoming side may reappear on the next export, until the user changes the library or imports the resolved source. The alternative — assuming the export was accepted and advancing `baseTree` to `pending.exportTree` — is rejected because, on a genuine discard, it would treat the library's still-present change as already reconciled and silently strand it, never offering it for export again. A recurring, visible conflict is preferable to a silently dropped change.
-
-### Dirty Files Outside The JSON Path
-
-Untouched.
-
-### Dirty Files Inside The JSON Path During Export
-
-Discarded only as part of the export flow, after the Omnis export has succeeded. This matches the current GitTools behavior.
-
-## Migration And Hook Cleanup
-
-- No in-place upgrade of old commit-only `.meta` files: v2 starts from a clean first-export/import state rather than deriving `baseTree` from the legacy commit hash. (The first export or import after adopting v2 establishes the base.)
-- Stop installing the GitTools post-commit hook for new registrations.
-- Remove only GitTools' own hook and mapping files during migration.
-- Preserve user hooks and any original hooks that were moved into the dispatcher directory.
-
-## Assumptions And Constraints
-
-These hold for the environments GitTools targets and bound the design. Each should appear in the test matrix.
-
-### Submodules
-
-When the JSON export lives inside a Git submodule, GitTools operates on the **submodule itself** as the repository, not its parent. v1 reported the parent as the repository root specifically so it could install a post-commit hook (a submodule's `.git` is a file, not a directory, which made hook installation awkward). v2 installs no hook, so that reason is gone — and operating on the parent would actively break the tree model, because the parent tracks the submodule as a gitlink, not as a tree of files (`HEAD:<jsonPath>` would not resolve and `git add` of paths inside the submodule would be refused). A submodule is a complete repository with its own index and ref store; `git rev-parse --git-path gittools/<state-key>` resolves correctly into its `modules/<name>/` git dir, and `refs/gittools/*` land in its own ref store. The repository-root lookup used for v2 path resolution must therefore **not** ascend to the parent for submodules (the v1 "check for parent" behavior).
-
-### One Worktree Per Library
-
-GitTools state is keyed per `(repository, state-key)`, and a linked worktree (`git worktree add`) shares the common `refs/` store and git dir with its main worktree — so `refs/gittools/<state-key>/*` and `.git/gittools/<state-key>/meta.json` are shared across all worktrees of one repository, while the on-disk source is not. Registering the **same library file** through two linked worktrees would make them share one base/source/pending state and thrash it. This is unsupported: assume one worktree per registered library. No content-derived key fixes this (two worktrees see the same library path), and per-worktree ref storage (`refs/worktree/*`) is version-sensitive and awkward to drive from the shell layer, so it is not used.
-
-### Case-Insensitive Filesystems
-
-Git trees are case-sensitive; macOS and Windows filesystems are not. Two export files differing only in case would collide on disk when the result tree is written out (one would clobber the other, surfacing as a phantom deletion on the next hash). This cannot arise in practice because Omnis matches class and method names case-insensitively, so a library cannot contain two classes or two methods differing only in case, and the export filenames derive from those names. GitTools relies on this Omnis guarantee rather than adding its own collision handling. (The same `core.ignorecase` distinction governs canonical key case-folding under State Key.)
-
-### No Git LFS In The Export
-
-The JSON export subtree is expected to be text (`.json` and `.omh`) and is never placed under Git LFS. GitTools therefore does no LFS handling. If a repository ever did put the export path under LFS, the shell environment GitTools spawns would need git-lfs configured for `hash-object` to produce pointer blobs consistent with the committed source — but this is out of scope.
-
-### Disjoint, Non-Nested Export Paths
-
-`exportAll` processes registered libraries serially. Tree construction uses scratch indexes (`GIT_INDEX_FILE`), so it never touches the real index; only the conflict-application path mutates the real index, and every operation there is scoped to `-- <jsonPath>`. Two libraries with disjoint export paths therefore stay independent even when both conflict in one pass. Nested export paths (one library's `jsonPath` inside another's) would break this scoping — but they are already impossible, because the Omnis import treats a whole export directory as a single library, so each library must have its own non-nested export path.
-
-### Library File Location
-
-The `.lbs` may live inside or outside the version-controlled directory (see State Key). The design assumes it is reachable by a stable canonical path so the state key is stable; moving it re-baselines, which the optional register-time recovery can mend.
-
-## Demonstration Scripts
-
-The repository's PowerShell demonstration scripts mirror the production layout (see Procedure Decomposition): a shared `scripts/common.ps1` dot-sourced by four phase entry points —
-
-- `scripts/pre-export.ps1` and `scripts/post-export.ps1`
-- `scripts/pre-import.ps1` and `scripts/post-import.ps1`
-
-They demonstrate the Git procedure split around the point where Omnis-specific import/export work happens: the pre-script prepares state for that work (pre-import prints the path to import from; pre-export prints nothing, as Omnis derives the export cache directory itself) and the post-script consumes the result. The earlier single-file prototypes (`gittools-export-procedure.ps1`, `gittools-import-procedure.ps1`) validated the same logic with an in-process pause before the split.
+- `baseTree` — the latest accepted export/import tree. It advances on every clean
+  apply, clean merge, and import, and is the merge base on the **continuation
+  path** (§5). No commit hash is stored; comparisons, seeding, and merges all
+  operate on tree objects.
+- `sourceTree` — the source tree GitTools last produced or observed. This is what
+  lets GitTools recognise the live working source as *its own* previous output
+  (so export-before-commit and repeated exports work) versus a source that has
+  moved underneath it.
+- `pending` — populated only while an export merge has left unresolved conflicts
+  in the live tree:
+
+  ```json
+  "pending": { "baseTree": "...", "sourceTree": "...", "exportTree": "..." }
+  ```
+
+  `baseTree` here is the base the conflicting merge actually ran against (the
+  resolved ancestor, not necessarily the old `meta.baseTree`), so a later
+  discard-vs-accept can be classified correctly (§7).
+
+If `meta.jsonPath` no longer matches the configured export path, the export
+location was repointed: the stored trees describe the old location, so `baseTree`,
+`sourceTree`, and `pending` are reset and the durability refs dropped — the next
+export starts from a clean first-export state.
+
+### 3.3 Durability refs
+
+Trees named only by `meta.json` are invisible to Git and would be garbage-
+collected. Each state key therefore keeps refs under `refs/gittools/<state-key>/`:
+
+- **`base`** — a **commit lineage**. Each accepted export/import wraps the new
+  base tree in a `commit-tree` whose parent is the previous base commit, then
+  advances the ref. This keeps the base tree (and its blobs) reachable, yields a
+  debuggable history (`git log refs/gittools/<state-key>/base`), and — critically
+  — provides the set of trees the fallback base resolution searches (§5.2). The
+  committer identity and `commit.gpgsign` are pinned so these commits never
+  depend on, or get attributed to, the user's Git config.
+- **`pending-source`, `pending-export`** — pin the two transient trees of a
+  conflicted export; deleted as soon as the pending state resolves or is
+  discarded.
+
+`commit-tree` and `update-ref` never move `HEAD`, create no branch, and never
+fire the post-commit hook. These refs are **local** (not pushed), so each clone's
+lineage reflects that clone's own imports and exports — which is exactly what the
+fallback base resolution needs.
+
+---
+
+## 4. Trees: hashing, normalization, and the export cache
+
+Every version of the source is reduced to a single **tree** rooted at `<jsonPath>`
+(entries keyed relative to it, matching `HEAD:<jsonPath>`), so comparing two
+versions is comparing two hashes.
+
+### 4.1 Normalization
+
+Every tree GitTools compares or merges must be hashed in the **same normalization
+space** as the committed source. `.gitattributes` / `core.autocrlf` can normalize
+content (e.g. CRLF→LF) when Git stores it; if one tree is hashed with that
+normalization and another without, identical content hashes differently and the
+merge reports phantom conflicts on files nobody changed. Files are therefore
+hashed via `git hash-object` (which applies the repo's attributes), and the
+working-tree blobs reused from the real index are already normalized.
+
+### 4.2 Batched hashing
+
+Changed/new files are hashed in **one** `git hash-object -w --stdin-paths`
+process (newline-framed, per the no-NUL rule) rather than one process per file —
+measured ~267× faster on large change sets, and byte-identical to per-file
+hashing including attribute normalization (`Invoke-GitHashObjectBatch`).
+
+### 4.3 Enumerate files explicitly; never `git add` a directory
+
+`git add` honors `.gitignore`, which would silently drop matching files from the
+tree and surface them as phantom deletions. Trees are assembled by enumerating
+files (`diff-files`, `ls-files --others` **without** `--exclude-standard`,
+`ls-files --stage`) into a scratch index via `update-index --index-info`, then
+`write-tree`. The export is authoritative for its own path.
+
+### 4.4 The persistent export cache
+
+Omnis exports into a per-library directory at
+`.git/gittools/<state-key>/export-cache/`, paired with a persistent scratch index
+`export-cache.index`. The cache exists **purely to make Omnis's own incremental
+export fast** — Omnis is its sole writer and always produces a complete, correct
+export over whatever is there (pruning files for deleted classes), so GitTools
+**never seeds it from `baseTree` and never reconciles it**. A stale cache (after
+an import, a conflict, or a crash) costs Omnis some incremental speed, never
+correctness: the authoritative export is the directory *as Omnis leaves it*, and
+the merge base comes from the refs/metadata — neither depends on the cache.
+
+`Initialize-ExportCache` only ensures the directory and an empty stat-index exist;
+on the very first export both are empty, so Omnis does a full export and
+post-export hashes everything once. Because Omnis overwrites the directory
+wholesale, a nested `.gitattributes` can never appear inside it.
+
+### 4.5 Building the export tree incrementally
+
+`New-IncrementalExportTree` builds the export tree by hashing **only the files
+Omnis changed** since the cache index was last in step with the directory:
+
+1. `update-index --refresh` the cache index against the directory's current stats.
+2. `diff-files --name-status` → tracked files whose stat changed: modified
+   (re-hash) or deleted (drop with a mode-0 record).
+3. `ls-files --others` → new files (hash).
+4. Batch-hash the modified+new set; feed all records to `update-index
+   --index-info`; `write-tree`.
+5. `update-index --refresh` once more so the just-written entries record their
+   stat and stay "unchanged" next run.
+
+The result is byte-identical to a full rebuild, but the cost scales with the
+change set, not the library size. The index only needs to be a consistent prior
+snapshot of the directory — which the persistent cache index always is, even
+after a crashed export — so the build is self-healing.
+
+### 4.6 Hashing the live source
+
+`New-LiveSourceTree` reduces the **live working source** to a tree the same way,
+fast path first: copy the real repository index (it already holds every tracked
+blob), apply the small working-tree delta (`diff-files` modified/deleted,
+`ls-files --others` new — all batch-hashed), and let Git assemble the subtree in
+C with `write-tree --prefix=<jsonPath>/`. `write-tree` aborts if **any** index
+entry is unmerged (even outside `<jsonPath>`), and there may be no index file
+yet, so those cases fall back to `New-LiveSourceTreeScoped`, which builds from an
+empty scratch index touching only `<jsonPath>` and is therefore unaffected by
+unrelated conflicts. Both reuse unchanged blobs straight from the index and force
+mode `100644` (true for Omnis `.json`/`.omh` output).
+
+---
+
+## 5. The reconciliation model (the heart of the design)
+
+On export, the pre-script decides two things that depend on the live path and
+`HEAD` as they stand **before** Omnis overwrites the export directory: the
+**current source tree** (the `ours` side of the merge) and the **merge base**.
+Both are carried to the post-script in the handoff. `Resolve-CurrentSourceAndBase`
+distinguishes two regimes.
+
+### 5.1 Continuation path
+
+If the live source tree **equals `meta.sourceTree`**, the live source is still
+GitTools' own last output — the user is iterating (export-before-commit, repeated
+export). The current source is the live tree and the merge base is the advanced
+`meta.baseTree`. This is the common fast path and is what lets iterative exports
+combine cleanly without false conflicts.
+
+### 5.2 Fallback path (source moved beneath us)
+
+If the live source no longer equals `meta.sourceTree` (a pull, a discard, or a
+**partial commit** moved it) and `HEAD` exists, the live edits are disposable and
+**`HEAD:<jsonPath>` is the source side**. Here the advanced `baseTree` is
+unreliable — it can sit *ahead of* the committed source (e.g. a deletion that was
+exported then discarded) or *diverged from* it — so using it makes a three-way
+merge mis-attribute changes (silently resurrecting deletions, or dropping
+committed work).
+
+The correct base is the **true common ancestor**: the most recent commit
+reachable from `HEAD` whose `<jsonPath>` subtree GitTools recorded as a base (an
+import or a prior export). `Resolve-FallbackMergeBase` finds it by walking
+`rev-list --full-history HEAD -- <jsonPath>` newest-first and returning the first
+commit whose subtree is in the base-ref lineage (§3.3). This is exactly the point
+this library's private lineage and the committed source last agreed — the same
+ancestor `git merge-base` would find if the lineage were a branch. Merging
+against it:
+
+- **reproduces the library's changes** (including deletions discarded from the
+  working source, and work-in-progress that resurfaces after a partial commit);
+- **preserves genuine source-side divergence** a teammate committed; and
+- **surfaces real `delete/modify` and `modify/modify` conflicts** instead of
+  silently resolving them.
+
+The search is purely local (this clone's recorded lineage against this `HEAD`'s
+history), so teammates importing at other commits never affect it. It returns
+`""` only when no recorded base is reachable from `HEAD` — a fresh clone with no
+local lineage, or a rewritten history — which the post-script treats as a no-base
+apply (§6).
+
+### 5.3 No commits (no `HEAD`)
+
+With no commits yet, the current source is the live tree and the base is
+`meta.baseTree` (empty on a true first export).
+
+---
+
+## 6. Merge or apply (post-export)
+
+The post-script builds the export tree (§4.5), then reconciles using the
+handoff's `mergeBase` and `currentSourceTree`:
+
+1. **No base** (`mergeBase` empty — first export, repointed path, or fallback
+   with no reachable ancestor): apply the export directly. The only hazard is
+   overwriting committed source whose change direction is unknowable without a
+   base, so if `HEAD:<jsonPath>` exists and differs from the export, GitTools
+   **warns loudly** before applying and leaves the result uncommitted for review
+   (or the user can import first to take the repository's version). Uncommitted
+   live source is disposable by policy and never triggers the warning.
+2. **Source equals base** (`currentSourceTree == mergeBase`): no divergence to
+   preserve, apply the export directly.
+3. **Otherwise merge**:
+   `git merge-tree --write-tree --messages --merge-base=<mergeBase>
+   <currentSourceTree> <exportTree>`.
+   Exit `0` = clean (apply the merged result tree); exit `1` = conflict (an
+   acceptable outcome); any other code aborts the export **before the live source
+   is touched**, since the command's output is then not a usable tree.
+
+On a **clean apply or merge**: write the result to the live source (§8),
+`baseTree` advances to the raw export tree, `sourceTree` records the final live
+tree, and the `base` ref advances. → `RESULT=clean`.
+
+On a **conflict**: apply the conflicted result to the live source (§8), record
+`pending = { baseTree: mergeBase, sourceTree: currentSourceTree, exportTree }`,
+set the pending refs, leave `baseTree` unchanged. → `RESULT=conflict`.
+
+---
+
+## 7. Conflicts and their resolution
+
+### 7.1 Writing the conflict
+
+A conflicted merge is surfaced as an ordinary Git conflict so the user's existing
+editor/client tools handle it (`Apply-ConflictedMergeToLiveJsonPath`): the
+conflicted result tree (cleanly-merged content plus conflict markers) is written
+to the live source as a delta (§8), and the conflicted paths get their stage-0
+entry replaced with the unmerged **stage 1/2/3** records from `merge-tree` (which
+is what makes clients show `UU`).
+
+**Cleanly-merged changes are left UNSTAGED**, like a clean export — only the
+unmerged conflict entries are special. This differs deliberately from a real
+`git merge`, which stages cleanly-merged content at stage 0. The consequence is a
+known, accepted trade-off around **aborting**: a client's "abort" runs
+`git reset --merge`, which keeps unstaged working-tree edits and discards staged
+ones. So the non-conflicting changes survive an abort (a convenience), but if the
+user stages some and then aborts, exactly those are discarded — standard
+`git reset --merge` behaviour, surfaced because GitTools leaves them unstaged.
+(Setting a real `MERGE_HEAD` would make abort uniform but is rejected: committing
+the resolution would then graft GitTools' private lineage into the user's pushable
+history as a merge parent.)
+
+### 7.2 Resolving or discarding (next pre-export)
+
+When the next export starts with `status = pendingExportConflict`
+(`Resolve-PendingConflictIfNeeded`):
+
+- If unresolved conflicts remain in the live path, abort (the user must resolve
+  them first).
+- If the live path is dirty, discard those edits (disposable policy): restore
+  from `HEAD` when available, otherwise from the pinned `pending.sourceTree`.
+- Then compare the clean live source to `pending.sourceTree`:
+  - **Equal → treated as discarded.** Keep the previous `baseTree`; clear pending.
+  - **Differs → treated as resolved/accepted.** Advance `baseTree` to
+    `pending.exportTree`; clear pending.
+
+This comparison is intentionally resolved toward safety. A genuine discard and a
+resolution that takes the incoming side wholesale both leave the clean source
+equal to `pending.sourceTree` and cannot be told apart; GitTools always assumes
+discard and keeps the base. The cost is that a conflict resolved entirely in
+favour of the incoming side may reappear on the next export until the library
+changes or the source is imported — a recurring, visible conflict is preferable
+to a silently dropped change the library still contains.
+
+---
+
+## 8. Writing results back to the live source
+
+Writing a result tree (clean export, merged source, or conflicted result) into
+the live path is **proportional to what changed** — never a wipe-and-rewrite,
+which is prohibitively slow on large libraries and repeatedly triggers a
+filesystem delete race.
+
+`Write-LiveJsonPathDelta` diffs the on-disk tree against the target
+(`diff-tree`), deletes removed paths (pruning emptied folders), and writes the
+changed/new paths in a single batched `checkout-index --stdin` from a scratch
+index. It touches the **working tree only** and returns the changed paths.
+
+The index is then adjusted minimally so the result shows as ordinary review-able
+changes **without disturbing unrelated staged work** (`Reset-StagedChangesToHead`):
+only paths that are *both changed by this export and currently staged* are reset
+to `HEAD` (resetting an unstaged path is a no-op; a brand-new untracked path is
+not in the index). This preserves any content the user had staged that this
+export did not touch. For the conflict path, the same reset leaves cleanly-merged
+changes unstaged, then the unmerged stage records are layered on (§7.1).
+
+A clean apply early-outs when the live tree already equals the target (nothing to
+write, index untouched).
+
+---
+
+## 9. Import
+
+Import carries no transient state across the Omnis step: Omnis reads the JSON to
+rebuild the binary and never writes the live path, so the post-script recomputes
+the identical source tree itself and there are no temp artifacts to track.
+
+- `pre-import.ps1`: refuse to import while the path has unresolved conflicts
+  (they would bake conflict markers into the binary); print the absolute path
+  Omnis imports from.
+- `post-import.ps1`: hash the live source, set `baseTree = sourceTree = that
+  tree`, advance the `base` ref (recording this sync point into the lineage the
+  fallback resolver searches), clear any pending refs. → `RESULT=clean`.
+
+A healthy rhythm is **pull → import → work → export → commit**.
+
+---
+
+## 10. Crash safety
+
+`meta.json` is the **commit point** of a state transition. The working tree and
+the durability refs are updated first; `meta.json` is written **last**, to a
+sibling temp file then atomically renamed over the target, so an interrupted write
+can never leave a truncated file.
+
+- **Interrupted before `meta.json` is written:** the new state is simply not
+  recorded. The live path may hold an applied-but-unrecorded export, but
+  `sourceTree` still names the previous tree, so the next export treats the live
+  path as disposable and reproduces the export from the (unchanged) binary
+  library. No committed work is lost.
+- **Interrupted after a ref update but before `meta.json`:** the ref points at a
+  tree `meta.json` does not yet reference. Because `meta.json` is the source of
+  truth, the next run re-derives the same result and re-advances the ref; the
+  only residue is a harmless duplicate lineage commit.
+
+The **handoff** file (`pending-op.json`) carries the export's transient state
+(current source tree + merge base) between the pre- and post-scripts. Its mere
+presence means "an export started but its post-script never finished"; a leftover
+handoff is swept at the next pre-export (the persistent cache is self-healing, so
+there is nothing else to clean). It is distinct from `status =
+pendingExportConflict`, which is a *completed* export awaiting user resolution.
+
+---
+
+## 11. Edge cases
+
+- **First export, no committed source:** no base; apply directly; `baseTree`
+  advances before the user commits, so the second export uses the correct base
+  and creates no false conflict.
+- **First export, committed source already exists** (fresh clone exporting before
+  importing, or unrecoverable metadata): no base. If the export equals the
+  committed source it applies silently; if it differs, GitTools warns before
+  overwriting and leaves the result uncommitted.
+- **Export before commit, repeated:** recognised via `sourceTree` (continuation
+  path); merges against the advanced base, no false conflict.
+- **Discarded deletion / partial discard / partial commit:** the fallback base
+  resolution re-anchors to the true committed ancestor, so the library's intent
+  is reproduced (deletion re-applied, WIP resurfaced) rather than stranded.
+- **Teammate's committed change vs your library:** preserved on a clean export;
+  surfaced as a conflict when both sides changed the same thing.
+- **Submodules:** GitTools operates on the **submodule itself** as the repository
+  (its own index, ref store, and `gittools/` git-dir), never the parent — the
+  parent tracks the submodule as a gitlink, not a tree of files. v2 installs no
+  hook, so the v1 reason for reporting the parent is gone.
+- **Linked worktrees:** `refs/gittools/*` and `.git/gittools/<state-key>/` are
+  shared across all worktrees of one repo. Registering the **same library file**
+  through two linked worktrees would thrash one shared state; assume one worktree
+  per registered library.
+
+---
+
+## 12. The reference scripts
+
+All shared logic lives in `scripts/common.ps1` (the `Invoke-Git*` wrappers,
+`Get-StateKey`, `ConvertTo-GitPath`, the durability-ref and base-resolution
+helpers, `New-LiveSourceTree`, `New-IncrementalExportTree`, `Write-LiveJsonPathDelta`
+and the apply/merge helpers, metadata read/write, the pending resolver, and the
+handoff helpers), dot-sourced by the four entry scripts:
+
+- **`pre-export.ps1`** — preflight (`merge-tree` capability, no unresolved
+  conflicts); sweep a stale handoff; resolve pending; `Resolve-CurrentSourceAndBase`;
+  ensure the export cache; write the handoff. Prints nothing.
+- **`post-export.ps1`** — build the export tree incrementally; merge-or-apply
+  (§6); update metadata + refs; clear the handoff (keeping the cache) on every
+  path including conflict and error. Prints `RESULT=...`.
+- **`pre-import.ps1`** — refuse unresolved conflicts; print the import path.
+- **`post-import.ps1`** — record the imported source as the new base. Prints
+  `RESULT=clean`.
+
+Set `GITTOOLS_TIMING=1` to emit per-step timings, file counts, and a total
+git-invocation count to stderr (off by default; never affects the stdout
+contract).
