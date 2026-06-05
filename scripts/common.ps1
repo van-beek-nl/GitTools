@@ -270,6 +270,35 @@ function Invoke-GitHashObjectBatch {
     }
 }
 
+function Invoke-GitCatFileBatchCheck {
+    # Resolve many revisions to object metadata in ONE git process via cat-file
+    # --batch-check (newline-framed in and out), instead of spawning a rev-parse per
+    # revision - the dominant cost when walking a large library's history (a 1900-commit
+    # path history went from ~60s of per-commit process spawns to well under 1s). Each
+    # input line is a rev such as "<commit>:<path>"; git prints "<oid> <type> <size>"
+    # for one that resolves and "<rev> missing" for one that does not, one line per
+    # input, in input order.
+    param([string[]] $Revisions)
+
+    if ((-not $Revisions) -or ($Revisions.Count -eq 0)) { return ,@() }
+    if ($script:TimingEnabled) { $script:GitInvocations++ }
+
+    $errorFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $out = $Revisions | & git -C $script:RepoRoot cat-file --batch-check 2> $errorFile
+        if ($LASTEXITCODE -ne 0) {
+            $err = if (Test-Path $errorFile) { Get-Content -Raw -Path $errorFile } else { "" }
+            throw "git cat-file --batch-check failed with exit code ${LASTEXITCODE}:$([Environment]::NewLine)$err"
+        }
+        # Leading comma: keep this a single array even for a one-line result, so the
+        # caller does not get a scalar string unwrapped from a 1-element array.
+        return ,@($out | ForEach-Object { $_.ToString() })
+    }
+    finally {
+        Remove-Item $errorFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Resolve-GitPrivatePath {
     param([string] $RelativeGitPath)
 
@@ -279,6 +308,17 @@ function Resolve-GitPrivatePath {
     }
 
     return Join-Path $script:RepoRoot $path
+}
+
+function Resolve-GitCommonPath {
+    param([string] $RelativeGitPath)
+
+    $commonDir = Invoke-Git @("rev-parse", "--git-common-dir")
+    if (-not [System.IO.Path]::IsPathRooted($commonDir)) {
+        $commonDir = Join-Path $script:RepoRoot $commonDir
+    }
+
+    return Join-Path $commonDir $RelativeGitPath
 }
 
 function Test-HeadExists {
@@ -1161,6 +1201,47 @@ function Get-BaseLineageTrees {
     return ,@($result.Output -split "\r?\n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
 
+function Get-HeadJsonTreeHistory {
+    # The <jsonPath> subtree ids carried by commits reachable from HEAD, newest
+    # first. The caller decides how to match them (last produced source first, then
+    # the older base lineage fallback).
+    param([int] $MaxCommits = 5000)
+
+    if (-not (Test-HeadExists)) {
+        return ,@()
+    }
+
+    $result = Invoke-GitRaw @("rev-list", "--full-history", "--max-count=$MaxCommits", "HEAD", "--", $script:JsonPath)
+    if ($result.ExitCode -ne 0) {
+        return ,@()
+    }
+
+    $commits = @($result.Output -split "\r?\n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if ($commits.Count -eq 0) {
+        return ,@()
+    }
+
+    # Resolve every commit's <jsonPath> subtree id in ONE git process rather than a
+    # rev-parse per commit (which spawned ~one process per commit and made this the
+    # dominant cost on a large history - see Invoke-GitCatFileBatchCheck). Each query
+    # is "<commit>:<jsonPath>"; cat-file --batch-check echoes one line per query in
+    # order, "<oid> tree <size>" for a hit or "<rev> missing" for a commit that lacks
+    # the path (the latter skipped, matching the old rev-parse --verify --quiet guard).
+    $queries = $commits | ForEach-Object { "${_}:$script:JsonPath" }
+    $lines = Invoke-GitCatFileBatchCheck -Revisions $queries
+
+    $trees = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $fields = $line.Trim() -split " "
+        if (($fields.Count -ge 2) -and ($fields[1] -eq "tree")) {
+            $trees.Add($fields[0]) | Out-Null
+        }
+    }
+
+    return ,@($trees.ToArray())
+}
+
 function Resolve-FallbackMergeBase {
     # The merge base to use when the live source is NOT GitTools' own last output -
     # a pull, a discard, or a partial commit has moved it. In that case the advanced
@@ -1169,23 +1250,42 @@ function Resolve-FallbackMergeBase {
     # merge mis-attribute changes (silently resurrecting deletions, or dropping a
     # colleague's committed work).
     #
-    # The correct base is the true common ancestor: the most recent commit reachable
-    # from HEAD whose <jsonPath> subtree GitTools recorded as a base (an import or a
-    # prior export). That is exactly where this library's lineage and the committed
-    # source last agreed - the same point `git merge-base` would find if the
-    # library's private lineage were a branch. Merging against it reproduces the
-    # library's changes, preserves genuine source-side divergence, and surfaces real
+    # First handle the clean-merge handoff case: GitTools' last produced source tree
+    # may now be committed/reachable from HEAD even though the recorded baseTree is
+    # the raw export tree, not the merged source tree. In that case baseTree is still
+    # the correct library-side base for the next export.
+    #
+    # Otherwise, find the true common ancestor: the most recent commit reachable from
+    # HEAD whose <jsonPath> subtree GitTools recorded as a base (an import or a prior
+    # export). That is exactly where this library's lineage and the committed source
+    # last agreed - the same point `git merge-base` would find if the library's
+    # private lineage were a branch. Merging against it reproduces the library's
+    # changes, preserves genuine source-side divergence, and surfaces real
     # delete/modify and modify/modify conflicts.
     #
     # The match is purely local (this clone's recorded lineage vs this HEAD's
     # history), so colleagues importing at other commits never affect it. Returns ""
     # only when no recorded base is reachable from HEAD - a fresh clone or a rewritten
     # history - which the caller treats as a no-base apply.
-    param([int] $MaxCommits = 5000)
+    param(
+        [object] $Meta,
+        [int] $MaxCommits = 5000
+    )
 
     if (-not (Test-HeadExists)) {
         return ""
     }
+    $headTrees = Get-HeadJsonTreeHistory -MaxCommits $MaxCommits
+
+    if (($null -ne $Meta) -and $Meta.sourceTree -and $Meta.baseTree) {
+        foreach ($subTree in $headTrees) {
+            if ($subTree -eq $Meta.sourceTree) {
+                Write-Note "Last GitTools-produced source is reachable from HEAD; using its recorded base tree."
+                return $Meta.baseTree
+            }
+        }
+    }
+
     $lineage = Get-BaseLineageTrees
     if ($lineage.Count -eq 0) {
         return ""
@@ -1196,18 +1296,9 @@ function Resolve-FallbackMergeBase {
     # Commits that touched the export path, newest first. --full-history keeps
     # commits that ordinary history simplification would prune on the side of a
     # merge, so a base recorded only on a merged-in branch is still found. The match
-    # returns the SUBTREE id, not the commit, so it is unaffected by which commit
-    # last carried that subtree.
-    $result = Invoke-GitRaw @("rev-list", "--full-history", "--max-count=$MaxCommits", "HEAD", "--", $script:JsonPath)
-    if ($result.ExitCode -ne 0) {
-        return ""
-    }
-    foreach ($commit in ($result.Output -split "\r?\n")) {
-        $c = $commit.Trim()
-        if (-not $c) { continue }
-        $sub = Invoke-GitRaw @("rev-parse", "--verify", "--quiet", "${c}:$script:JsonPath")
-        if ($sub.ExitCode -ne 0) { continue }
-        $subTree = $sub.Output.Trim()
+    # is by SUBTREE id, not the commit, so it is unaffected by which commit last
+    # carried that subtree.
+    foreach ($subTree in $headTrees) {
         if ($lineageSet.Contains($subTree)) {
             return $subTree
         }
@@ -1239,7 +1330,7 @@ function Resolve-CurrentSourceAndBase {
 
     if (Test-HeadExists) {
         Write-Note "Using HEAD JSON path as current source; live JSON path changes are disposable."
-        $base = Resolve-FallbackMergeBase
+        $base = Resolve-FallbackMergeBase -Meta $Meta
         Write-Note "Resolved merge base (true common ancestor): $(if ($base) { $base } else { '<none - applying as first export>' })"
         return [pscustomobject]@{ SourceTree = (Get-HeadJsonTreeOrEmpty); MergeBase = $base }
     }
@@ -1326,9 +1417,15 @@ function Apply-ConflictedMergeToLiveJsonPath {
 
     # Replace each conflicted path's stage-0 entry with the actual unmerged stage
     # 1/2/3 records. This is the step that makes Git clients show "UU" (the working
-    # tree already holds the marker content written by the delta above).
-    foreach ($path in $conflictPaths) {
-        Invoke-Git @("update-index", "--force-remove", "--", $path) | Out-Null
+    # tree already holds the marker content written by the delta above). The
+    # force-removes are batched into ONE git process (newline-framed via --stdin)
+    # rather than spawning update-index per path - a large modify/modify divergence
+    # can conflict on many files, and per-path spawns would make the conflict path
+    # scale with the conflict size (same batching rationale as Invoke-GitHashObjectBatch
+    # / Invoke-GitCatFileBatchCheck). All removes still complete before the index-info
+    # adds below, preserving the original ordering.
+    if ($conflictPaths.Count -gt 0) {
+        Invoke-GitWithInput -Arguments @("update-index", "--force-remove", "--stdin") -InputLines (@($conflictPaths))
     }
 
     if ($stageLines.Count -gt 0) {
@@ -1379,7 +1476,10 @@ function Initialize-GitToolsState {
 
     $script:StateKey = Get-StateKey -LibraryPath $LibraryPath -LibraryId $LibraryId
     $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-    $script:StateRoot = Resolve-GitPrivatePath "gittools/$script:StateKey"
+    # Metadata/cache state should live beside refs/gittools in the common git dir,
+    # so linked worktrees see one shared state for the same registered library. The
+    # real index remains worktree-local via Resolve-GitPrivatePath "index".
+    $script:StateRoot = Resolve-GitCommonPath "gittools/$script:StateKey"
 
     if ($MetaPath) {
         $script:MetaPath = $MetaPath
