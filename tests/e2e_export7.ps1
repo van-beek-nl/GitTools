@@ -1,6 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$scripts = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts"
+$scripts = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts_proto"
 $pass = 0; $fail = 0
 function Check($label, $cond) {
     if ($cond) { Write-Host "  PASS  $label" -ForegroundColor Green; $script:pass++ }

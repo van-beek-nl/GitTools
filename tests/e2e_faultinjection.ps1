@@ -1,6 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$scripts = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts"
+$scripts = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts_proto"
 . "$scripts/common.ps1"
 Start-Timing
 $pass = 0; $fail = 0
