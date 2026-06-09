@@ -13,7 +13,12 @@ param(
     # this, not from the export path, because one export feeds N library files.
     [string] $LibraryPath,
 
-    [string] $MetaPath
+    [string] $MetaPath,
+
+    # Mirror of pre-export's switch: set on a confirmed re-run to acknowledge a missing
+    # reconciliation base and force the overwrite. Acts as a backstop here - post-export
+    # refuses to overwrite committed source without it, even if reached directly.
+    [switch] $AllowMissingBase
 )
 
 # Post-export phase of the GitTools export procedure.
@@ -68,12 +73,27 @@ try {
         # metadata, or the source moved with no recorded common ancestor reachable
         # from HEAD), so the export is applied directly. The only hazard is
         # overwriting committed source whose change direction we cannot know without
-        # a base. Uncommitted live JSON is disposable by policy, so the warning is
-        # scoped to a committed HEAD source that differs from the export.
-        if ((Test-PathInHead -Path $script:JsonPath) -and ((Invoke-Git @("rev-parse", "HEAD:$script:JsonPath")) -ne $exportTree)) {
-            Write-Note "WARNING: No reconciliation base exists and the committed source at '$script:JsonPath' differs from this export."
-            Write-Note "Applying will OVERWRITE the committed source with your library's version. If colleagues advanced this"
-            Write-Note "source, review the diff before committing, or import first to take the repository's version instead."
+        # a base. Uncommitted live JSON is disposable by policy, so this is scoped to
+        # a committed HEAD source that differs from the export.
+        $overwritesCommitted = (Test-PathInHead -Path $script:JsonPath) -and ((Invoke-Git @("rev-parse", "HEAD:$script:JsonPath")) -ne $exportTree)
+
+        if ($overwritesCommitted -and (-not $AllowMissingBase)) {
+            # Backstop for pre-export's missing-base gate: never overwrite committed
+            # source without acknowledgement, even if this script is reached directly
+            # (the pre-export signal having been bypassed or ignored). Report
+            # RESULT=missing-base and apply nothing; the finally block clears the
+            # handoff, so a confirmed retry runs the full procedure with
+            # -AllowMissingBase. The live JSON path is left exactly as it was.
+            Write-Step "No reconciliation base"
+            Write-Note "No base to merge against and the committed source at '$script:JsonPath' differs from this export."
+            Write-Note "Refusing to overwrite it. Re-run the export with -AllowMissingBase to force the overwrite."
+            Write-Output "RESULT=missing-base"
+            return
+        }
+
+        if ($overwritesCommitted) {
+            Write-Note "WARNING: No reconciliation base exists; forcing overwrite of the committed source at '$script:JsonPath' (-AllowMissingBase set)."
+            Write-Note "If colleagues advanced this source, review the diff before committing."
         }
         else {
             Write-Note "No base tree exists yet. Applying export directly."

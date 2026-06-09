@@ -720,16 +720,27 @@ function Restore-TreeToDirectory {
 }
 
 # --- Durability refs -------------------------------------------------------
-# baseTree and the transient pending trees are kept reachable by refs under
-# refs/gittools/<state-key>/ so `git gc` cannot prune them (a tree named only by
-# meta.json is invisible to Git and would be collected). The base ref is a
-# commit lineage - one commit per accepted export/import - giving a debuggable
-# history; pending refs pin the conflict trees directly and are deleted when the
-# pending state clears. commit-tree and update-ref never move HEAD and never
-# fire the post-commit hook.
+# baseTree and the transient pending trees are kept reachable by refs so `git gc`
+# cannot prune them (a tree named only by meta.json is invisible to Git and would be
+# collected). The base ref - refs/gittools/<state-key>/base - is a SHARED commit
+# lineage, one commit per accepted export/import, giving a debuggable history visible
+# from every worktree. The pending refs pin the conflict trees directly and live in the
+# PER-WORKTREE refs/worktree/gittools/<state-key>/ namespace (see Get-GitToolsRef), so a
+# conflict belongs to the worktree that produced it; they are deleted when the pending
+# state clears. commit-tree and update-ref never move HEAD and never fire the
+# post-commit hook.
 
 function Get-GitToolsRef {
     param([string] $Name)
+
+    # Pending-conflict refs are PER-WORKTREE: they pin the trees of an in-progress export
+    # conflict, which belongs to the worktree that produced it. git's refs/worktree/*
+    # namespace is private to each worktree, so one worktree clearing its pending refs can
+    # never delete another's. The base lineage stays in the shared refs/gittools/* store so
+    # the recorded agreement points remain visible from every worktree.
+    if ($Name -like "pending-*") {
+        return "refs/worktree/gittools/$script:StateKey/$Name"
+    }
     return "refs/gittools/$script:StateKey/$Name"
 }
 
@@ -1527,10 +1538,14 @@ function Initialize-GitToolsState {
 
     $script:StateKey = Get-StateKey -LibraryPath $LibraryPath -LibraryId $LibraryId
     $script:JsonAbsolutePath = Join-Path $script:RepoRoot ($script:JsonPath -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-    # Metadata/cache state should live beside refs/gittools in the common git dir,
-    # so linked worktrees see one shared state for the same registered library. The
-    # real index remains worktree-local via Resolve-GitPrivatePath "index".
-    $script:StateRoot = Resolve-GitCommonPath "gittools/$script:StateKey"
+    # Mutable per-operation state (meta.json, the handoff, and the export cache) lives in
+    # the PER-WORKTREE git dir, so linked worktrees sharing one library file each keep
+    # independent in-progress state and cannot clobber one another's pending conflicts.
+    # For the main/only worktree this resolves to the same .git/gittools/<key> as before.
+    # The durable base lineage is the deliberate exception: it stays in the shared ref
+    # store (see Get-GitToolsRef) so a worktree that never imported can still find a base
+    # another recorded. The real index is likewise worktree-local (Resolve-GitPrivatePath).
+    $script:StateRoot = Resolve-GitPrivatePath "gittools/$script:StateKey"
 
     if ($MetaPath) {
         $script:MetaPath = $MetaPath

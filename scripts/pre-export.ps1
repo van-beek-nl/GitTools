@@ -13,7 +13,12 @@ param(
     # this, not from the export path, because one export feeds N library files.
     [string] $LibraryPath,
 
-    [string] $MetaPath
+    [string] $MetaPath,
+
+    # Set on a confirmed re-run after this script reported RESULT=missing-base: the user
+    # has acknowledged that no reconciliation base exists and chosen to proceed, so the
+    # missing-base safety gate is bypassed and the (acknowledged) overwrite goes ahead.
+    [switch] $AllowMissingBase
 )
 
 # Pre-export phase of the GitTools export procedure.
@@ -71,6 +76,26 @@ $resolved = Resolve-CurrentSourceAndBase -Meta $meta
 $currentSourceTree = $resolved.SourceTree
 $mergeBase = $resolved.MergeBase
 Write-Timing "determine current source (hash live)"
+
+# Missing-base safety gate. With no reconciliation base, applying the export would
+# overwrite the committed source outright - no three-way merge, no way to reconcile a
+# colleague's changes - so it is the one path that can lose committed work without a
+# conflict. Rather than do that on the strength of a stderr warning, stop on this first
+# run and report RESULT=missing-base so Omnis can ask the user to proceed or cancel. A
+# confirmed re-run passes -AllowMissingBase, which skips this gate. No handoff is written
+# here, so the export cannot proceed unacknowledged (post-export has no pending op to
+# finalize). The gate is deliberately conservative: it fires whenever committed source
+# exists at the path, since without a base there is no way to prove the overwrite is safe.
+if ((-not $mergeBase) -and (Test-PathInHead -Path $script:JsonPath) -and (-not $AllowMissingBase)) {
+    Write-Step "No reconciliation base"
+    Write-Note "GitTools found no base to merge against, but '$script:JsonPath' has committed source."
+    Write-Note "Proceeding would OVERWRITE that committed source with the library export and cannot"
+    Write-Note "reconcile any changes made since. Re-run with -AllowMissingBase to force the overwrite,"
+    Write-Note "or import first to take the repository's version into the library instead."
+    Write-TimingSummary
+    Write-Output "RESULT=missing-base"
+    return
+}
 
 Write-Step "Prepare export cache"
 # The persistent per-library cache Omnis exports into. It is NOT seeded from base -
