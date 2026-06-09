@@ -12,16 +12,12 @@
 				"param": 1
 			}
 		],
-		"lvardefs": [
-
-		]
+		"lvardefs": []
 	},
 	{
 		"name": "$buildMenu",
 		"order": 2,
-		"pvardefs": [
-
-		],
+		"pvardefs": [],
 		"lvardefs": [
 			{
 				"name": "lvEventMethod",
@@ -43,29 +39,13 @@
 				"type": "kItemref",
 				"subtype": "",
 				"sublen": 0
-			},
-			{
-				"name": "lvOmnisMajorVersion",
-				"order": 5,
-				"type": "kInteger",
-				"subtype": "k32bitint",
-				"sublen": 0
-			},
-			{
-				"name": "lvPath",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
 			}
 		]
 	},
 	{
 		"name": "$registerLibrary",
 		"order": 3,
-		"pvardefs": [
-
-		],
+		"pvardefs": [],
 		"lvardefs": [
 			{
 				"name": "lvIsOk",
@@ -86,19 +66,13 @@
 	{
 		"name": "$registerLibraries",
 		"order": 4,
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-
-		]
+		"pvardefs": [],
+		"lvardefs": []
 	},
 	{
 		"name": "$importAll",
 		"order": 5,
-		"pvardefs": [
-
-		],
+		"pvardefs": [],
 		"lvardefs": [
 			{
 				"name": "lvFailures",
@@ -133,9 +107,7 @@
 	{
 		"name": "$exportAll",
 		"order": 6,
-		"pvardefs": [
-
-		],
+		"pvardefs": [],
 		"lvardefs": [
 			{
 				"name": "lvFailures",
