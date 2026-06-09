@@ -29,9 +29,12 @@ param(
 # piece of transient state (the current source tree) in a handoff file that
 # post-export.ps1 consumes afterward.
 #
-# This phase prints NOTHING on stdout. Omnis derives the export cache directory
-# itself from the git dir + state key (the same location Initialize-ExportCache
-# ensures here and post-export.ps1 re-derives), so there is no path to return.
+# On success this phase prints exactly one machine-readable line on stdout,
+# "SOURCE=<absolute path>", giving Omnis the directory to export into. (That location is
+# now in the PER-WORKTREE git dir and no longer trivially derivable by Omnis, so the
+# script resolves and returns it rather than expecting Omnis to recompute it.) The only
+# other stdout line it can print is "RESULT=missing-base" (the safety gate, below), and
+# never both. All other progress goes to stderr.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -125,3 +128,6 @@ Write-Note "Current source tree: $currentSourceTree"
 Write-Note "Export cache: $cacheDir"
 
 Write-TimingSummary
+
+# The only stdout line on the success path: the directory Omnis exports into.
+Write-Output "SOURCE=$cacheDir"

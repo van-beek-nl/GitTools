@@ -23,7 +23,8 @@ param(
 # recompute the identical source tree itself, and there are no temp artifacts to
 # track. This phase therefore only guards against importing unresolved conflicts
 # (which would bake conflict markers into the binary) and prints the path Omnis
-# should import from as the only line on stdout.
+# should import from as a single machine-readable "SOURCE=<absolute path>" line on
+# stdout (the same SOURCE= form pre-export uses). All other progress goes to stderr.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -45,5 +46,5 @@ Write-Note "Omnis should import from: $script:JsonAbsolutePath"
 
 Write-TimingSummary
 
-# The only stdout line: the path Omnis imports from.
-Write-Output $script:JsonAbsolutePath
+# The only stdout line: the path Omnis imports from, in the standard SOURCE=<path> form.
+Write-Output "SOURCE=$script:JsonAbsolutePath"
