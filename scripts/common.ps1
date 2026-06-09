@@ -1164,19 +1164,40 @@ function Resolve-PendingConflictIfNeeded {
 
     $currentTree = Get-LiveJsonTree
     if ($currentTree -eq $Meta.pending.sourceTree) {
-        # The live source is back at the pre-export source tree. The previous
-        # export side was not accepted, so keep the old merge base.
-        Write-Note "Pending conflict appears to have been discarded. Keeping previous base tree."
+        # The live source is back at the exact pre-export source tree, so the
+        # continuation lineage is intact and the export was simply discarded. Keep
+        # the previous merge base.
+        Write-Note "Pending conflict was discarded (source restored to its pre-export state). Keeping previous base tree."
         Clear-PendingRefs
         return New-CleanMeta -BaseTree $Meta.pending.baseTree -SourceTree $currentTree
     }
 
-    # The source tree changed after the conflicted export and no conflicts
-    # remain. Treat that as the user having resolved/accepted the export side.
-    Write-Note "Pending conflict appears to have been resolved or accepted. Advancing base tree to pending export."
-    Update-BaseRef -Tree $Meta.pending.exportTree
+    # The source moved and no conflict markers remain, but "moved" alone does not
+    # mean the export was accepted: a discard can land somewhere OTHER than the
+    # pinned pre-export source (e.g. a continuation conflict whose pre-export source
+    # was GitTools' own uncommitted merged output - restoring to HEAD moves off it
+    # without accepting anything). Distinguish the two by REPLAYING the same
+    # three-way merge that conflicted, now against the current source:
+    #   - clean  => the source genuinely absorbed the export (a real resolve/accept),
+    #               so advance the base to the export tree and the next export will
+    #               not re-conflict.
+    #   - still conflicts => the export was NOT absorbed; the source has moved off the
+    #               continuation lineage. Advancing the base to the export tree here
+    #               is exactly what makes a later continuation merge see base == theirs
+    #               and SILENTLY drop the developer's library work. So drop the now-
+    #               untrustworthy continuation base entirely (empty meta) and let the
+    #               export's fallback resolver recompute the true common ancestor from
+    #               HEAD - which re-surfaces the conflict instead of swallowing it.
+    $replay = Invoke-MergeTree -BaseTree $Meta.pending.baseTree -CurrentSourceTree $currentTree -ExportTree $Meta.pending.exportTree
     Clear-PendingRefs
-    return New-CleanMeta -BaseTree $Meta.pending.exportTree -SourceTree $currentTree
+    if ($replay.ExitCode -eq 0) {
+        Write-Note "Pending conflict was resolved/accepted (the export merges cleanly into the current source). Advancing base tree to pending export."
+        Update-BaseRef -Tree $Meta.pending.exportTree
+        return New-CleanMeta -BaseTree $Meta.pending.exportTree -SourceTree $currentTree
+    }
+
+    Write-Note "Pending conflict was not absorbed by the current source (the export still conflicts against it). Dropping the continuation base; the next export will recompute the base from HEAD and re-surface the conflict."
+    return New-CleanMeta -BaseTree "" -SourceTree ""
 }
 
 function Get-BaseLineageTrees {
@@ -1204,8 +1225,9 @@ function Get-BaseLineageTrees {
 function Get-HeadJsonTreeHistory {
     # The <jsonPath> subtree ids carried by commits reachable from HEAD, newest
     # first. The caller decides how to match them (last produced source first, then
-    # the older base lineage fallback).
-    param([int] $MaxCommits = 5000)
+    # the older base lineage fallback) and always passes an explicit cap; the default
+    # only bounds an accidental capless call.
+    param([int] $MaxCommits = 1000)
 
     if (-not (Test-HeadExists)) {
         return ,@()
@@ -1242,39 +1264,27 @@ function Get-HeadJsonTreeHistory {
     return ,@($trees.ToArray())
 }
 
-function Resolve-FallbackMergeBase {
-    # The merge base to use when the live source is NOT GitTools' own last output -
-    # a pull, a discard, or a partial commit has moved it. In that case the advanced
-    # baseTree is stale: it can sit AHEAD of the committed source (e.g. a deletion
-    # exported then discarded) or diverged from it, and using it makes a three-way
-    # merge mis-attribute changes (silently resurrecting deletions, or dropping a
-    # colleague's committed work).
-    #
-    # First handle the clean-merge handoff case: GitTools' last produced source tree
-    # may now be committed/reachable from HEAD even though the recorded baseTree is
-    # the raw export tree, not the merged source tree. In that case baseTree is still
-    # the correct library-side base for the next export.
-    #
-    # Otherwise, find the true common ancestor: the most recent commit reachable from
-    # HEAD whose <jsonPath> subtree GitTools recorded as a base (an import or a prior
-    # export). That is exactly where this library's lineage and the committed source
-    # last agreed - the same point `git merge-base` would find if the library's
-    # private lineage were a branch. Merging against it reproduces the library's
-    # changes, preserves genuine source-side divergence, and surfaces real
-    # delete/modify and modify/modify conflicts.
-    #
-    # The match is purely local (this clone's recorded lineage vs this HEAD's
-    # history), so colleagues importing at other commits never affect it. Returns ""
-    # only when no recorded base is reachable from HEAD - a fresh clone or a rewritten
-    # history - which the caller treats as a no-base apply.
+function Find-RecordedBaseInHistory {
+    # Match HEAD's <jsonPath> subtree history (newest first, up to $MaxCommits commits)
+    # against the bases GitTools has recorded, returning the base tree to merge against
+    # or "" if none is found within that window. Two records can match, in priority order:
+    #   1. The clean-merge handoff case: GitTools' last produced source (meta.sourceTree)
+    #      is reachable from HEAD even though the recorded baseTree is the raw export tree,
+    #      not the merged source tree. baseTree is still the correct library-side base.
+    #   2. Otherwise the true common ancestor: the most recent commit whose subtree
+    #      GitTools recorded as a base (an import or accepted export). That is where this
+    #      library's lineage and the committed source last agreed - the same point
+    #      `git merge-base` would find if the library's private lineage were a branch.
+    #      --full-history (in Get-HeadJsonTreeHistory) keeps commits that history
+    #      simplification would prune on the side of a merge, so a base recorded only on a
+    #      merged-in branch is still found; the match is by SUBTREE id, so it is unaffected
+    #      by which commit last carried that subtree.
     param(
         [object] $Meta,
-        [int] $MaxCommits = 5000
+        [object] $LineageSet,
+        [int] $MaxCommits
     )
 
-    if (-not (Test-HeadExists)) {
-        return ""
-    }
     $headTrees = Get-HeadJsonTreeHistory -MaxCommits $MaxCommits
 
     if (($null -ne $Meta) -and $Meta.sourceTree -and $Meta.baseTree) {
@@ -1286,24 +1296,65 @@ function Resolve-FallbackMergeBase {
         }
     }
 
-    $lineage = Get-BaseLineageTrees
-    if ($lineage.Count -eq 0) {
-        return ""
-    }
-    $lineageSet = [System.Collections.Generic.HashSet[string]]::new()
-    foreach ($t in $lineage) { [void]$lineageSet.Add($t) }
-
-    # Commits that touched the export path, newest first. --full-history keeps
-    # commits that ordinary history simplification would prune on the side of a
-    # merge, so a base recorded only on a merged-in branch is still found. The match
-    # is by SUBTREE id, not the commit, so it is unaffected by which commit last
-    # carried that subtree.
     foreach ($subTree in $headTrees) {
-        if ($lineageSet.Contains($subTree)) {
+        if ($LineageSet.Contains($subTree)) {
             return $subTree
         }
     }
     return ""
+}
+
+function Resolve-FallbackMergeBase {
+    # The merge base to use when the live source is NOT GitTools' own last output -
+    # a pull, a discard, or a partial commit has moved it. In that case the advanced
+    # baseTree is stale: it can sit AHEAD of the committed source (e.g. a deletion
+    # exported then discarded) or diverged from it, and using it makes a three-way
+    # merge mis-attribute changes (silently resurrecting deletions, or dropping a
+    # colleague's committed work). The true base is found by matching HEAD's history
+    # against GitTools' recorded bases (see Find-RecordedBaseInHistory) - a purely
+    # local match, so colleagues importing at other commits never affect it. It
+    # reproduces the library's changes, preserves genuine source-side divergence, and
+    # surfaces real delete/modify and modify/modify conflicts.
+    #
+    # Returns "" only when NO recorded base is reachable from HEAD - a fresh clone or a
+    # rewritten history - which the caller treats as a no-base apply (overwrite). That
+    # is safe only when a base genuinely does not exist, so the search must never report
+    # "" merely because it did not look far enough: a fast pass scans the most recent
+    # $MaxCommits commits, and ONLY if that misses while a base is known to exist does it
+    # escalate to a full-history walk before giving up.
+    param(
+        [object] $Meta,
+        [int] $MaxCommits = 1000
+    )
+
+    if (-not (Test-HeadExists)) {
+        return ""
+    }
+
+    $lineage = Get-BaseLineageTrees
+    $lineageSet = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($t in $lineage) { [void]$lineageSet.Add($t) }
+
+    # Fast pass: the most recent $MaxCommits commits that touched the export path. This
+    # is the common fallback (a recent pull/discard) and stays cheap.
+    $base = Find-RecordedBaseInHistory -Meta $Meta -LineageSet $lineageSet -MaxCommits $MaxCommits
+    if ($base) {
+        return $base
+    }
+
+    # The fast pass found nothing. If GitTools has never recorded a base, none exists -
+    # report "" and let the caller apply as a first export. But if a base WAS recorded,
+    # one exists to be found and the window simply was not deep enough; returning ""
+    # here would degrade a real three-way merge into a blind overwrite of committed
+    # work. So walk the FULL path history before concluding there is no base. This deep
+    # pass runs only on the fallback path AND only when a recorded base sits beyond
+    # $MaxCommits commits, so it never touches the fast path; batched cat-file keeps even
+    # the full walk inexpensive (see Get-HeadJsonTreeHistory / Invoke-GitCatFileBatchCheck).
+    if ($lineage.Count -eq 0) {
+        return ""
+    }
+    Write-Note "No recorded base within the last $MaxCommits commits; searching the full path history."
+    return Find-RecordedBaseInHistory -Meta $Meta -LineageSet $lineageSet -MaxCommits ([int]::MaxValue)
 }
 
 function Resolve-CurrentSourceAndBase {
