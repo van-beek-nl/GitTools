@@ -86,9 +86,9 @@ sink that forwards to Omnis's own logging or collects messages into the response
 The e2e suites in `test/` use Node's built-in test runner (`node:test` + `node:assert`,
 zero dependencies). Each suite drives the worker the way Omnis does — in-process via
 `run(request)` from `src/core.js`, with per-library state located through
-`createContext(request)` — against throwaway temp repositories. `test/helpers.js` holds the
-shared drivers (`newRepo`, `exportLib`, `importLib`, state/ref lookups). These are ports of
-the original PowerShell e2e suites that validated the `scripts_proto/*.ps1` prototype.
+`createContext(request)` — against throwaway temp repositories. `test-support/helpers.js`
+holds the shared drivers (`newRepo`, `exportLib`, `importLib`, state/ref lookups). These are
+ports of the original PowerShell e2e suites that validated the `scripts_proto/*.ps1` prototype.
 
 Each suite is named for the behaviour it covers (`reconcile-merge`, `conflict-resolution`,
 `staging`, `merge-base-from-history`, `missing-base-gate`, `discard-live-edits`,
