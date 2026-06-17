@@ -1,25 +1,26 @@
-// Post-export phase. PORT of scripts_proto/post-export.ps1.
-//
-// Responsibilities (to implement):
-//   - read the handoff (currentSourceTree, mergeBase); error if absent.
-//   - build the export tree incrementally from the cache + its stat-index.
-//   - no base: apply directly, OR the MISSING-BASE BACKSTOP (refuse to overwrite
-//     committed source without allowMissingBase -> { result: 'missing-base' }).
-//   - base == source: apply directly.
-//   - otherwise three-way merge-tree; clean -> apply merged result; conflict -> apply the
-//     conflicted result, set pending refs + pending meta.
-//   - update durability refs + metadata; always clear the handoff (keep the cache warm).
-
 const fs = require('fs');
 const path = require('path');
 
 const { GitToolsError, ErrorCodes } = require('../constants.js');
 
-// post-export -> { result: 'clean' | 'conflict' | 'missing-base' }
-
 /**
+ * Finalize an export prepared by pre-export.
+ * Runs after Omnis has written the library snapshot into the export cache. It finalizes the
+ * export prepared by pre-export: builds the export tree from the cache, reconciles it against
+ * the recorded base and the current source, writes the result into the live JSON path, and
+ * records the new state (base ref + meta). The handoff is always cleared on the way out.
+ * 
+ * Outcomes:
+ *   - 'clean'        the export was applied, directly or via a clean three-way merge.
+ *   - 'conflict'     the three-way merge conflicted; conflict stages are left in the JSON path
+ *                    and index, and meta records a pending conflict for the user to resolve.
+ *   - 'missing-base' the safety backstop: there is no reconciliation base, applying would
+ *                    overwrite committed source that differs from this export, and the caller
+ *                    did not pass allowMissingBase. Nothing is applied.
+ *
  * @param {import('../context.js').Context} ctx
- * @param {object} request  may carry { allowMissingBase: boolean }
+ * @param {object} request  may carry { allowMissingBase: boolean } to confirm a forced
+ *                          overwrite after a previous 'missing-base' result.
  * @returns {{result: 'clean' | 'conflict' | 'missing-base'}}
  */
 function postExport(ctx, request) {
@@ -36,12 +37,19 @@ function postExport(ctx, request) {
   const exportIndex = `${exportDirectory}.index`;
   
   try {
+    // Build the export tree incrementally against the persistent cache index: --refresh
+    // updates the index's stat cache so hashTree's diff against the on-disk cache is accurate
+    // (and is repeated afterwards to leave the index clean for the next export). The cache and
+    // its index live in the per-worktree state dir, so this is the worktree's own export.
     const gitOpts = { indexFile: exportIndex, workTree: exportDirectory };
     git.invokeRaw(['update-index', '-q', '--refresh'], gitOpts);
     const exportTree = git.hashTree(null, gitOpts);
     git.invokeRaw(['update-index', '-q', '--refresh'], gitOpts);
     log.debug(`Export tree: ${exportTree}`);
 
+    // No reconciliation base: a genuine first export, or the base was lost. There is nothing
+    // to merge against, so apply directly unless that would overwrite committed source that
+    // differs from this export.
     if (!mergeBase) {
       const overwritesCommitted = git.isPathInHead(jsonPath) && git.invoke(['rev-parse', `HEAD:${jsonPath}`]) !== exportTree;
 
@@ -64,6 +72,7 @@ function postExport(ctx, request) {
       return { result: 'clean' };
     }
 
+    // Source has not moved since the recorded base: nothing to reconcile, apply directly.
     if (currentSourceTree === mergeBase) {
       log.info('Current source equals base tree; applying export directly.');
       applyTreeToLiveJsonPath(ctx, exportTree);
@@ -73,10 +82,16 @@ function postExport(ctx, request) {
       return { result: 'clean' };
     }
 
+    // Source diverged from the base: three-way merge the export (exportTree) onto the current
+    // source (currentSourceTree) using the recorded base (mergeBase) as the common ancestor.
     log.info('Current source differs from base tree; running merge.');
     const mergeResult = git.mergeTree(mergeBase, currentSourceTree, exportTree);
     if (mergeResult.status === 0) {
       log.info('Merge succeeded.');
+      // Write the merged tree, but record the raw exportTree as the new base (not the merged
+      // result): the base tracks what the library produced, while sourceTree tracks what is
+      // actually on disk. After a merge those differ, and preExport relies on that distinction
+      // to recognize its own last output on the next export.
       applyTreeToLiveJsonPath(ctx, mergeResult.resultTree);
       const finalSourceTree = git.hashTree(jsonPath);
       git.advanceBaseRef(stateKey, exportTree);
@@ -95,6 +110,14 @@ function postExport(ctx, request) {
   }
 }
 
+/**
+ * Make the live JSON path on disk match `exportTree`, writing only the delta and leaving the
+ * user's staging intact. A no-op when the path already equals the tree (the common
+ * repeated-export-of-identical-content case).
+ *
+ * @param {import('../context.js').Context} ctx
+ * @param {string} exportTree  tree SHA the JSON path should contain
+ */
 function applyTreeToLiveJsonPath(ctx, exportTree) {
   const { git, jsonPath } = ctx;
 
@@ -107,6 +130,15 @@ function applyTreeToLiveJsonPath(ctx, exportTree) {
   resetStagedChanges(ctx, changes);
 }
 
+/**
+ * Apply a conflicted three-way merge to the live JSON path. Two parts: write merge-tree's
+ * best-effort result tree to disk (so the user sees the merged content with conflict markers),
+ * then reproduce in the real index the unmerged entries merge-tree reported, so the conflict
+ * shows up as `UU` in `git status` and resolves with a normal Git client.
+ *
+ * @param {import('../context.js').Context} ctx
+ * @param {object} mergeResult  from git.mergeTree: { resultTree, lines, ... }
+ */
 function applyConflictedMergeToLiveJsonPath(ctx, mergeResult) {
   const { git, jsonPath } = ctx;
 
@@ -118,6 +150,8 @@ function applyConflictedMergeToLiveJsonPath(ctx, mergeResult) {
   const changes = writeLiveJsonPathDelta(ctx, mergeResult.resultTree, liveTree);
   resetStagedChanges(ctx, changes);
 
+  // Parse merge-tree's conflicted-file records ("<mode> <oid> <stage>\t<path>") into the
+  // unmerged stage 1/2/3 entries to stage, prefixing each path back under the JSON path.
   const stageLines = [];
   const conflictingPaths = new Set();
   for (const line of mergeResult.lines) {
@@ -132,6 +166,9 @@ function applyConflictedMergeToLiveJsonPath(ctx, mergeResult) {
     stageLines.push(`${mode} ${objectId} ${stage}\t${prefixedPath}`);
   }
 
+  // Drop the existing stage-0 entry for each conflicting path first (one batched call), then
+  // add the unmerged stages. --index-info cannot add stage 1/2/3 over a surviving stage-0
+  // entry, so the force-remove must happen first.
   if (conflictingPaths.size > 0) {
     git.invoke(['update-index', '--force-remove', '--stdin'], {
       input: [...conflictingPaths].join('\n') + '\n'
@@ -145,14 +182,25 @@ function applyConflictedMergeToLiveJsonPath(ctx, mergeResult) {
   }
 }
 
+/**
+ * Write onto disk the difference between the live JSON path (`liveTree`) and a target `tree`:
+ * delete the files the target drops (pruning parent dirs that become empty), and check out the
+ * files it adds or changes. Only changed paths are touched, so unchanged files keep their
+ * mtime and the working tree is disturbed as little as possible.
+ *
+ * @param {import('../context.js').Context} ctx
+ * @param {string} tree      target tree SHA to bring the JSON path to
+ * @param {string} liveTree  tree SHA of the JSON path's current on-disk content
+ * @returns {string[]} the repo-relative paths that changed (consumed by resetStagedChanges)
+ */
 function writeLiveJsonPathDelta(ctx, tree, liveTree) {
   const { git, jsonPath, jsonAbsolutePath } = ctx;
 
   const nameStatus = git.invoke(['diff-tree', '-r', '--no-commit-id', '--name-status', liveTree, tree]);
   if (!nameStatus) return [];
 
-  const writes = [];
-  const changed = [];
+  const writes = [];   // paths added/modified by `tree`, to check out
+  const changed = [];  // every changed path (repo-relative), for the caller
 
   for (const line of nameStatus.split(/\r?\n/).filter(Boolean)) {
     const tab = line.indexOf('\t');
@@ -161,6 +209,9 @@ function writeLiveJsonPathDelta(ctx, tree, liveTree) {
     const rel = line.slice(tab + 1);
     changed.push(jsonPath === '.' ? rel : `${jsonPath}/${rel}`);
     if (status.startsWith('D')) {
+      // Deleted by the target: remove the file, then walk up removing each parent directory
+      // that is now empty, stopping at the JSON root (or if we ever step outside it, or hit a
+      // non-empty/unreadable dir). This keeps the tree free of empty folders left by deletes.
       const abs = path.join(jsonAbsolutePath, rel);
       fs.rmSync(abs, { force: true });
       const absRoot = path.resolve(jsonAbsolutePath);
@@ -179,6 +230,9 @@ function writeLiveJsonPathDelta(ctx, tree, liveTree) {
     }
   }
 
+  // Check out the added/modified files from `tree` via a throwaway index, so the real index
+  // (the user's staging) is never touched. Paths are relative to the tree, written under the
+  // JSON path via GIT_WORK_TREE.
   if (writes.length > 0) {
     fs.mkdirSync(jsonAbsolutePath, { recursive: true });
     git.withScratchIndex((scratch) => {
@@ -193,6 +247,15 @@ function writeLiveJsonPathDelta(ctx, tree, liveTree) {
   return changed;
 }
 
+/**
+ * Keep the applied delta out of the index: reset to HEAD any changed path that ended up
+ * staged, so the export surfaces as unstaged working-tree edits the user reviews and stages
+ * deliberately. Paths the user staged themselves but that this export did not change are left
+ * untouched. No-op when there is no HEAD to reset against.
+ *
+ * @param {import('../context.js').Context} ctx
+ * @param {string[]} changes  repo-relative paths written by writeLiveJsonPathDelta
+ */
 function resetStagedChanges(ctx, changes) {
   const { git, jsonPath } = ctx;
 

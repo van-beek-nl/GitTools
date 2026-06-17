@@ -105,40 +105,66 @@ function createGit(options) {
     return result.stdout.includes('--write-tree');
   }
 
+  /**
+   * Resolves a path inside this worktree's PRIVATE git dir (per-worktree: `.git/worktrees/<id>/`
+   * for a linked worktree). Used for mutable per-worktree state. Returns an absolute path.
+   *
+   * @param {string} relativePath  path relative to the private git dir (e.g. "gittools/<key>")
+   * @returns {string} absolute path
+   */
   function resolvePrivatePath(relativePath) {
     const privatePath = invoke(['rev-parse', '--git-path', relativePath]);
     return path.isAbsolute(privatePath) ? privatePath : path.join(baseCwd, privatePath);
   }
 
+  /**
+   * Resolves a path inside the COMMON git dir (the main `.git`, shared by every worktree).
+   * Used for state that must be shared across worktrees. Returns an absolute path.
+   *
+   * @param {string} relativePath  path relative to the common git dir
+   * @returns {string} absolute path
+   */
   function resolveCommonPath(relativePath) {
-    const commonDirectory = invoke(['rev-parse', '--git-common-dir']);
+    let commonDirectory = invoke(['rev-parse', '--git-common-dir']);
     if (!path.isAbsolute(commonDirectory)) {
       commonDirectory = path.join(baseCwd, commonDirectory);
     }
 
     return path.join(commonDirectory, relativePath);
   }
-  
+
+  /** True if the real index has unmerged (conflict) entries. */
   function indexHasUnmergedEntries() {
     return invoke(['ls-files', '--unmerged']) !== '';
   }
 
+  /** True if `repoPath` has unresolved merge conflicts (unmerged paths under it). */
   function hasUnresolvedConflicts(repoPath) {
     return invoke(['diff', '--name-only', '--diff-filter=U', '--', repoPath]) !== '';
   }
 
+  /** True if `repoPath` has any staged or unstaged changes (porcelain is non-empty). */
   function isPathDirty(repoPath) {
     return invoke(['status', '--porcelain', '--', repoPath]) !== '';
   }
 
+  /** True if the repository has at least one commit (HEAD resolves). */
   function doesHeadExist() {
     return invokeRaw(['rev-parse', '--verify', 'HEAD']).status === 0;
   }
 
+  /** True if `repoPath` exists in the HEAD commit's tree. */
   function isPathInHead(repoPath) {
     return doesHeadExist() && invokeRaw(['rev-parse', '--verify', `HEAD:${repoPath}`]).status === 0;
   }
 
+  /**
+   * Hashes the given files into the object store (`hash-object -w`) in one git process,
+   * returning their object ids in input order. Empty input -> empty array.
+   *
+   * @param {string[]} filePaths  absolute file paths to hash
+   * @returns {string[]} object ids, one per input path, in order
+   */
   function hashObjects(filePaths) {
     if (!filePaths || filePaths.length <= 0) {
       return [];
@@ -192,6 +218,18 @@ function createGit(options) {
     }
   }
 
+  /**
+   * Computes the tree SHA for the current on-disk contents under `hashRoot`, patching the
+   * index named in `opts.indexFile` in place: it applies the working-tree delta (modified,
+   * deleted, and untracked files) to that index, then writes the tree. This is the incremental
+   * build used for the export cache (a persistent cache index + GIT_WORK_TREE=cache), and the
+   * fast path of hashTree (a throwaway copy of the real index). Falls back to
+   * hashTreeFromScratch when a prefixed write-tree is not possible.
+   *
+   * @param {string|null} hashRoot  subtree to hash (a pathspec), or null/'.' for the whole index
+   * @param {object} [opts]  invokeRaw options; typically { indexFile, workTree }
+   * @returns {string} tree SHA
+   */
   function hashTreeCore(hashRoot, opts) {
     if (opts == null) {
       opts = {};
@@ -342,6 +380,18 @@ function createGit(options) {
     }
   }
 
+  /**
+   * Runs a three-way merge of two trees against a common ancestor with
+   * `git merge-tree --write-tree`, without touching the working tree or index. Exit 0 is a
+   * clean merge, exit 1 is a conflicted merge (both are normal outcomes); any other exit
+   * throws. The result tree is merge-tree's best effort (with conflict markers when conflicted),
+   * and `lines` carries its conflicted-file records.
+   *
+   * @param {string} baseTree    common-ancestor tree SHA (--merge-base)
+   * @param {string} sourceTree  one side of the merge
+   * @param {string} exportTree  the other side of the merge
+   * @returns {{status:number, resultTree:string, lines:string[], stdout:string}}
+   */
   function mergeTree(baseTree, sourceTree, exportTree) {
     const args = ['merge-tree', '--write-tree', '--messages', `--merge-base=${baseTree}`, sourceTree, exportTree];
     const result = invokeRaw(args);
@@ -415,6 +465,15 @@ function createGit(options) {
     }
   }
 
+  /**
+   * Advances this library's base lineage by committing `tree` onto `refs/gittools/<key>/base`.
+   * The ref lives outside refs/worktree, so the base lineage is SHARED across all worktrees
+   * (every export/import an ancestor a later export can reconcile against); see preExport's
+   * history walk. Each call chains a new commit onto the previous tip.
+   *
+   * @param {string} key   state key identifying the library
+   * @param {string} tree  tree SHA to record as the new base
+   */
   function advanceBaseRef(key, tree) {
     advanceRef(
       `refs/gittools/${key}/base`,
@@ -474,10 +533,12 @@ function createGit(options) {
   };
 }
 
+/** A unique, non-colliding temp file path (not created) of the form <tmpdir>/<prefix>-<hex>. */
 function tempFilePath(prefix) {
   return path.join(os.tmpdir(), `${prefix}-${crypto.randomUUID().replace(/-/g, '')}`);
 }
 
+/** Splits git stdout into lines, dropping empty lines (so trailing newlines don't yield ''). */
 function splitLines(string) {
   return string.split(/\r?\n/).filter(line => line !== '');
 }
