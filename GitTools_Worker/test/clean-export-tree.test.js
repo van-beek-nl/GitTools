@@ -1,11 +1,14 @@
-// Post-export reverts the import-irrelevant, churn-prone keys (moddate, internalversion) to the
-// source's values before reconciling, so they neither show up as diffs nor drive merge conflicts.
+// The cleanIrrelevantKeys option: when set, post-export reverts the import-irrelevant, churn-prone
+// keys (moddate, internalversion) to the source's values before reconciling, so they neither show
+// up as diffs nor drive merge conflicts. Off by default, the export is applied verbatim.
 
 const { test } = require('node:test');
 const assert = require('node:assert');
 
 const h = require('../test-support/helpers');
 const { J } = h;
+
+const ON = { cleanIrrelevantKeys: true };
 
 const klass = (moddate, internalversion, body) =>
   `{\n  "name": "C",\n  "moddate": ${moddate},\n  "internalversion": ${internalversion},\n  "body": "${body}"\n}\n`;
@@ -16,7 +19,7 @@ test('an export that only bumps irrelevant keys reconciles clean and leaves the 
   h.importLib(r, J, lib, { 'C/class.json': imported });
 
   // Omnis re-exports the same class with only moddate/internalversion bumped.
-  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'real') });
+  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'real') }, ON);
 
   assert.equal(res, 'clean', 'irrelevant-only churn does not conflict');
   assert.equal(h.readSrc(r, J)['C/class.json'], imported, 'the irrelevant keys are reverted to the source values');
@@ -27,7 +30,7 @@ test('an irrelevant-key bump alongside a real change keeps the real change and r
   const r = h.newRepo(); const lib = h.libOf(r);
   h.importLib(r, J, lib, { 'C/class.json': klass(100, 1, 'old') });
 
-  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'new') });
+  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'new') }, ON);
 
   assert.equal(res, 'clean');
   assert.equal(h.readSrc(r, J)['C/class.json'], klass(100, 1, 'new'),
@@ -36,12 +39,12 @@ test('an irrelevant-key bump alongside a real change keeps the real change and r
 
 test('irrelevant-key churn does not collide with a colleague who only bumped the same keys', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
-  h.exportLib(r, J, lib, { 'C/class.json': klass(100, 1, 'real') });
+  h.exportLib(r, J, lib, { 'C/class.json': klass(100, 1, 'real') }, ON);
   h.git(r, 'add', '-A'); h.git(r, 'commit', '-q', '-m', 'import');
 
   // Colleague commits a different moddate; our export bumps it differently again.
   h.commitSource(r, J, { 'C/class.json': klass(555, 5, 'real') }, 'colleague reopens class');
-  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'real') });
+  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'real') }, ON);
 
   assert.equal(res, 'clean', 'diverging irrelevant keys do not produce a conflict');
   assert.ok(!h.hasConflict(r, J), 'nothing is left unresolved');
@@ -56,8 +59,19 @@ test('a brand-new exported class keeps its own irrelevant-key values', () => {
   const res = h.exportLib(r, J, lib, {
     'C/class.json': klass(100, 1, 'real'),
     'D/class.json': klass(42, 3, 'fresh'),
-  });
+  }, ON);
 
   assert.equal(res, 'clean');
   assert.equal(h.readSrc(r, J)['D/class.json'], klass(42, 3, 'fresh'), 'the new file keeps its initial values');
+});
+
+test('without the option, an irrelevant-key bump is applied verbatim', () => {
+  const r = h.newRepo(); const lib = h.libOf(r);
+  h.importLib(r, J, lib, { 'C/class.json': klass(100, 1, 'real') });
+
+  // No cleanIrrelevantKeys flag: the export is reconciled as-is, keys included.
+  const res = h.exportLib(r, J, lib, { 'C/class.json': klass(999, 7, 'real') });
+
+  assert.equal(res, 'clean');
+  assert.equal(h.readSrc(r, J)['C/class.json'], klass(999, 7, 'real'), 'the bumped keys are left in place');
 });

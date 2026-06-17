@@ -28,6 +28,8 @@ const operations = Object.freeze({
  * @param {string} request.libraryPath
  * @param {string} [request.metaPath]
  * @param {boolean} [request.allowMissingBase] confirm-and-force after a 'missing-base' result
+ * @param {boolean} [request.cleanIrrelevantKeys] revert the import-irrelevant keys on post-export
+ *                                             (off unless set; see scripts/postExport.js)
  * @param {object} [request.config]            GitTools config from Omnis: { gitPath?, logLevel? }
  *                                             (gitPath defaults to "git" on PATH; logLevel to "info")
  * @returns {object} response

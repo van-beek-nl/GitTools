@@ -39,7 +39,7 @@ Omnis invokes `call(method, param, response)`:
 - **method** — the operation: `pre-export` | `post-export` | `pre-import` | `post-import`.
 - **param** — the request payload. Accepted as an object, a JSON string, or a
   single-element array wrapping either (Omnis commonly sends stringified JSON). It carries:
-  `{ repoRoot, jsonPath, libraryId, libraryPath, metaPath?, allowMissingBase?, config? }`.
+  `{ repoRoot, jsonPath, libraryId, libraryPath, metaPath?, allowMissingBase?, cleanIrrelevantKeys?, config? }`.
 - **response** — Omnis's response handle; the result is sent back via `omnis_calls`.
 
 The worker always replies (HTTP 200) with `run()`'s JSON result object; `omnis_calls.sendError`

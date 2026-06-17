@@ -82,6 +82,7 @@ function request(operation, repo, json, lib, opts) {
     libraryId: 'LIB',
     libraryPath: lib,
     allowMissingBase: !!opts.allowMissingBase,
+    cleanIrrelevantKeys: !!opts.cleanIrrelevantKeys,
     config: CONFIG,
   };
 }

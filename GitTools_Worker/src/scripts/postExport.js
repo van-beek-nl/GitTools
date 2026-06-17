@@ -26,11 +26,13 @@ const IRRELEVANT_KEYS = ['moddate', 'internalversion'];
  *
  * @param {import('../context.js').Context} ctx
  * @param {object} request  may carry { allowMissingBase: boolean } to confirm a forced
- *                          overwrite after a previous 'missing-base' result.
+ *                          overwrite after a previous 'missing-base' result, and
+ *                          { cleanIrrelevantKeys: boolean } to revert the import-irrelevant keys
+ *                          (off unless explicitly set; see cleanExportTree).
  * @returns {{result: 'clean' | 'conflict' | 'missing-base'}}
  */
 function postExport(ctx, request) {
-  const { allowMissingBase } = request;
+  const { allowMissingBase, cleanIrrelevantKeys } = request;
   const { log, git, meta, handoff, jsonPath, stateRoot, stateKey } = ctx;
   
   const pendingOperation = handoff.read();
@@ -53,10 +55,13 @@ function postExport(ctx, request) {
     git.invokeRaw(['update-index', '-q', '--refresh'], gitOpts);
     log.debug(`Export tree: ${exportTree}`);
 
-    // Neutralize the import-irrelevant keys (IRRELEVANT_KEYS) before reconciliation, reverting
-    // them to the source's values. Doing this up front keeps the whole pipeline noise-free: the
-    // merge, the recorded base, and the written-back working tree all operate on a scrubbed tree.
-    exportTree = cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree, gitOpts);
+    // Optionally neutralize the import-irrelevant keys (IRRELEVANT_KEYS) before reconciliation,
+    // reverting them to the source's values. Doing this up front keeps the whole pipeline
+    // noise-free: the merge, the recorded base, and the written-back working tree all operate on
+    // a scrubbed tree.
+    if (cleanIrrelevantKeys) {
+      exportTree = cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree, gitOpts);
+    }
 
     // No reconciliation base: a genuine first export, or the base was lost. There is nothing
     // to merge against, so apply directly unless that would overwrite committed source that
