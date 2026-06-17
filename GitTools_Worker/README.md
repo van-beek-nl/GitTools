@@ -16,15 +16,18 @@ index.js              Omnis entrypoint (the only Omnis-coupled file): exports
                       replies via omnis_calls.
 src/
   core.js             run(request) -> response. Pure dispatcher, no Omnis/stdout coupling.
-  git.js              [done] git() / runGit() — spawnSync wrapper (maxBuffer, per-call env).
-  errors.js           [done] Result / Op / ErrorCodes / GitToolsError.
-  context.js          [stub] createContext(request) -> Context (per-invocation state).
-  phases/
-    preExport.js      [stub]  ─┐
-    postExport.js     [stub]   │ one per phase; each throws NOT_IMPLEMENTED with a
-    preImport.js      [stub]   │ checklist pointing at the matching .ps1 to port.
-    postImport.js     [stub]  ─┘
-  cli.js              [done] test-only adapter: argv -> run() -> SOURCE=/RESULT= + exit code.
+  constants.js        Result / ErrorCodes / GitToolsError.
+  context.js          createContext(request) -> Context (per-invocation state).
+  git.js              spawnSync git wrapper (maxBuffer, per-call env/index/work-tree).
+  meta.js             meta.json read/write + clean/pending shapes.
+  handoff.js          pending-op.json read/write/clear (pre -> post boundary).
+  log.js              level-aware logger (debug | info | warning | error).
+  scripts/
+    preExport.js       ─┐
+    postExport.js       │ one per phase: the reconciliation engine, ported from
+    preImport.js        │ scripts_proto/*.ps1.
+    postImport.js      ─┘
+test/                 node:test e2e suites + helpers.js (drive run() in-process).
 ```
 
 ## The Omnis call contract
@@ -52,7 +55,7 @@ prototype's `SOURCE=`/`RESULT=` stdout lines — the line-scraping disappears.
 
 `omnis_calls` is provided by the Omnis runtime; it is not in this repo and is not
 require-able outside Omnis. That is fine: `index.js` is the only file that needs it, and
-tests drive `src/core.js` / `src/cli.js` instead.
+the tests drive `src/core.js`'s `run()` directly.
 
 ## Configuration
 
@@ -78,17 +81,20 @@ sink that forwards to Omnis's own logging or collects messages into the response
 
 ## Testing strategy
 
-`cli.js` re-emits the old `SOURCE=`/`RESULT=` stdout protocol so the existing PowerShell
-e2e suites can drive this worker as a drop-in for the `.ps1` scripts once the phases are
-ported — point the suites' script invocations at `node src/cli.js <op> --repo-root … …`
-for behavioural parity against the prototype. (The unit-level PS suites that dot-source
-prototype functions will need small JS equivalents.)
+The e2e suites in `test/` use Node's built-in test runner (`node:test` + `node:assert`,
+zero dependencies). Each suite drives the worker the way Omnis does — in-process via
+`run(request)` from `src/core.js`, with per-library state located through
+`createContext(request)` — against throwaway temp repositories. `test/helpers.js` holds the
+shared drivers (`newRepo`, `exportLib`, `importLib`, state/ref lookups). These are ports of
+the original PowerShell e2e suites that validated the `scripts_proto/*.ps1` prototype.
 
-Smoke check (run inside a real Omnis worker first, to confirm `child_process` is allowed
-and git is reachable):
+Each suite is named for the behaviour it covers (`reconcile-merge`, `conflict-resolution`,
+`staging`, `merge-base-from-history`, `missing-base-gate`, `discard-live-edits`,
+`crash-recovery`, `worktree-isolation`).
 
 ```
-npm run smoke        # prints "node <version>" and "git version <…>"
+npm test                                      # runs test/*.test.js
+node --test test/conflict-resolution.test.js  # a single suite
 ```
 
 ## Conventions / constraints
@@ -103,14 +109,7 @@ npm run smoke        # prints "node <version>" and "git version <…>"
 
 ## To verify against the real Omnis build
 
-- `child_process` is available in the worker (the smoke check settles it).
+- `child_process` is available in the worker (so `git.js`'s `spawnSync` works).
 - `process.version` of the bundled Node — then tighten `engines` in `package.json`.
-- How Omnis passes `param` (object vs JSON string vs array) — `parseParam` in `index.js`
+- How Omnis passes `param` (object vs JSON string vs array) — `parsePayload` in `index.js`
   handles all three, but confirm which one your Omnis side sends.
-
-## Porting status
-
-Plumbing done (`git`, `errors`, `core`, `cli`, `index`). Domain logic stubbed: port
-`scripts_proto/common.ps1` into `context.js` plus focused modules (suggested seams: a git
-helper layer already exists; add `meta`, `refs`, `cache`, `trees`, `merge`, `reconcile`),
-then fill the four `phases/*`.
