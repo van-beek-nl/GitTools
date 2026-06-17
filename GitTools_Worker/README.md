@@ -27,7 +27,9 @@ src/
     postExport.js       │ one per phase: the reconciliation engine, ported from
     preImport.js        │ scripts_proto/*.ps1.
     postImport.js      ─┘
-test/                 node:test e2e suites + helpers.js (drive run() in-process).
+test/                 node:test e2e suites (one file per behaviour), driving run() in-process.
+test-support/         helpers.js — shared suite helpers (kept out of test/ so the
+                      no-argument `node --test` does not run it as an empty test file).
 ```
 
 ## The Omnis call contract
@@ -93,7 +95,7 @@ Each suite is named for the behaviour it covers (`reconcile-merge`, `conflict-re
 `crash-recovery`, `worktree-isolation`).
 
 ```
-npm test                                      # runs test/*.test.js
+npm test                                      # node --test, auto-discovers test/*.test.js
 node --test test/conflict-resolution.test.js  # a single suite
 ```
 

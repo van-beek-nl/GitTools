@@ -7,7 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const h = require('./helpers');
+const h = require('../test-support/helpers');
 const { J } = h;
 
 test('committing a conflict resolution advances the base so the next export is clean', () => {

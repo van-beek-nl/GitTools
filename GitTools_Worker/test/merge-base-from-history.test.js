@@ -8,7 +8,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const h = require('./helpers');
+const h = require('../test-support/helpers');
 const { J } = h;
 
 const DEPTH = 12; // the recorded base sits this many commits back

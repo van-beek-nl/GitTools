@@ -4,7 +4,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const h = require('./helpers');
+const h = require('../test-support/helpers');
 const { J } = h;
 
 test('an export that matches the just-imported source stays clean', () => {

@@ -8,7 +8,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const h = require('./helpers');
+const h = require('../test-support/helpers');
 const { J } = h;
 
 // A linked worktree of `repo` at a fresh temp path on a new branch, cleaned up at exit.

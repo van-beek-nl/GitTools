@@ -4,7 +4,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const h = require('./helpers');
+const h = require('../test-support/helpers');
 const { J } = h;
 
 test('a library deletion is reproduced even after the deleted file was restored to the working tree', () => {

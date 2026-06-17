@@ -1,9 +1,13 @@
-// Shared helpers for the GitTools worker e2e suites.
+// Shared helpers for the GitTools worker e2e suites (test/*.test.js).
 //
 // These drive the worker exactly the way Omnis does: in-process via run(request)
 // from ../src/core.js, with state located through createContext(request). The
 // previous PowerShell suites had to shell out to a CLI adapter (and a get-state-info
 // shim) for the same thing; here it is all direct function calls, no child Node.
+//
+// This lives outside test/ on purpose: `node --test` (the npm test script) auto-discovers
+// every .js file under a test/ directory as a test file, so a shared module kept in test/
+// would run as an empty "test". From test-support/ the suites import it explicitly instead.
 //
 // Zero dependencies: Node core only (node:test in the suites, built-ins here).
 
@@ -26,8 +30,8 @@ const J = 'Source/Lib';
 const CONFIG = { logLevel: 'error' };
 
 // Temp dirs/files created by the helpers, removed when this test process exits.
-// node:test runs each *.test.js file in its own process, so a per-file exit hook
-// is enough and never races another suite.
+// node:test runs each test file in its own process, so a per-file exit hook is enough
+// and never races another suite.
 const cleanupPaths = [];
 process.on('exit', () => {
   for (const p of cleanupPaths) {
@@ -55,7 +59,7 @@ function gitTry(repo, ...args) {
   return { status: r.status == null ? 1 : r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
 }
 
-// A fresh throwaway repo with the .lbs placeholder, mirroring every suite's New-Repo.
+// A fresh throwaway repo with the .lbs placeholder.
 function newRepo(prefix) {
   const r = tmpName(prefix || 'e2e');
   fs.mkdirSync(r, { recursive: true });
@@ -127,7 +131,7 @@ function exportLib(repo, json, lib, files, opts) {
 }
 
 // Commit a source state directly (simulates a colleague's commit / a pull). With
-// { clear: true } the json dir is wiped first, so deletions propagate (e2e_export4's Commit).
+// { clear: true } the json dir is wiped first, so deletions propagate.
 function commitSource(repo, json, files, msg, opts) {
   opts = opts || {};
   const abs = path.join(repo, json);
