@@ -15,12 +15,12 @@ const { GitToolsError, ErrorCodes } = require('../constants.js');
  */
 function resolveRepositoryRoot(request, log) {
   const config = request.config || {};
-  if (!request.jsonPath) {
-    throw new GitToolsError(ErrorCodes.BAD_REQUEST, 'resolveRepositoryRoot requires a jsonPath');
+  if (!request.path) {
+    throw new GitToolsError(ErrorCodes.BAD_REQUEST, 'resolveRepositoryRoot requires a path');
   }
 
   return {
-    repositoryRoot: createGit({ gitPath: config.gitPath, log: log }).resolveRepoRoot(request.jsonPath),
+    repositoryRoot: createGit({ gitPath: config.gitPath, log: log }).resolveRepoRoot(request.path),
   };
 }
 

@@ -33,14 +33,9 @@ const contextFreeOperations = Object.freeze({
  *
  * @param {object} request
  * @param {string} request.operation
- * @param {string} request.jsonPath  absolute path to the export root (the repository root is
- *                                    derived from it; see context.js / operations/resolveRepositoryRoot.js)
- * @param {string} request.libraryId
- * @param {string} request.libraryPath
- * @param {string} [request.metaPath]
- * @param {boolean} [request.allowMissingBase] confirm-and-force after a 'missing-base' result
- * @param {boolean} [request.cleanIrrelevantKeys] revert the import-irrelevant keys on post-export
- *                                             (off unless set; see operations/postExport.js)
+ * @param {string} [request.jsonPath]          absolute path to the export root
+ * @param {string} [request.libraryId]
+ * @param {string} [request.libraryPath]
  * @param {object} [request.config]            GitTools config from Omnis: { gitPath?, logLevel? }
  *                                             (gitPath defaults to "git" on PATH; logLevel to "info")
  * @returns {object} response

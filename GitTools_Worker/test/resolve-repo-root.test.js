@@ -30,7 +30,7 @@ test('returns an empty string when the path is not inside a repository', () => {
 
 test('resolveRepositoryRoot operation returns the repository root for a jsonPath inside a repo', () => {
   const repo = newRepo('resolve-op');
-  const res = run({ operation: 'resolveRepositoryRoot', jsonPath: path.join(repo, 'Source', 'Lib'), config: { logLevel: 'error' } });
+  const res = run({ operation: 'resolveRepositoryRoot', path: path.join(repo, 'Source', 'Lib'), config: { logLevel: 'error' } });
 
   assert.strictEqual(res.ok, true);
   assert.strictEqual(res.operation, 'resolveRepositoryRoot');
@@ -41,7 +41,7 @@ test('resolveRepositoryRoot operation returns the repository root for a jsonPath
 test('resolveRepositoryRoot operation succeeds with an empty root when not in a repository', () => {
   const outside = track(path.join(os.tmpdir(), `resolve-op-none-${crypto.randomBytes(6).toString('hex')}`));
   fs.mkdirSync(outside, { recursive: true });
-  const res = run({ operation: 'resolveRepositoryRoot', jsonPath: path.join(outside, 'Source', 'Lib'), config: { logLevel: 'error' } });
+  const res = run({ operation: 'resolveRepositoryRoot', path: path.join(outside, 'Source', 'Lib'), config: { logLevel: 'error' } });
 
   assert.strictEqual(res.ok, true);
   assert.strictEqual(res.repositoryRoot, '');
