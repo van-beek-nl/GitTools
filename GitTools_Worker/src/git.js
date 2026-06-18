@@ -65,7 +65,11 @@ function createGit(options) {
       maxBuffer: MAX_BUFFER,
       windowsHide: true,
     });
-    if (timing) { log.debug('git ' + args.join(' ') + ` (${(performance.now() - startedAt).toFixed(1)}ms)`); }
+    if (timing) {
+      log.debug('git ' + args.join(' ') + ` (${(performance.now() - startedAt).toFixed(1)}ms)`);
+    } else {
+      log.debug('git ' + args.join(' '));
+    }
 
     if (result.error) {
       throw new GitToolsError(
