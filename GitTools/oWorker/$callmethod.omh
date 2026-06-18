@@ -2,7 +2,8 @@ Calculate ivResult as row()
 
 Do $inherited.$callmethod("gittools_worker",pMethod,pParameters,kTrue,lvErrorText) Returns lvIsOk
 If not(lvIsOk)&isclear(ivResult)
-	Quit method $cinst.$_fail(-1,lvErrorText)
+	Do $cinst.$_fail(-1,lvErrorText)
 End If
 
+Do $cinst.$_logError(ivResult)
 Quit method ivResult

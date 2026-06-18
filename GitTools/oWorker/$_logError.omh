@@ -1,0 +1,14 @@
+If isclear(ivResult)
+	Quit method
+End If
+
+If ivResult.ok=kTrue
+	Quit method
+End If
+
+If isclear(ivResult.error)
+	Do tvLogger.$error("An unknown worker error occurred")
+	Quit method
+End If
+
+Do tvLogger.$error(ivResult.error.code," - ",ivResult.error.message)

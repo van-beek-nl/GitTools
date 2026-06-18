@@ -1,7 +1,228 @@
 [
 	{
-		"name": "$_install",
+		"name": "$init",
 		"order": 1,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvIsOk",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$preExport",
+		"order": 2,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 9,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			},
+			{
+				"name": "pAllowMissingBase",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kFalse"
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvIsOk",
+				"order": 7,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvParameters",
+				"order": 6,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$postExport",
+		"order": 3,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			},
+			{
+				"name": "pCleanExportTree",
+				"order": 4,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$preImport",
+		"order": 4,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$postImport",
+		"order": 5,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$callmethod",
+		"order": 6,
+		"pvardefs": [
+			{
+				"name": "pMethod",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pParameters",
+				"order": 2,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvErrorText",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
+			},
+			{
+				"name": "lvIsOk",
+				"order": 4,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$methodreturn",
+		"order": 7,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$methoderror",
+		"order": 8,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$workererror",
+		"order": 9,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$_install",
+		"order": 10,
 		"pvardefs": [
 			{
 				"name": "pTargetDirectory",
@@ -59,7 +280,7 @@
 	},
 	{
 		"name": "$_buildLibraryContext",
-		"order": 2,
+		"order": 11,
 		"pvardefs": [
 			{
 				"name": "pRegistration",
@@ -82,7 +303,7 @@
 	},
 	{
 		"name": "$_fail",
-		"order": 3,
+		"order": 12,
 		"pvardefs": [
 			{
 				"name": "pErrorCode",
@@ -119,221 +340,10 @@
 		]
 	},
 	{
-		"name": "$init",
-		"order": 4,
+		"name": "$_logError",
+		"order": 13,
 		"pvardefs": [
 
-		],
-		"lvardefs": [
-			{
-				"name": "lvIsOk",
-				"order": 1,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$preExport",
-		"order": 5,
-		"pvardefs": [
-			{
-				"name": "pRegistration",
-				"order": 9,
-				"type": "kRow",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0,
-				"param": 1
-			},
-			{
-				"name": "pAllowMissingBase",
-				"order": 3,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 2,
-				"initval": "kFalse"
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvIsOk",
-				"order": 7,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvParameters",
-				"order": 6,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$postExport",
-		"order": 6,
-		"pvardefs": [
-			{
-				"name": "pRegistration",
-				"order": 1,
-				"type": "kRow",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0,
-				"param": 1
-			},
-			{
-				"name": "pCleanExportTree",
-				"order": 4,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 2
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvParameters",
-				"order": 2,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$preImport",
-		"order": 7,
-		"pvardefs": [
-			{
-				"name": "pRegistration",
-				"order": 1,
-				"type": "kRow",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvParameters",
-				"order": 2,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$postImport",
-		"order": 8,
-		"pvardefs": [
-			{
-				"name": "pRegistration",
-				"order": 1,
-				"type": "kRow",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvParameters",
-				"order": 2,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$callmethod",
-		"order": 9,
-		"pvardefs": [
-			{
-				"name": "pMethod",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"param": 1
-			},
-			{
-				"name": "pParameters",
-				"order": 2,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 2
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvErrorText",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvIsOk",
-				"order": 4,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$methodreturn",
-		"order": 10,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$methoderror",
-		"order": 11,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$workererror",
-		"order": 12,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
 		],
 		"lvardefs": [
 

@@ -1,1 +1,1 @@
-Calculate ivResult as $cinst.$_fail(pResult.errorCode,pResult.errorInfo)
+Do $cinst.$_fail(pResult.errorCode,pResult.errorInfo)
