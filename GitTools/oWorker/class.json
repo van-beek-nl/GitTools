@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 88,
+	"internalversion": 103,
 	"superclass": ".OW3.OW3 Worker Objects\\JAVASCRIPTWorker",
 	"designtaskname": "GitTools",
 	"cvardefs": [
@@ -12,6 +12,15 @@
 			"subtype": "k32bitint",
 			"sublen": 0,
 			"initval": "10"
+		},
+		{
+			"name": "cvWorkerStartTimeout",
+			"order": 2,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "600",
+			"desc": "In ticks, 10 seconds"
 		}
 	],
 	"ivardefs": [
@@ -34,7 +43,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2026-06-18 13:32:51",
+		"moddate": "2026-06-18 18:07:17",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

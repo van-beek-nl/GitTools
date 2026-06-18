@@ -8,6 +8,13 @@ If $cinst.$state<>kWorkerStateRunning
 	If not($cinst.$start())
 		Do $cinst.$_fail(-1,"Unable to start worker")
 	End If
+	
+	If isclear(ivResult)
+		Calculate lvCT as #CT
+		While $cinst.$state<>kWorkerStateRunning&#CT-lvCT<cvWorkerStartTimeout
+			# Wait for worker to start, this can take a brief moment
+		End While
+	End If
 End If
 
 If $cinst.$state=kWorkerStateRunning
@@ -15,6 +22,8 @@ If $cinst.$state=kWorkerStateRunning
 	If not(lvIsOk)&isclear(ivResult)
 		Do $cinst.$_fail(-1,lvErrorText)
 	End If
+Else If isclear(ivResult)
+	Do $cinst.$_fail(-1,"Unknown worker error")
 End If
 
 Do $cinst.$_logResults(ivResult)

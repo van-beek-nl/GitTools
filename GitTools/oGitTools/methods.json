@@ -11,7 +11,7 @@
 	},
 	{
 		"name": "$registerLibraries",
-		"order": 2,
+		"order": 3,
 		"desc": "Attempts to register all currently opened libraries.",
 		"pvardefs": [
 
@@ -35,7 +35,7 @@
 	},
 	{
 		"name": "$registerLibraryFromConfigPath",
-		"order": 3,
+		"order": 4,
 		"desc": "Registers a library based on the given path to a GitTools config file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -95,7 +95,7 @@
 	},
 	{
 		"name": "$registerLibraryFromLibraryPath",
-		"order": 4,
+		"order": 5,
 		"desc": "Registers a library based on the given path to an Omnis library file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -127,7 +127,7 @@
 	},
 	{
 		"name": "$registerLibrary",
-		"order": 5,
+		"order": 6,
 		"desc": "Registers the given library with GitTools. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -146,7 +146,7 @@
 	},
 	{
 		"name": "$updateRegistration",
-		"order": 6,
+		"order": 7,
 		"desc": "Updates the library registered under the given ID, reloading its configuration. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -171,7 +171,7 @@
 	},
 	{
 		"name": "$deregisterLibrary",
-		"order": 7,
+		"order": 8,
 		"desc": "Deregisters a library with the given library ID. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -196,7 +196,7 @@
 	},
 	{
 		"name": "$importLibrary",
-		"order": 8,
+		"order": 9,
 		"desc": "Imports the given library from source, creating a new Omnis library file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -306,7 +306,7 @@
 	},
 	{
 		"name": "$exportLibrary",
-		"order": 9,
+		"order": 10,
 		"desc": "Exports the given library to JSON. Returns a boolean indicating success.",
 		"pvardefs": [
 			{

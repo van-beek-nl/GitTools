@@ -148,6 +148,13 @@
 		],
 		"lvardefs": [
 			{
+				"name": "lvCT",
+				"order": 5,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
 				"name": "lvErrorText",
 				"order": 3,
 				"type": "kCharacter",
