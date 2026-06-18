@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 847,
+	"internalversion": 874,
 	"designtaskname": "GitTools",
 	"cvardefs": [
 		{
@@ -20,6 +20,13 @@
 			"type": "kList",
 			"subtype": "sLibraryRegistration",
 			"sublen": 0
+		},
+		{
+			"name": "ivWorker",
+			"order": 1,
+			"type": "kObject",
+			"subtype": "oWorker",
+			"sublen": 0
 		}
 	],
 	"properties": {
@@ -33,7 +40,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2026-04-28 09:25:11",
+		"moddate": "2026-06-18 12:13:30",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

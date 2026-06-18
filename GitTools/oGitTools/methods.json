@@ -141,41 +141,7 @@
 			}
 		],
 		"lvardefs": [
-			{
-				"name": "lvConfigPath",
-				"order": 2,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvConfiguration",
-				"order": 5,
-				"type": "kRow",
-				"subtype": "sLibraryConfiguration",
-				"sublen": 0
-			},
-			{
-				"name": "lvMeta",
-				"order": 3,
-				"type": "kItemref",
-				"subtype": "$libs.lib.$codes.code",
-				"sublen": 0
-			},
-			{
-				"name": "lvOpenLibraries",
-				"order": 6,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvRegistration",
-				"order": 4,
-				"type": "kRow",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0
-			}
+
 		]
 	},
 	{
@@ -259,25 +225,11 @@
 				"sublen": 0
 			},
 			{
-				"name": "lvFileOps",
-				"order": 15,
-				"type": "kObject",
-				"subtype": ".FileOps.FileOps",
-				"sublen": 0
-			},
-			{
 				"name": "lvFileOpsCode",
 				"order": 12,
 				"type": "kInteger",
 				"subtype": "k32bitint",
 				"sublen": 0
-			},
-			{
-				"name": "lvImportCommitHash",
-				"order": 14,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
 			},
 			{
 				"name": "lvImportPath",
@@ -305,27 +257,6 @@
 				"order": 10,
 				"type": "kBoolean",
 				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvMergeConflicts",
-				"order": 16,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvMeta",
-				"order": 17,
-				"type": "kItemref",
-				"subtype": "$libs.lib.$codes.code",
-				"sublen": 0
-			},
-			{
-				"name": "lvMetaMethod",
-				"order": 18,
-				"type": "kItemref",
-				"subtype": "$methods.method",
 				"sublen": 0
 			},
 			{
@@ -358,16 +289,16 @@
 				"initval": "kFalse"
 			},
 			{
-				"name": "lvTest",
-				"order": 19,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
 				"name": "lvWarnings",
 				"order": 9,
 				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvWorkerResult",
+				"order": 20,
+				"type": "kRow",
 				"subtype": "",
 				"sublen": 0
 			}
@@ -399,30 +330,8 @@
 		],
 		"lvardefs": [
 			{
-				"name": "lvCreatedExportStash",
-				"order": 19,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0,
-				"initval": "kFalse"
-			},
-			{
-				"name": "lvCurrentCommitHash",
-				"order": 9,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
 				"name": "lvDidOpenLibrary",
 				"order": 5,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvExportCreatedChanges",
-				"order": 25,
 				"type": "kBoolean",
 				"subtype": 0,
 				"sublen": 0
@@ -442,20 +351,6 @@
 				"sublen": 0
 			},
 			{
-				"name": "lvFileOps",
-				"order": 4,
-				"type": "kObject",
-				"subtype": ".FileOps.FileOps",
-				"sublen": 0
-			},
-			{
-				"name": "lvGitStashID",
-				"order": 17,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
 				"name": "lvIsOk",
 				"order": 6,
 				"type": "kBoolean",
@@ -463,47 +358,11 @@
 				"sublen": 0
 			},
 			{
-				"name": "lvLastSourceChangeCommitHash",
-				"order": 11,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
 				"name": "lvLibrary",
 				"order": 7,
 				"type": "kItemref",
 				"subtype": "$libs.lib",
 				"sublen": 0
-			},
-			{
-				"name": "lvMergeConflicts",
-				"order": 20,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvMergeConflictsText",
-				"order": 21,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvMetaCommitHash",
-				"order": 8,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvNumFilesChangedSincePreviousImport",
-				"order": 10,
-				"type": "kInteger",
-				"subtype": "k32bitint",
-				"sublen": 0,
-				"initval": "0"
 			},
 			{
 				"name": "lvOptions",
@@ -520,13 +379,6 @@
 				"sublen": 0
 			},
 			{
-				"name": "lvOutput",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
 				"name": "lvRegistration",
 				"order": 2,
 				"type": "kRow",
@@ -534,40 +386,17 @@
 				"sublen": 0
 			},
 			{
-				"name": "lvSourceNeedsSync",
-				"order": 12,
-				"type": "kBoolean",
-				"subtype": 0,
+				"name": "lvWorkerResult",
+				"order": 26,
+				"type": "kRow",
+				"subtype": "",
 				"sublen": 0
-			},
-			{
-				"name": "lvTempCommitHash",
-				"order": 23,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvTrackedPatchPath",
-				"order": 22,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"initval": "tvFileUtilities.$join(tvFileUtilities.$getTempDirectory(),con(OW3.$makeuuid(),'.patch'))"
-			},
-			{
-				"name": "lvUntrackedPatchPath",
-				"order": 18,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"initval": "tvFileUtilities.$join(tvFileUtilities.$getTempDirectory(),con(OW3.$makeuuid(),'.patch'))"
 			}
 		]
 	},
 	{
 		"name": "$getRegistration",
-		"order": 10,
+		"order": 11,
 		"desc": "Returns the registration data for the given library, or null if the library is not registered with GitTools.",
 		"pvardefs": [
 			{
@@ -592,7 +421,7 @@
 	},
 	{
 		"name": "----- Properties",
-		"order": 11,
+		"order": 12,
 		"pvardefs": [
 
 		],
@@ -603,7 +432,7 @@
 	},
 	{
 		"name": "$libraries",
-		"order": 12,
+		"order": 13,
 		"desc": "All libraries currently registered with GitTools.",
 		"pvardefs": [
 
@@ -614,7 +443,7 @@
 	},
 	{
 		"name": "$libraries.$assign",
-		"order": 13,
+		"order": 14,
 		"pvardefs": [
 
 		],
@@ -624,7 +453,7 @@
 	},
 	{
 		"name": "----- Private",
-		"order": 14,
+		"order": 15,
 		"pvardefs": [
 
 		],
@@ -635,7 +464,7 @@
 	},
 	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 15,
+		"order": 16,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{

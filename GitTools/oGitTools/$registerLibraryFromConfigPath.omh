@@ -22,7 +22,7 @@ End If
 
 # Read config file
 If not(lvFile.$openfile(pConfigFilePath))
-	Do tvLogger.$error("Skipping registration of ",lvRegistration.id," as its config file could not be opened.")
+	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as its config file could not be opened.")
 	Quit method kFalse
 End If
 Do lvFile.$readcharacter(kUniTypeUTF8,lvConfigText)

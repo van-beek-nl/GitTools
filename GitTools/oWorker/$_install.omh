@@ -1,0 +1,43 @@
+If ($cinst.$state=kWorkerStateRunning)
+	Do tvLogger.$error("Unable to install worker: already running")
+	Quit method kFalse
+End If
+
+If isclear(pTargetDirectory)
+	Calculate pTargetDirectory as con(sys(115),"jsworker",pathsep(),"gittools_worker")
+End If
+
+Calculate lvSourceDirectory as con($clib.$parentfolder(),"gittools_worker")
+
+While lvRemovalAttempts<cvMaxNumRemovalAttempts&FileOps.$doesfileexist(pTargetDirectory)
+	Do FileOps.$deletefile(pTargetDirectory,kTrue,kTrue)
+	Calculate lvRemovalAttempts as lvRemovalAttempts+1
+End While
+
+If FileOps.$doesfileexist(pTargetDirectory)
+	Do tvLogger.$error("Unable to install worker: could not remove old worker files within ",cvMaxNumRemovalAttempts," attempts")
+	Quit method kFalse
+End If
+
+Do tvFileUtilities.$copyFolder(lvSourceDirectory,pTargetDirectory)
+
+Calculate lvOmnisMajorVersion as pick(pos(sys(1),'.')>0,sys(1),left(sys(1),pos(sys(1),'.')))
+If lvOmnisMajorVersion<11
+	Calculate lvModuleMapPath as con(sys(115),"jsworker",pathsep(),"omnis_modules.js")
+	
+	If not(lvFile.$openfile(lvModuleMapPath))
+		Do tvLogger.$error("Unable to open JavaScript module map ",lvModuleMapPath," (FileOps #",lvFile.$getlasterror(),")")
+		Quit method kFalse
+	End If
+	
+	Do lvFile.$readcharacter(kUniTypeUTF8,lvModuleMap)
+	If pos('require("gittools_worker")',lvModuleMap)=0
+		Do tvLogger.$debug("Registering worker with module map ",lvModuleMapPath)
+		Calculate lvModuleMap as replace(lvModuleMap,'const moduleMap = {',con('const moduleMap = {',kCr,kLf,kTab,'gittools_worker: require("gittools_worker"),'))
+		Do lvFile.$writecharacter(kUniTypeUTF8,lvModuleMap,kFalse,kFalse)
+	End If
+	
+	Do lvFile.$closefile()
+End If
+
+Quit method kTrue

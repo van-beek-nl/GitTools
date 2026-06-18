@@ -22,35 +22,19 @@ If isclear(lvLibrary)
 	Calculate lvDidOpenLibrary as kTrue
 End If
 
-Calculate tvGit.$cwd as lvRegistration.repositoryRoot
-Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvLastSourceChangeCommitHash
-If not(isclear(lvLastSourceChangeCommitHash))
-	Do tvLogger.$debug("Source was last changed in commit #",lvLastSourceChangeCommitHash)
-Else
-	Do tvLogger.$debug("Source has never been committed")
-End If
-
-If FileOps.$doesfileexist(lvRegistration.metaPath)
-	If not(lvFileOps.$openfile(lvRegistration.metaPath,kTrue))
-		Do tvLogger.$error("Export failed - Unable to open meta file  (FileOps #",lvFileOps.$getlasterror(),")")
+Do ivWorker.$preExport(lvRegistration,kFalse) Returns lvWorkerResult
+If lvWorkerResult.result="missing-base"
+	OK message Unable to determine merge base (Cancel button) {This can occur if the source has never been exported before or you haven't used GitTools with this library before. Your git client will report any differences from the actual source as new, discarding lines that don't match.}
+	If msgcancelled()
 		Quit method kFalse
 	End If
 	
-	If not(lvFileOps.$readcharacter(kUniTypeUTF8,lvMetaCommitHash))
-		Do tvLogger.$error("Export failed - Unable to read meta file (FileOps #",lvFileOps.$getlasterror(),")")
-		Quit method kFalse
-	End If
-	
-	Calculate lvMetaCommitHash as tvScripting.$trim(lvMetaCommitHash)
-	Do lvFileOps.$closefile()
-	Do tvLogger.$debug("Library meta commit hash is at #",lvMetaCommitHash)
-Else
-	Do tvLogger.$debug("Library does not have a meta commit hash")
+	Do ivWorker.$preExport(lvRegistration,kTrue) Returns lvWorkerResult
 End If
 
-If not(isclear(lvLastSourceChangeCommitHash))
-	Do tvLogger.$debug("Clearing out any pending changes in source directory ",lvRegistration.jsonPath)
-	Do tvGit.$resetDirectory(lvRegistration.jsonPath)
+If not(lvWorkerResult.ok)|isclear(lvWorkerResult.source)
+	Do tvLogger.$error("Worker preExport reported error - Aborting")
+	Quit method kFalse
 End If
 
 If not(isclear(lvRegistration.preExportScript))
@@ -73,7 +57,7 @@ Calculate $root.$prefs.$exportimportjsonoptions as lvOptions
 
 Do tvLogger.$debug("Starting JSON export")
 Do tvLogger.$updateWorkingMessage(#NULL,"Exporting JSON")
-Do $root.$exportjson(lvLibrary,lvRegistration.jsonPath,lvExportErrors,lvExportWarnings) Returns lvIsOk
+Do $root.$exportjson(lvLibrary,lvWorkerResult.source,lvExportErrors,lvExportWarnings) Returns lvIsOk
 
 # Restore regular options
 Calculate $root.$prefs.$exportimportjsonoptions as lvOptionsToRestore
@@ -83,45 +67,18 @@ If not(lvIsOk)
 End If
 Do $cinst.$$logErrorsAndWarnings(lvExportErrors,lvExportWarnings)
 
-If tvSettings.$discardIrrelevantChanges
-	Do tvLogger.$updateWorkingMessage(#NULL,"Discarding irrelevant changes")
-	Do tvScripting.$discardIrrelevantChanges(lvRegistration.jsonPath)
-End If
-
 Do tvLogger.$updateWorkingMessage(#NULL,"Finalizing export")
 If lvDidOpenLibrary
 	Do tvLogger.$debug("Closing library opened for export")
 	Close library [lvLibrary.$name()]
 End If
 
-If not(lvIsOk)
-	Do tvGit.$resetDirectory(lvRegistration.jsonPath)
+Do ivWorker.$postExport(lvRegistration,tvSettings.$discardIrrelevantChanges) Returns lvWorkerResult
+If not(lvWorkerResult.ok)
+	Do tvLogger.$error("Worker postExport reported error - Aborting")
 	Quit method kFalse
-End If
-
-Calculate lvExportCreatedChanges as tvGit.$isChanged(lvRegistration.jsonPath)
-Calculate lvSourceNeedsSync as lvExportCreatedChanges&not(isclear(lvLastSourceChangeCommitHash))&not(isclear(lvMetaCommitHash))&lvMetaCommitHash<>lvLastSourceChangeCommitHash
-
-Do tvLogger.$debug("Export created changes: ",lvExportCreatedChanges)
-Do tvLogger.$debug("Commit hashes match: ",pick(lvMetaCommitHash=lvLastSourceChangeCommitHash,"NO","YES"))
-Do tvLogger.$debug("Export merge required: ",lvSourceNeedsSync)
-
-If lvSourceNeedsSync
-	Do tvLogger.$debug("Performing export merge")
-	Do tvLogger.$updateWorkingMessage(#NULL,"Performing export merge")
-	Do tvGit.$performExportMerge(lvRegistration.jsonPath,lvMetaCommitHash)
-	Do tvGit.$getMergeConflicts(lvRegistration.jsonPath) Returns lvMergeConflicts
-	
-	If $cparmcount>1
-		Calculate pMergeConflicts as lvMergeConflicts
-	End If
-	
-	If lvMergeConflicts.$linecount>0
-		Do tvLogger.$warn("Merge of exported changes with external changes caused merge conflict(s) in the following file(s):")
-		For lvMergeConflicts.$line from 1 to lvMergeConflicts.$linecount step 1
-			Do tvLogger.$warn(lvMergeConflicts.C1)
-		End For
-	End If
+Else If lvWorkerResult.result="conflict"
+	Do tvLogger.$warn("Merge of exported changes with external changes caused merge conflict(s).")
 End If
 
 If not(isclear(lvRegistration.postExportScript))

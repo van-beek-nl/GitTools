@@ -1,7 +1,7 @@
 {
 	"classtype": "kTask",
 	"omnisversion": "10.2",
-	"internalversion": 35,
+	"internalversion": 36,
 	"tvardefs": [
 		{
 			"name": "tvFileUtilities",
@@ -76,7 +76,7 @@
 		"editordata": "",
 		"external": false,
 		"issupercomponent": false,
-		"moddate": "2025-10-14 09:38:58",
+		"moddate": "2026-06-18 10:01:55",
 		"showascheckedout": false,
 		"userinfo": "",
 		"vcsrevision": 0,

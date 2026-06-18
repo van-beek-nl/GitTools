@@ -3,17 +3,6 @@ Calculate lvRegistration as ivRegisteredLibraries.$first(kFalse,kFalse,$ref.id=p
 
 Do tvLogger.$info("Importing ",pLibraryID)
 Do tvLogger.$updateWorkingMessage(#NULL,"Preparing import")
-Calculate tvGit.$cwd as lvRegistration.repositoryRoot
-
-Do tvLogger.$debug("Checking for merge conflicts in source directory")
-Do tvGit.$getMergeConflicts(lvRegistration.jsonPath) Returns lvMergeConflicts
-If lvMergeConflicts.$linecount>0
-	Do tvLogger.$error('The source directory contains merge conflict(s) in the following file(s). These must be resolved first:')
-	For lvMergeConflicts.$line from 1 to lvMergeConflicts.$linecount step 1
-		Do tvLogger.$error(lvMergeConflicts.C1)
-	End For
-	Quit method kFalse
-End If
 
 Do tvLogger.$debug("Cleaning up source directory before import")
 Do tvScripting.$preImportCleanup(lvRegistration.jsonPath)
@@ -32,10 +21,10 @@ If FileOps.$doesfileexist(lvImportPath)
 	Do FileOps.$deletefile(lvImportPath)
 End If
 
-Calculate tvGit.$cwd as lvRegistration.repositoryRoot
-Do tvGit.$getCommitHash(lvRegistration.jsonPath) Returns lvImportCommitHash
-If not(isclear(lvImportCommitHash))
-	Do tvLogger.$debug("Source is at commit #",lvImportCommitHash)
+Do ivWorker.$preImport(lvRegistration) Returns lvWorkerResult
+If not(lvWorkerResult.ok)
+	Do tvLogger.$error("Worker preImport reported error - Aborting")
+	Quit method kFalse
 End If
 
 If not(isclear(lvRegistration.preImportScript))
@@ -107,26 +96,10 @@ If lvFileOpsCode<>kFileOpsOK
 	Quit method kFalse
 End If
 
-If not(isclear(lvImportCommitHash))
-	Do tvLogger.$debug("Writing import data to meta file ",lvRegistration.metaPath)
-	If FileOps.$doesfileexist(lvRegistration.metaPath)
-		If not(lvFileOps.$openfile(lvRegistration.metaPath))
-			Do tvLogger.$error("Import failed - Unable to open meta file (FileOps #",lvFileOps.$getlasterror(),")")
-			Quit method kFalse
-		End If
-	Else
-		If not(lvFileOps.$createfile(lvRegistration.metaPath))
-			Do tvLogger.$error("Import failed - Unable to create meta file (FileOps #",lvFileOps.$getlasterror(),")")
-			Quit method kFalse
-		End If
-	End If
-	
-	If not(lvFileOps.$writecharacter(kUniTypeUTF8,lvImportCommitHash,kFalse,kFalse))
-		Do tvLogger.$error("Import failed - Unable to write to meta file (FileOps #",lvFileOps.$getlasterror(),")")
-		Quit method kFalse
-	End If
-	
-	Do lvFileOps.$closefile()
+Do ivWorker.$postImport(lvRegistration) Returns lvWorkerResult
+If not(lvWorkerResult.ok)|lvWorkerResult.result<>"clean"
+	Do tvLogger.$error("Worker postImport reported error - Aborting")
+	Quit method kFalse
 End If
 
 If lvLibraryWasOpen

@@ -1,0 +1,2 @@
+Do $cinst.$_buildLibraryContext(pRegistration) Returns lvParameters
+Quit method $cinst.$callmethod("postImport",lvParameters)

@@ -1,0 +1,11 @@
+Do lvResult.$cols.$add("ok",kBoolean)
+Do lvResult.$cols.$add("error",kRow)
+Do lvError.$cols.$add("code",kCharacter,kSimplechar)
+Do lvError.$cols.$add("message",kCharacter,kSimplechar)
+
+Calculate lvResult.ok as kFalse
+Calculate lvError.code as pErrorCode
+Calculate lvError.message as pErrorText
+Calculate lvResult.error as lvError
+
+Quit method lvResult
