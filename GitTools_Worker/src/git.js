@@ -67,8 +67,6 @@ function createGit(options) {
     });
     if (timing) {
       log.debug('git ' + args.join(' ') + ` (${(performance.now() - startedAt).toFixed(1)}ms)`);
-    } else {
-      log.debug('git ' + args.join(' '));
     }
 
     if (result.error) {
