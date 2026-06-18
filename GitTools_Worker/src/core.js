@@ -33,8 +33,8 @@ const contextFreeOperations = Object.freeze({
  *
  * @param {object} request
  * @param {string} request.operation
- * @param {string} request.repoRoot
- * @param {string} request.jsonPath
+ * @param {string} request.jsonPath  absolute path to the export root (the repository root is
+ *                                    derived from it; see context.js / scripts/resolveRepositoryRoot.js)
  * @param {string} request.libraryId
  * @param {string} request.libraryPath
  * @param {string} [request.metaPath]

@@ -36,10 +36,17 @@ test-support/         helpers.js — shared suite helpers (kept out of test/ so 
 
 Omnis invokes `call(method, param, response)`:
 
-- **method** — the operation: `pre-export` | `post-export` | `pre-import` | `post-import`.
+- **method** — the operation. The library lifecycle ops: `pre-export` | `post-export` |
+  `pre-import` | `post-import`. Plus two context-free discovery ops used at registration:
+  `resolveRepositoryRoot` | `checkGitExecutable`.
 - **param** — the request payload. Accepted as an object, a JSON string, or a
-  single-element array wrapping either (Omnis commonly sends stringified JSON). It carries:
-  `{ repoRoot, jsonPath, libraryId, libraryPath, metaPath?, allowMissingBase?, cleanIrrelevantKeys?, config? }`.
+  single-element array wrapping either (Omnis commonly sends stringified JSON). The lifecycle
+  ops carry:
+  `{ jsonPath, libraryId, libraryPath, metaPath?, allowMissingBase?, cleanIrrelevantKeys?, config? }`.
+  `jsonPath` is absolute; the worker derives the repository root from it (Omnis no longer passes
+  it in). `resolveRepositoryRoot` takes `{ jsonPath, config? }` and returns
+  `{ repositoryRoot: <abs path> | '' }` (`''` = not a git repository); `checkGitExecutable`
+  takes `{ config? }` and returns `{ valid, version }`.
 - **response** — Omnis's response handle; the result is sent back via `omnis_calls`.
 
 The worker always replies (HTTP 200) with `run()`'s JSON result object; `omnis_calls.sendError`

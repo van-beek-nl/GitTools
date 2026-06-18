@@ -12,7 +12,7 @@ const { createHandoff } = require('./handoff.js');
 
 /**
  * @typedef {object} Context
- * @property {string} repoRoot          absolute, resolved repository root
+ * @property {string} repoRoot          absolute, resolved repository root (derived from jsonPath)
  * @property {string} jsonPath          repo-relative POSIX path to the export root (a git pathspec)
  * @property {string} jsonAbsolutePath  absolute path to the export root on disk
  * @property {string} libraryId
@@ -46,23 +46,30 @@ function createContext(request) {
   ctx.libraryId = request.libraryId;
   ctx.libraryPath = request.libraryPath;
   ctx.log = createLogger({ level: ctx.config.logLevel });
-  ctx.repoRoot = fs.realpathSync(request.repoRoot);
+
+  /// ctx.repoRoot — derived from the export path; Omnis no longer passes it in. The library may
+  /// live outside the repository and the export path may not exist yet, so resolveRepoRoot probes
+  /// from the nearest existing ancestor and lets git resolve .git-file/submodule indirection. The
+  /// path must be absolute: without a repoRoot there is nothing to anchor a relative path against.
+  if (!request.jsonPath || !path.isAbsolute(request.jsonPath)) {
+    throw new GitToolsError(ErrorCodes.BAD_REQUEST, `jsonPath must be an absolute path: ${request.jsonPath}`);
+  }
+  ctx.repoRoot = createGit({ gitPath: ctx.config.gitPath, log: ctx.log }).resolveRepoRoot(request.jsonPath);
+  if (!ctx.repoRoot) {
+    throw new GitToolsError(ErrorCodes.BAD_REQUEST, `jsonPath is not inside a git repository: ${request.jsonPath}`);
+  }
   ctx.git = createGit({ gitPath: ctx.config.gitPath, cwd: ctx.repoRoot, log: ctx.log });
-  
-  /// ctx.jsonPath
-  let relativeJsonPath;
-  if (path.isAbsolute(request.jsonPath)) {
-    const absoluteJsonPath = fs.existsSync(request.jsonPath) ? fs.realpathSync(request.jsonPath) : path.resolve(request.jsonPath);
-    relativeJsonPath = path.relative(ctx.repoRoot, absoluteJsonPath);
-    const first = relativeJsonPath.split(path.sep, 1)[0];
-    if (relativeJsonPath === '' || first === '..') {
-      throw new GitToolsError(
-        ErrorCodes.BAD_REQUEST,
-        `jsonPath must be inside the repository. repoRoot: ${ctx.repoRoot}, jsonPath: ${request.jsonPath}`
-      );
-    }
-  } else {
-    relativeJsonPath = request.jsonPath;
+
+  /// ctx.jsonPath — repo-relative POSIX path. Canonicalize the export path (collapsing symlinks
+  /// like macOS /var -> /private/var) so the relative math against the canonical repoRoot holds
+  /// even when the export root does not exist yet.
+  const relativeJsonPath = path.relative(ctx.repoRoot, realpathExistingPrefix(request.jsonPath));
+  const first = relativeJsonPath.split(path.sep, 1)[0];
+  if (relativeJsonPath === '' || first === '..') {
+    throw new GitToolsError(
+      ErrorCodes.BAD_REQUEST,
+      `jsonPath must be inside the repository. repoRoot: ${ctx.repoRoot}, jsonPath: ${request.jsonPath}`
+    );
   }
 
   ctx.jsonPath = relativeJsonPath.split(path.sep).join('/');
@@ -90,6 +97,26 @@ function createContext(request) {
   ctx.handoff = createHandoff(ctx.stateRoot);
 
   return ctx;
+}
+
+/**
+ * Resolves `p` to an absolute, canonical path even when it does not exist yet: realpaths the
+ * longest existing prefix (collapsing symlinks) and re-appends the missing tail. Keeps
+ * repo-relative math correct for a not-yet-created export root.
+ */
+function realpathExistingPrefix(p) {
+  let existing = path.resolve(p);
+  const tail = [];
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) {
+      return path.resolve(p); // no existing prefix found (reached the filesystem root)
+    }
+    tail.unshift(path.basename(existing));
+    existing = parent;
+  }
+
+  return path.join(fs.realpathSync(existing), ...tail);
 }
 
 module.exports = { createContext };

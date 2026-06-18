@@ -77,8 +77,8 @@ function request(operation, repo, json, lib, opts) {
   opts = opts || {};
   return {
     operation,
-    repoRoot: repo,
-    jsonPath: json,
+    // The worker derives the repository root from jsonPath, which must be absolute.
+    jsonPath: path.isAbsolute(json) ? json : path.join(repo, json),
     libraryId: 'LIB',
     libraryPath: lib,
     allowMissingBase: !!opts.allowMissingBase,
