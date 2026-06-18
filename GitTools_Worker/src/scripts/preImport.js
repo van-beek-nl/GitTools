@@ -4,8 +4,7 @@ const path = require('path');
 const { GitToolsError, ErrorCodes } = require('../constants.js');
 
 // OS bookkeeping files that carry no meaning for the import. A directory holding only these
-// is treated as empty: they are deleted along with it. Matched case-insensitively, since the
-// Windows/macOS filesystems these come from are case-insensitive.
+// is treated as empty: they are deleted along with it.
 const JUNK_FILES = new Set(['.ds_store', 'thumbs.db', 'ehthumbs.db', 'desktop.ini']);
 
 /**
