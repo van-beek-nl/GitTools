@@ -3,13 +3,13 @@
 // Provided by Omnis at runtime (see example_worker/omnis_calls.js for the interface).
 const omnis_calls = require('omnis_calls.js');
 
-const { run, operations } = require('./src/core.js');
+const { run, operations, contextFreeOperations } = require('./src/core.js');
 
 // One Omnis "method" per registered operation - the method name is the operation name.
 // Omnis passes the request payload as a single parameter. Registering a new operation
-// in core.js's registry automatically exposes it here.
+// in either of core.js's registries automatically exposes it here.
 const methodMap = {};
-for (const operation of Object.keys(operations)) {
+for (const operation of [...Object.keys(operations), ...Object.keys(contextFreeOperations)]) {
   methodMap[operation] = function (payload) { return run(toRequest(operation, payload)); };
 }
 

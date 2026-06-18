@@ -106,6 +106,39 @@ function createGit(options) {
     return invoke(['--version']);
   }
 
+  /**
+   * Resolves the repository root (work-tree top level) that owns `startPath`, regardless of
+   * this runner's bound cwd. The path may not exist yet (e.g. before the first export), so we
+   * probe from its nearest existing ancestor. Git resolves any `.git`-file / submodule
+   * indirection itself, so the result is the innermost repository that actually tracks it.
+   *
+   * Not being inside a repository is a normal outcome, returned as '' (so callers like
+   * registration can skip with a friendly warning); only an unrunnable git throws.
+   *
+   * @param {string} startPath  the path to resolve from (absolute), existing or not
+   * @returns {string} absolute repository root, or '' when not inside a repository
+   */
+  function resolveRepoRoot(startPath) {
+    // Probe from the nearest existing ancestor directory (startPath itself may not exist yet).
+    let probeDirectory = path.resolve(startPath);
+    while (!fs.existsSync(probeDirectory)) {
+      const parent = path.dirname(probeDirectory);
+      if (parent === probeDirectory) {
+        break;
+      }
+      probeDirectory = parent;
+    }
+    probeDirectory = fs.statSync(probeDirectory).isDirectory() ? probeDirectory : path.dirname(probeDirectory);
+
+    const result = invokeRaw(['rev-parse', '--show-toplevel'], { cwd: probeDirectory });
+    if (result.status !== 0) {
+      return '';
+    }
+
+    const toplevel = result.stdout.trim();
+    return toplevel ? fs.realpathSync(toplevel) : '';
+  }
+
   /** Checks whether the git version used has git merge-tree --write-tree capabilities */
   function mergeTreeHasWriteTreeCapabilities() {
     const result = invokeRaw(['merge-tree', '-h']);
@@ -520,6 +553,7 @@ function createGit(options) {
     invokeRaw: invokeRaw,
     invoke: invoke,
     version: version,
+    resolveRepoRoot: resolveRepoRoot,
     mergeTreeHasWriteTreeCapabilities: mergeTreeHasWriteTreeCapabilities,
     resolvePrivatePath: resolvePrivatePath,
     resolveCommonPath: resolveCommonPath,

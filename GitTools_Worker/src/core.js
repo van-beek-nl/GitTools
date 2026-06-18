@@ -2,10 +2,13 @@
 
 const { ErrorCodes, GitToolsError } = require('./constants.js');
 const { createContext } = require('./context.js');
+const { createLogger } = require('./log.js');
 const { preExport } = require('./scripts/preExport.js');
 const { postExport } = require('./scripts/postExport.js');
 const { preImport } = require('./scripts/preImport.js');
 const { postImport } = require('./scripts/postImport.js');
+const { resolveRepositoryRoot } = require('./scripts/resolveRepositoryRoot.js');
+const { checkGitExecutable } = require('./scripts/checkGitExecutable.js');
 
 // The operation registry: operation name -> handler (ctx, request) -> outcome. The keys
 // are the complete set of operations the worker supports and the strings carried in
@@ -15,6 +18,14 @@ const operations = Object.freeze({
   'postExport': postExport,
   'preImport': preImport,
   'postImport': postImport,
+});
+
+// Operations that have no library context: they don't (and can't) go through createContext
+// because they either produce the repositoryRoot it needs or need no repository at all. Each
+// is a handler (request, log) -> outcome, returning the same response shape as a context operation.
+const contextFreeOperations = Object.freeze({
+  'resolveRepositoryRoot': resolveRepositoryRoot,
+  'checkGitExecutable': checkGitExecutable,
 });
 
 /**
@@ -42,16 +53,24 @@ const operations = Object.freeze({
  */
 function run(request) {
   const operation = request && request.operation;
+  const contextFreeHandler = contextFreeOperations[operation];
   const handler = operations[operation];
-  if (!handler) {
+  if (!contextFreeHandler && !handler) {
     return Object.assign(fail(operation, ErrorCodes.BAD_REQUEST, 'Unknown operation: ' + String(operation)), { log: [] });
   }
 
-  // createContext builds the logger (and binds ctx.git to it), so read it back rather than
-  // owning a separate one here — that keeps git's own log lines in the captured set. The only
-  // gap is logging during a createContext failure (log stays null), a tiny pre-git window.
+  // For context operations, createContext builds the logger (and binds ctx.git to it), so read
+  // it back rather than owning a separate one here — that keeps git's own log lines in the
+  // captured set. Context-free operations have no ctx, so build the logger here from the same
+  // config. The only logging gap is a createContext failure (log stays null), a tiny pre-git window.
   let log = null;
   try {
+    if (contextFreeHandler) {
+      log = createLogger({ level: (request.config || {}).logLevel || 'info' });
+      const outcome = contextFreeHandler(request, log) || {};
+      return Object.assign({ ok: true, operation: operation, log: log.records() }, outcome);
+    }
+
     const ctx = createContext(request);
     log = ctx.log;
     const outcome = handler(ctx, request) || {};
@@ -69,4 +88,4 @@ function fail(operation, code, message) {
   return { ok: false, operation: operation || null, error: { code: code, message: message } };
 }
 
-module.exports = { run, operations };
+module.exports = { run, operations, contextFreeOperations };
