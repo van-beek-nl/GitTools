@@ -3,12 +3,12 @@
 const { ErrorCodes, GitToolsError } = require('./constants.js');
 const { createContext } = require('./context.js');
 const { createLogger } = require('./log.js');
-const { preExport } = require('./scripts/preExport.js');
-const { postExport } = require('./scripts/postExport.js');
-const { preImport } = require('./scripts/preImport.js');
-const { postImport } = require('./scripts/postImport.js');
-const { resolveRepositoryRoot } = require('./scripts/resolveRepositoryRoot.js');
-const { checkGitExecutable } = require('./scripts/checkGitExecutable.js');
+const { preExport } = require('./operations/preExport.js');
+const { postExport } = require('./operations/postExport.js');
+const { preImport } = require('./operations/preImport.js');
+const { postImport } = require('./operations/postImport.js');
+const { resolveRepositoryRoot } = require('./operations/resolveRepositoryRoot.js');
+const { checkGitExecutable } = require('./operations/checkGitExecutable.js');
 
 // The operation registry: operation name -> handler (ctx, request) -> outcome. The keys
 // are the complete set of operations the worker supports and the strings carried in
@@ -34,13 +34,13 @@ const contextFreeOperations = Object.freeze({
  * @param {object} request
  * @param {string} request.operation
  * @param {string} request.jsonPath  absolute path to the export root (the repository root is
- *                                    derived from it; see context.js / scripts/resolveRepositoryRoot.js)
+ *                                    derived from it; see context.js / operations/resolveRepositoryRoot.js)
  * @param {string} request.libraryId
  * @param {string} request.libraryPath
  * @param {string} [request.metaPath]
  * @param {boolean} [request.allowMissingBase] confirm-and-force after a 'missing-base' result
  * @param {boolean} [request.cleanIrrelevantKeys] revert the import-irrelevant keys on post-export
- *                                             (off unless set; see scripts/postExport.js)
+ *                                             (off unless set; see operations/postExport.js)
  * @param {object} [request.config]            GitTools config from Omnis: { gitPath?, logLevel? }
  *                                             (gitPath defaults to "git" on PATH; logLevel to "info")
  * @returns {object} response

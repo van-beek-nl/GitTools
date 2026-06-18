@@ -1,9 +1,5 @@
 # GitTools Worker
 
-The GitTools export/import reconciliation engine, as an Omnis Studio JavaScript worker.
-Replaces the PowerShell prototype in `../scripts_proto/` so non-Windows users need no
-manual PowerShell install — Omnis ships its own Node.
-
 **Runtime contract:** CommonJS, synchronous, **zero external dependencies** (Node core only).
 Everything is `git` invocation + file I/O + text/JSON, all of which is in Node's standard
 library, so there is nothing to `npm install`.
@@ -22,11 +18,7 @@ src/
   meta.js             meta.json read/write + clean/pending shapes.
   handoff.js          pending-op.json read/write/clear (pre -> post boundary).
   log.js              level-aware logger (debug | info | warning | error).
-  scripts/
-    preExport.js       ─┐
-    postExport.js       │ one per phase: the reconciliation engine, ported from
-    preImport.js        │ scripts_proto/*.ps1.
-    postImport.js      ─┘
+  operations/         Omnis-facing operation implementations.
 test/                 node:test e2e suites (one file per behaviour), driving run() in-process.
 test-support/         helpers.js — shared suite helpers (kept out of test/ so the
                       no-argument `node --test` does not run it as an empty test file).
