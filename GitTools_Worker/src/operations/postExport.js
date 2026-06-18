@@ -24,19 +24,14 @@ const FILE_MODE_REGULAR = '100644';
  *   - 'clean'        the export was applied, directly or via a clean three-way merge.
  *   - 'conflict'     the three-way merge conflicted; conflict stages are left in the JSON path
  *                    and index, and meta records a pending conflict for the user to resolve.
- *   - 'missing-base' the safety backstop: there is no reconciliation base, applying would
- *                    overwrite committed source that differs from this export, and the caller
- *                    did not pass allowMissingBase. Nothing is applied.
  *
  * @param {import('../context.js').Context} ctx
- * @param {object} request  may carry { allowMissingBase: boolean } to confirm a forced
- *                          overwrite after a previous 'missing-base' result, and
- *                          { cleanIrrelevantKeys: boolean } to revert the import-irrelevant keys
+ * @param {object} request  may carry { cleanIrrelevantKeys: boolean } to revert the import-irrelevant keys
  *                          (off unless explicitly set; see cleanExportTree).
  * @returns {{result: 'clean' | 'conflict' | 'missing-base'}}
  */
 function postExport(ctx, request) {
-  const { allowMissingBase, cleanIrrelevantKeys } = request;
+  const { cleanIrrelevantKeys } = request;
   const { log, git, meta, handoff, jsonPath, jsonAbsolutePath, stateRoot, stateKey } = ctx;
 
   const pendingOperation = handoff.read();
@@ -87,13 +82,8 @@ function postExport(ctx, request) {
     if (!mergeBase) {
       const overwritesCommitted = git.isPathInHead(jsonPath) && git.invoke(['rev-parse', `HEAD:${jsonPath}`]) !== exportTree;
 
-      if (overwritesCommitted && !allowMissingBase) {
-        log.warning(`No reconciliation base and '${jsonPath}' differs from this export; refusing to overwrite committed source.`);
-        return { result: 'missing-base' };
-      }
-
       if (overwritesCommitted) {
-        log.warning(`No reconciliation base exists; forcing overwrite of the committed source at '${jsonPath}' (allowMissingBase set).`);
+        log.warning(`No reconciliation base exists; forcing overwrite of the committed source at '${jsonPath}'.`);
         log.warning('If your peers advanced this source, review the diff before committing.');
       } else {
         log.info('No base tree exists yet; applying export directly.');

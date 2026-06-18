@@ -25,18 +25,6 @@ test('pre-export refuses to overwrite committed source with no base, then allowM
   assert.equal(h.read1(r, J, 'a.json'), 'a1', 'the overwrite is applied');
 });
 
-test('post-export refuses to apply a baseless overwrite that was not acknowledged', () => {
-  const r = h.newRepo(); const lib = h.libOf(r);
-  h.commitSource(r, J, { 'a.json': 'a0' }, 'committed source, no base');
-  h.omnisExport(r, J, lib, { 'a.json': 'a1' });
-  // Simulate the pre-export signal being bypassed: force pre (writes the handoff), then run
-  // post WITHOUT the flag. The backstop must refuse rather than silently overwrite.
-  h.runOp('preExport', r, J, lib, { allowMissingBase: true });
-  assert.equal(h.runOp('postExport', r, J, lib), 'missing-base', 'the post-export backstop gates');
-  assert.equal(h.read1(r, J, 'a.json'), 'a0', 'the committed source is not overwritten');
-  assert.ok(!fs.existsSync(h.handoffPath(r, J, lib)), 'the handoff is cleared for a clean retry');
-});
-
 test('an export finds no base anywhere in history and gates rather than overwriting', () => {
   // A repo that never imported/exported here has an empty base lineage; the history walk
   // finds nothing, so the export must gate rather than hunt forever or overwrite blindly.
