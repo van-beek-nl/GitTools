@@ -1,9 +1,21 @@
-Calculate ivResult as row()
+Calculate ivResult as #NULL
 
-Do $inherited.$callmethod("gittools_worker",pMethod,pParameters,kTrue,lvErrorText) Returns lvIsOk
-If not(lvIsOk)&isclear(ivResult)
-	Do $cinst.$_fail(-1,lvErrorText)
+If $cinst.$state<>kWorkerStateRunning
+	If not($cinst.$init())
+		Do $cinst.$_fail(-1,"Unable to initialize worker")
+	End If
+	
+	If not($cinst.$start())
+		Do $cinst.$_fail(-1,"Unable to start worker")
+	End If
 End If
 
-Do $cinst.$_logError(ivResult)
+If $cinst.$state=kWorkerStateRunning
+	Do $inherited.$callmethod("gittools_worker",pMethod,pParameters,kTrue,lvErrorText) Returns lvIsOk
+	If not(lvIsOk)&isclear(ivResult)
+		Do $cinst.$_fail(-1,lvErrorText)
+	End If
+End If
+
+Do $cinst.$_logResults(ivResult)
 Quit method ivResult

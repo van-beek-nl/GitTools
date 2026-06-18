@@ -4,9 +4,6 @@ Calculate lvRegistration as ivRegisteredLibraries.$first(kFalse,kFalse,$ref.id=p
 Do tvLogger.$info("Importing ",pLibraryID)
 Do tvLogger.$updateWorkingMessage(#NULL,"Preparing import")
 
-Do tvLogger.$debug("Cleaning up source directory before import")
-Do tvScripting.$preImportCleanup(lvRegistration.jsonPath)
-
 Calculate lvImportPath as con(lvRegistration.libraryPath,'.import')
 Calculate lvBackupPath as con(lvRegistration.libraryPath,'.bak')
 

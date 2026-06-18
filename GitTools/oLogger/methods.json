@@ -472,8 +472,33 @@
 		]
 	},
 	{
-		"name": "$level",
+		"name": "$log",
 		"order": 7,
+		"pvardefs": [
+			{
+				"name": "pLevel",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pMessage",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$level",
+		"order": 8,
 		"pvardefs": [
 
 		],
@@ -483,7 +508,7 @@
 	},
 	{
 		"name": "$level.$assign",
-		"order": 8,
+		"order": 9,
 		"pvardefs": [
 			{
 				"name": "pLevel",
@@ -506,7 +531,7 @@
 	},
 	{
 		"name": "$$log",
-		"order": 9,
+		"order": 10,
 		"pvardefs": [
 			{
 				"name": "pLevel",
@@ -531,7 +556,7 @@
 	},
 	{
 		"name": "$$levelCharToInt",
-		"order": 10,
+		"order": 11,
 		"pvardefs": [
 			{
 				"name": "pLevel",
@@ -548,7 +573,7 @@
 	},
 	{
 		"name": "$$levelIntToChar",
-		"order": 11,
+		"order": 12,
 		"pvardefs": [
 			{
 				"name": "pLevel",
@@ -565,7 +590,7 @@
 	},
 	{
 		"name": "$$concat",
-		"order": 12,
+		"order": 13,
 		"pvardefs": [
 			{
 				"name": "p1",
@@ -667,7 +692,7 @@
 	},
 	{
 		"name": "$showWorkingMessage",
-		"order": 13,
+		"order": 14,
 		"pvardefs": [
 			{
 				"name": "pTitle",
@@ -692,7 +717,7 @@
 	},
 	{
 		"name": "$closeWorkingMessage",
-		"order": 14,
+		"order": 15,
 		"pvardefs": [
 
 		],
@@ -702,7 +727,7 @@
 	},
 	{
 		"name": "$updateWorkingMessage",
-		"order": 15,
+		"order": 16,
 		"pvardefs": [
 			{
 				"name": "pTitle",

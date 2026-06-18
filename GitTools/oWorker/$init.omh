@@ -1,4 +1,4 @@
-If ($cinst.$state=kWorkerStateRunning)
+If $cinst.$state=kWorkerStateRunning
 	Quit method kTrue
 End If
 
@@ -8,5 +8,4 @@ If not($cinst.$_install())
 End If
 
 
-Do $inherited.$init() Returns lvIsOk
-Quit method lvIsOk
+Quit method $inherited.$init()

@@ -2,6 +2,12 @@ If isclear(ivResult)
 	Quit method
 End If
 
+If not(isclear(ivResult.log))
+	For ivResult.log.$line from 1 to ivResult.log.$linecount step 1
+		Do tvLogger.$log(ivResult.log.C1.level,ivResult.log.C1.message)
+	End For
+End If
+
 If ivResult.ok=kTrue
 	Quit method
 End If

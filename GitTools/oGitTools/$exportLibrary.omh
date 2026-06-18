@@ -67,6 +67,10 @@ If not(lvIsOk)
 End If
 Do $cinst.$$logErrorsAndWarnings(lvExportErrors,lvExportWarnings)
 
+If not(lvIsOk)
+	Quit method kFalse
+End If
+
 Do tvLogger.$updateWorkingMessage(#NULL,"Finalizing export")
 If lvDidOpenLibrary
 	Do tvLogger.$debug("Closing library opened for export")
