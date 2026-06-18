@@ -46,14 +46,20 @@ The worker always replies (HTTP 200) with `run()`'s JSON result object; `omnis_c
 (500) is used only for an unexpected crash. So Omnis branches on the payload, not the status:
 
 ```
-success: { ok: true,  op, result?: 'clean'|'conflict'|'missing-base', source?: <abs path> }
-failure: { ok: false, op, error: { code, message } }
+success: { ok: true,  op, result?: 'clean'|'conflict'|'missing-base', source?: <abs path>, log }
+failure: { ok: false, op, error: { code, message }, log }
 ```
 
 Per-phase success shape: `pre-export -> {source}` (cache dir to export into) or
 `{result:'missing-base'}`; `post-export -> {result}`; `pre-import -> {source}` (path to
 import from); `post-import -> {result:'clean'}`. This is the structured equivalent of the
 prototype's `SOURCE=`/`RESULT=` stdout lines — the line-scraping disappears.
+
+`log` is always present on both shapes: an array of `{ level, message }` records the operation
+produced, in order. Every level is included unfiltered (Omnis filters when it re-emits them to
+its IDE trace log); `logLevel` only governs the worker's own stderr verbosity, not this set.
+The records accumulate as the operation runs, so a controlled failure still carries whatever it
+logged before the error.
 
 `omnis_calls` is provided by the Omnis runtime; it is not in this repo and is not
 require-able outside Omnis. That is fine: `index.js` is the only file that needs it, and

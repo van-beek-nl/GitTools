@@ -33,26 +33,35 @@ const operations = Object.freeze({
  * @param {object} [request.config]            GitTools config from Omnis: { gitPath?, logLevel? }
  *                                             (gitPath defaults to "git" on PATH; logLevel to "info")
  * @returns {object} response
- *   success: { ok: true,  operation, result?: 'clean'|'conflict'|'missing-base', source?: string }
- *   failure: { ok: false, operation, error: { code, message } }
+ *   success: { ok: true,  operation, result?: 'clean'|'conflict'|'missing-base', source?: string, log }
+ *   failure: { ok: false, operation, error: { code, message }, log }
+ *
+ * `log` is always present: the array of { level, message } records the operation produced
+ * (every level, unfiltered — Omnis filters when re-emitting them to its IDE trace log). They
+ * accumulate as the operation runs, so a controlled failure still returns what it logged.
  */
 function run(request) {
   const operation = request && request.operation;
   const handler = operations[operation];
   if (!handler) {
-    return fail(operation, ErrorCodes.BAD_REQUEST, 'Unknown operation: ' + String(operation));
+    return Object.assign(fail(operation, ErrorCodes.BAD_REQUEST, 'Unknown operation: ' + String(operation)), { log: [] });
   }
 
+  // createContext builds the logger (and binds ctx.git to it), so read it back rather than
+  // owning a separate one here — that keeps git's own log lines in the captured set. The only
+  // gap is logging during a createContext failure (log stays null), a tiny pre-git window.
+  let log = null;
   try {
     const ctx = createContext(request);
+    log = ctx.log;
     const outcome = handler(ctx, request) || {};
-    return Object.assign({ ok: true, operation: operation }, outcome);
+    return Object.assign({ ok: true, operation: operation, log: log.records() }, outcome);
   } catch (err) {
-    if (err instanceof GitToolsError) {
-      return fail(operation, err.code, err.message);
-    }
-
-    return fail(operation, 'UNHANDLED', err && err.message ? err.message : String(err));
+    const response = (err instanceof GitToolsError)
+      ? fail(operation, err.code, err.message)
+      : fail(operation, 'UNHANDLED', err && err.message ? err.message : String(err));
+    response.log = log ? log.records() : [];
+    return response;
   }
 }
 
