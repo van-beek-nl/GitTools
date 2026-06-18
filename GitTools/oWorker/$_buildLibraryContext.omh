@@ -1,9 +1,0 @@
-Do lvParameters.$cols.$add("libraryId",kCharacter,kSimplechar)
-Do lvParameters.$cols.$add("libraryPath",kCharacter,kSimplechar)
-Do lvParameters.$cols.$add("jsonPath",kCharacter,kSimplechar)
-
-Calculate lvParameters.libraryId as pRegistration.id
-Calculate lvParameters.libraryPath as pRegistration.libraryPath
-Calculate lvParameters.jsonPath as pRegistration.jsonPath
-
-Quit method lvParameters

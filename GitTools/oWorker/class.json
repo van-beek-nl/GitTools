@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 109,
+	"internalversion": 116,
 	"superclass": ".OW3.OW3 Worker Objects\\JAVASCRIPTWorker",
 	"designtaskname": "GitTools",
 	"cvardefs": [
@@ -43,7 +43,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2026-06-18 19:30:45",
+		"moddate": "2026-06-18 19:37:23",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

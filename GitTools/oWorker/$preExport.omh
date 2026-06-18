@@ -1,4 +1,4 @@
-Do $cinst.$_buildLibraryContext(pRegistration) Returns lvParameters
+Do $cinst.$_buildPayload(pRegistration) Returns lvParameters
 Do lvParameters.$cols.$add("allowMissingBase",kBoolean)
 Calculate lvParameters.allowMissingBase as pAllowMissingBase
 Quit method $cinst.$callmethod("preExport",lvParameters)
