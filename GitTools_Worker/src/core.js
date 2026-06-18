@@ -11,10 +11,10 @@ const { postImport } = require('./scripts/postImport.js');
 // are the complete set of operations the worker supports and the strings carried in
 // request.operation.
 const operations = Object.freeze({
-  'pre-export': preExport,
-  'post-export': postExport,
-  'pre-import': preImport,
-  'post-import': postImport,
+  'preExport': preExport,
+  'postExport': postExport,
+  'preImport': preImport,
+  'postImport': postImport,
 });
 
 /**

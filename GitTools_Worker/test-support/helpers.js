@@ -127,8 +127,8 @@ function omnisExport(repo, json, lib, files) {
 // Full export round-trip (pre + post). Returns the post-export result string.
 function exportLib(repo, json, lib, files, opts) {
   omnisExport(repo, json, lib, files);
-  runOp('pre-export', repo, json, lib, opts);
-  return runOp('post-export', repo, json, lib, opts);
+  runOp('preExport', repo, json, lib, opts);
+  return runOp('postExport', repo, json, lib, opts);
 }
 
 // Commit a source state directly (simulates a colleague's commit / a pull). With
@@ -146,7 +146,7 @@ function commitSource(repo, json, files, msg, opts) {
 // Import: commit the source, then finalize via post-import (records base == source).
 function importLib(repo, json, lib, files, opts) {
   commitSource(repo, json, files, 'import source', opts);
-  return runOp('post-import', repo, json, lib);
+  return runOp('postImport', repo, json, lib);
 }
 
 // All files under the json path as { 'rel/path': content }.

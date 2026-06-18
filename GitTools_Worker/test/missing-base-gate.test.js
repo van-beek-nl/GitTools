@@ -15,13 +15,13 @@ test('pre-export refuses to overwrite committed source with no base, then allowM
   const r = h.newRepo(); const lib = h.libOf(r);
   h.commitSource(r, J, { 'a.json': 'a0' }, 'committed source, never imported/exported -> no base');
   h.omnisExport(r, J, lib, { 'a.json': 'a1' });
-  assert.equal(h.runOp('pre-export', r, J, lib), 'missing-base', 'pre-export gates');
+  assert.equal(h.runOp('preExport', r, J, lib), 'missing-base', 'pre-export gates');
   assert.ok(!fs.existsSync(h.handoffPath(r, J, lib)), 'no handoff is written, so the export cannot proceed');
   assert.equal(h.read1(r, J, 'a.json'), 'a0', 'the committed source is untouched by the gated run');
   // Re-run with the acknowledgement.
-  assert.equal(h.runOp('pre-export', r, J, lib, { allowMissingBase: true }), undefined, 'forced pre-export bypasses the gate');
+  assert.equal(h.runOp('preExport', r, J, lib, { allowMissingBase: true }), undefined, 'forced pre-export bypasses the gate');
   assert.ok(fs.existsSync(h.handoffPath(r, J, lib)), 'forced pre-export writes the handoff');
-  assert.equal(h.runOp('post-export', r, J, lib, { allowMissingBase: true }), 'clean', 'forced post-export applies');
+  assert.equal(h.runOp('postExport', r, J, lib, { allowMissingBase: true }), 'clean', 'forced post-export applies');
   assert.equal(h.read1(r, J, 'a.json'), 'a1', 'the overwrite is applied');
 });
 
@@ -31,8 +31,8 @@ test('post-export refuses to apply a baseless overwrite that was not acknowledge
   h.omnisExport(r, J, lib, { 'a.json': 'a1' });
   // Simulate the pre-export signal being bypassed: force pre (writes the handoff), then run
   // post WITHOUT the flag. The backstop must refuse rather than silently overwrite.
-  h.runOp('pre-export', r, J, lib, { allowMissingBase: true });
-  assert.equal(h.runOp('post-export', r, J, lib), 'missing-base', 'the post-export backstop gates');
+  h.runOp('preExport', r, J, lib, { allowMissingBase: true });
+  assert.equal(h.runOp('postExport', r, J, lib), 'missing-base', 'the post-export backstop gates');
   assert.equal(h.read1(r, J, 'a.json'), 'a0', 'the committed source is not overwritten');
   assert.ok(!fs.existsSync(h.handoffPath(r, J, lib)), 'the handoff is cleared for a clean retry');
 });
@@ -43,7 +43,7 @@ test('an export finds no base anywhere in history and gates rather than overwrit
   const r = h.newRepo(); const lib = h.libOf(r);
   h.commitSource(r, J, { 'a.json': 'z0' }, 'source only, no gittools state');
   h.omnisExport(r, J, lib, { 'a.json': 'z1' });
-  assert.equal(h.runOp('pre-export', r, J, lib), 'missing-base', 'no base found anywhere -> gate');
+  assert.equal(h.runOp('preExport', r, J, lib), 'missing-base', 'no base found anywhere -> gate');
 });
 
 test('a first export of a path absent from HEAD proceeds without gating', () => {
@@ -51,7 +51,7 @@ test('a first export of a path absent from HEAD proceeds without gating', () => 
   fs.writeFileSync(path.join(r, 'README.md'), 'hello');
   h.git(r, 'add', 'README.md'); h.git(r, 'commit', '-q', '-m', 'unrelated commit; the json path is not in HEAD');
   h.omnisExport(r, J, lib, { 'a.json': 'a0' });
-  assert.equal(h.runOp('pre-export', r, J, lib), undefined, 'no committed source to lose, so no gate');
-  assert.equal(h.runOp('post-export', r, J, lib), 'clean', 'the first export applies');
+  assert.equal(h.runOp('preExport', r, J, lib), undefined, 'no committed source to lose, so no gate');
+  assert.equal(h.runOp('postExport', r, J, lib), 'clean', 'the first export applies');
   assert.equal(h.read1(r, J, 'a.json'), 'a0', 'its content lands');
 });
