@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { GitToolsError, ErrorCodes } = require('../constants.js');
+const { fingerprintPath } = require('../fingerprint.js');
 
 const FAST_HISTORY_MAX_COMMITS = 1000;
 const FULL_HISTORY_MAX_COMMITS = 2147483647;
@@ -18,7 +19,7 @@ const FULL_HISTORY_MAX_COMMITS = 2147483647;
  *   result = 'missing-base' when the safety gate fires (no handoff written)
  */
 function preExport(ctx, request) {
-  const { git, handoff, meta, log, jsonPath, stateRoot } = ctx;
+  const { git, handoff, meta, log, jsonPath, jsonAbsolutePath, stateRoot } = ctx;
 
   if (!git.mergeTreeHasWriteTreeCapabilities()) {
     throw new GitToolsError(
@@ -50,6 +51,7 @@ function preExport(ctx, request) {
   const resolved = resolveCurrentSourceAndBase(ctx, metaObject);
   const currentSourceTree = resolved.sourceTree;
   const mergeBase = resolved.mergeBase;
+  const liveTree = resolved.liveTree;
 
   // If the base tree is missing, we don't have a common tree to perform merge operations off of.
   // Applying the export in this state would overwrite any changes with the developer's source.
@@ -67,11 +69,16 @@ function preExport(ctx, request) {
     git.invoke(['read-tree', '--empty'], { indexFile: exportIndex });
   }
 
-  // Write pending operation to file for the post-export script to use.
+  // Write pending operation to file for the post-export script to use. `liveTree` is the tree
+  // currently on disk at the JSON path, paired with a cheap fingerprint of that same content:
+  // post-export reuses `liveTree` (skipping an expensive re-hash) only if the fingerprint still
+  // matches when it runs, i.e. nothing modified the live path during the export.
   handoff.write({
     op: 'export',
     currentSourceTree: currentSourceTree,
     mergeBase: mergeBase,
+    liveTree: liveTree,
+    liveFingerprint: fingerprintPath(jsonAbsolutePath),
   });
 
   return { source: exportDirectory };
@@ -170,7 +177,7 @@ function resolveCurrentSourceAndBase(ctx, metaObject) {
     // commit, repeated export before committing). Use it as the source and the advanced
     // baseTree as the base.
     log.debug('Live JSON path matches last GitTools output; using as source.');
-    return { sourceTree: liveTree, mergeBase: metaObject.baseTree };
+    return { sourceTree: liveTree, mergeBase: metaObject.baseTree, liveTree: liveTree };
   }
 
   if (git.doesHeadExist()) {
@@ -209,11 +216,11 @@ function resolveCurrentSourceAndBase(ctx, metaObject) {
       });
     }
 
-    return { sourceTree: sourceTree, mergeBase: mergeBase };
+    return { sourceTree: sourceTree, mergeBase: mergeBase, liveTree: liveTree };
   }
 
   log.debug('Repository has no commits; using live JSON path as source.');
-  return { sourceTree: liveTree, mergeBase: metaObject.baseTree };
+  return { sourceTree: liveTree, mergeBase: metaObject.baseTree, liveTree: liveTree };
 }
 
 // Matches HEAD's jsonPath subtree history (newest first, up to maxCommits commits) against

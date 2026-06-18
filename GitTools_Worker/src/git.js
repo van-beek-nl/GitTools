@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { performance } = require('perf_hooks');
 const { GitToolsError, ErrorCodes } = require('./constants.js');
 
 // spawnSync caps captured stdout at ~1 MB by default and silently errors past it.
@@ -47,12 +48,15 @@ function createGit(options) {
    */
   function invokeRaw(args, opts) {
     opts = opts || {};
-    if (log) { log.debug('git ' + args.join(' ')); }
 
     const env = Object.assign({}, process.env, opts.env || {});
     if (opts.indexFile) { env.GIT_INDEX_FILE = opts.indexFile; }
     if (opts.workTree) { env.GIT_WORK_TREE = opts.workTree; }
 
+    // Time each subprocess only when debug logging is active, so production runs pay neither the
+    // measurement nor the buffered log line; under debug it is a cheap, useful per-command profile.
+    const timing = log && log.isLevelEnabled('debug');
+    const startedAt = timing ? performance.now() : 0;
     const result = spawnSync(gitPath, args, {
       cwd: opts.cwd || baseCwd,
       input: opts.input,
@@ -61,6 +65,7 @@ function createGit(options) {
       maxBuffer: MAX_BUFFER,
       windowsHide: true,
     });
+    if (timing) { log.debug('git ' + args.join(' ') + ` (${(performance.now() - startedAt).toFixed(1)}ms)`); }
 
     if (result.error) {
       throw new GitToolsError(
@@ -253,8 +258,10 @@ function createGit(options) {
       pendingHashes.push({ relative: repoPath, absolute: path.join(absoluteBase, repoPath) });
     }
 
-    // Add untracked file paths to pending hash list
-    for (const line of splitLines(invoke(['ls-files', '--others', ...pathspecArgs], opts))) {
+    // Add untracked file paths to pending hash list. --exclude-standard makes this honor
+    // .gitignore (and the global/info excludes), so ignored junk like macOS .DS_Store never
+    // leaks into the computed tree — matching git's own view of the source.
+    for (const line of splitLines(invoke(['ls-files', '--others', '--exclude-standard', ...pathspecArgs], opts))) {
       pendingHashes.push({ relative: line, absolute: path.join(absoluteBase, line) });
     }
 
@@ -346,7 +353,7 @@ function createGit(options) {
         pendingHashes.push({ relative: strippedPath, absolute: path.join(baseCwd, repoPath) });
       }
 
-      for (const repoPath of splitLines(invoke(['ls-files', '--others', '--', hashRoot]))) {
+      for (const repoPath of splitLines(invoke(['ls-files', '--others', '--exclude-standard', '--', hashRoot]))) {
         const strippedPath = stripRelativePrefix(repoPath);
         handledPaths.add(strippedPath);
         pendingHashes.push({ relative: strippedPath, absolute: path.join(baseCwd, repoPath) });

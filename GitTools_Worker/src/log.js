@@ -36,6 +36,10 @@ function createLogger(options) {
     warning: function (m) { emit('warning', m); },
     error: function (m) { emit('error', m); },
     records: function () { return records.slice(); },
+    // True when `lvl` is at or above the configured threshold — i.e. it would reach the sink.
+    // Lets callers skip work that is only worth doing when that level is actually active (e.g.
+    // per-command timing under debug).
+    isLevelEnabled: function (lvl) { return LEVELS[lvl] !== undefined && LEVELS[lvl] >= threshold; },
   };
 }
 

@@ -6,6 +6,14 @@ const assert = require('node:assert');
 
 const { createLogger } = require('../src/log.js');
 
+test('isLevelEnabled reflects the configured threshold', () => {
+  const log = createLogger({ level: 'info', sink: () => {} });
+
+  assert.equal(log.isLevelEnabled('debug'), false, 'debug is below the info threshold');
+  assert.equal(log.isLevelEnabled('info'), true);
+  assert.equal(log.isLevelEnabled('error'), true);
+});
+
 test('records() captures every level regardless of the stderr threshold', () => {
   const log = createLogger({ level: 'error', sink: () => {} });
 

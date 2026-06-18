@@ -32,7 +32,8 @@ test('a controlled failure still returns the logs accumulated before the error',
   const r = h.newRepo(); const lib = h.libOf(r);
 
   // Manufacture a real unresolved merge conflict under the JSON path so preImport refuses
-  // the import (UNRESOLVED_CONFLICTS) — after it has already logged the git command it ran.
+  // the import (UNRESOLVED_CONFLICTS) — after it has already logged, at debug, the git command
+  // it ran to detect the conflict.
   const abs = path.join(r, J);
   h.writeFiles(abs, { 'C/class.json': 'base\n' });
   h.git(r, 'add', '-A'); h.git(r, 'commit', '-q', '-m', 'base');
@@ -45,7 +46,7 @@ test('a controlled failure still returns the logs accumulated before the error',
   h.git(r, 'add', '-A'); h.git(r, 'commit', '-q', '-m', 'mainline');
   h.gitTry(r, 'merge', 'feature'); // conflicts; leaves C/class.json unmerged
 
-  const res = run(h.request('preImport', r, J, lib));
+  const res = run(Object.assign(h.request('preImport', r, J, lib), { config: { logLevel: 'debug' } }));
 
   assert.equal(res.ok, false);
   assert.equal(res.error.code, 'UNRESOLVED_CONFLICTS');
