@@ -672,50 +672,6 @@
 		]
 	},
 	{
-		"name": "$$updateMetaMapping",
-		"order": 19,
-		"pvardefs": [
-			{
-				"name": "pRepositoryRoot",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvFile",
-				"order": 6,
-				"type": "kObject",
-				"subtype": ".FileOps.FileOps",
-				"sublen": 0
-			},
-			{
-				"name": "lvMapping",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvMetaMappingPath",
-				"order": 5,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvRegistrations",
-				"order": 2,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
 		"name": "----- Scripts",
 		"order": 20,
 		"pvardefs": [

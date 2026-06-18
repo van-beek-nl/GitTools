@@ -7,7 +7,6 @@ Do tvFileUtilities.$normalizePath(pConfigFilePath) Returns pConfigFilePath
 Calculate lvRegistration.id as tvFileUtilities.$configPathToLibraryID(pConfigFilePath)
 Calculate lvRegistration.basePath as FileOps.$parentdir(pConfigFilePath)
 Calculate lvRegistration.libraryPath as tvFileUtilities.$configPathToLibraryPath(pConfigFilePath)
-Calculate lvRegistration.metaPath as tvFileUtilities.$libraryPathToMetaPath(lvRegistration.libraryPath)
 Calculate lvRegistration.configPath as pConfigFilePath
 
 If lvRegistration.libraryPath=$clib.$pathname
@@ -42,7 +41,7 @@ If isclear(lvConfiguration.jsonPath)
 End If
 
 Calculate lvRegistration.jsonPath as tvFileUtilities.$normalizePath(tvFileUtilities.$join(FileOps.$parentdir(lvRegistration.libraryPath),lvConfiguration.jsonPath))
-Calculate lvRegistration.repositoryRoot as tvFileUtilities.$fixPathSeparators(tvGit.$getRepositoryRoot(lvRegistration.jsonPath))
+Calculate lvRegistration.repositoryRoot as tvFileUtilities.$fixPathSeparators(ivWorker.$resolveRepositoryRoot(lvRegistration.jsonPath))
 Calculate lvRegistration.releasePath as tvFileUtilities.$getAbsolutePath(lvConfiguration.releasePath,FileOps.$parentdir(pConfigFilePath))
 Calculate lvRegistration.preImportScript as lvConfiguration.preImportScript
 Calculate lvRegistration.postImportScript as lvConfiguration.postImportScript
@@ -62,15 +61,5 @@ End If
 Do ivRegisteredLibraries.$add().$assignrow(lvRegistration,kTrue)
 Do tvLogger.$info("Registered library ",lvRegistration.id)
 Do tvMenu.$buildMenu()
-
-Calculate tvGit.$cwd as lvRegistration.repositoryRoot
-If tvGit.$isHeadDetached()
-	Yes/No message Detached HEAD detected {GitTools has detected that the repository for library [lvRegistration.id] is in a detached HEAD state. This can happen when the GitTools export procedure is aborted abruptly (i.e. due to a crash). Do you want GitTools to try and re-attach the repository HEAD for you?}
-	If flag true
-		Do tvGit.$reattachHead()
-	End If
-End If
-
-Do $cinst.$$updateMetaMapping(lvRegistration.repositoryRoot)
 
 Quit method kTrue

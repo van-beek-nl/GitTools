@@ -70,23 +70,9 @@
 		}
 	},
 	{
-		"name": "metaPath",
-		"ident": 32010,
-		"order": 6,
-		"type": "kCharacter",
-		"subtype": "kSimplechar",
-		"sublen": 100000000,
-		"properties": {
-			"desc": "",
-			"nonull": false,
-			"primarykey": false,
-			"userinfo": ""
-		}
-	},
-	{
 		"name": "releasePath",
 		"ident": 32012,
-		"order": 7,
+		"order": 6,
 		"type": "kCharacter",
 		"subtype": "kSimplechar",
 		"sublen": 100000000,
@@ -100,7 +86,7 @@
 	{
 		"name": "configPath",
 		"ident": 32020,
-		"order": 8,
+		"order": 7,
 		"type": "kCharacter",
 		"subtype": "kSimplechar",
 		"sublen": 100000000,
@@ -114,7 +100,7 @@
 	{
 		"name": "dependencies",
 		"ident": 32002,
-		"order": 9,
+		"order": 8,
 		"type": "kList",
 		"subtype": "<character>",
 		"sublen": 0,
@@ -128,7 +114,7 @@
 	{
 		"name": "preImportScript",
 		"ident": 32013,
-		"order": 10,
+		"order": 9,
 		"type": "kList",
 		"subtype": "<character>",
 		"sublen": 0,
@@ -142,7 +128,7 @@
 	{
 		"name": "postImportScript",
 		"ident": 32014,
-		"order": 11,
+		"order": 10,
 		"type": "kList",
 		"subtype": "<character>",
 		"sublen": 0,
@@ -156,7 +142,7 @@
 	{
 		"name": "preExportScript",
 		"ident": 32015,
-		"order": 12,
+		"order": 11,
 		"type": "kList",
 		"subtype": "<character>",
 		"sublen": 0,
@@ -170,7 +156,7 @@
 	{
 		"name": "postExportScript",
 		"ident": 32016,
-		"order": 13,
+		"order": 12,
 		"type": "kList",
 		"subtype": "<character>",
 		"sublen": 0,

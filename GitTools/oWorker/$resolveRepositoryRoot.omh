@@ -1,0 +1,9 @@
+Do lvParameters.$cols.$add("path",kCharacter,kSimplechar)
+Calculate lvParameters.path as pPath
+Do $cinst.$callmethod("resolveRepositoryRoot",lvParameters) Returns lvResult
+
+If not(lvResult.ok)
+	Quit method #NULL
+End If
+
+Quit method lvResult.repositoryRoot

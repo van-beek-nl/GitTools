@@ -126,8 +126,38 @@
 		]
 	},
 	{
-		"name": "$callmethod",
+		"name": "$resolveRepositoryRoot",
 		"order": 6,
+		"pvardefs": [
+			{
+				"name": "pPath",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvResult",
+				"order": 3,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$callmethod",
+		"order": 8,
 		"pvardefs": [
 			{
 				"name": "pMethod",
@@ -172,40 +202,6 @@
 	},
 	{
 		"name": "$methodreturn",
-		"order": 7,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$methoderror",
-		"order": 8,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$workererror",
 		"order": 9,
 		"pvardefs": [
 			{
@@ -222,8 +218,42 @@
 		]
 	},
 	{
-		"name": "$_install",
+		"name": "$methoderror",
 		"order": 10,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$workererror",
+		"order": 11,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$_install",
+		"order": 12,
 		"pvardefs": [
 			{
 				"name": "pTargetDirectory",
@@ -281,7 +311,7 @@
 	},
 	{
 		"name": "$_buildLibraryContext",
-		"order": 11,
+		"order": 13,
 		"pvardefs": [
 			{
 				"name": "pRegistration",
@@ -304,7 +334,7 @@
 	},
 	{
 		"name": "$_fail",
-		"order": 12,
+		"order": 14,
 		"pvardefs": [
 			{
 				"name": "pErrorCode",
@@ -342,7 +372,7 @@
 	},
 	{
 		"name": "$_logResults",
-		"order": 13,
+		"order": 15,
 		"pvardefs": [
 
 		],
