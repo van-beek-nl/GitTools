@@ -22,9 +22,10 @@ const GITATTRIBUTES = {
  * file beside the library, the .git/gittools-mapping.meta file, and the post-commit.d/gittools hook.
  *
  * The repository-config writes (git config + the tracked .gitignore / .gitattributes) only run when
- * request.updateRepositoryConfig is set; the legacy cleanup always runs. A repository already in the
- * desired state is left untouched. The post-commit dispatcher (if any) is deliberately left alone:
- * once our hook file is gone it is a harmless no-op.
+ * request.updateRepositoryConfig is set, and are skipped entirely when repoRoot is a submodule (so
+ * an external/un-migrated submodule library is never dirtied); the legacy cleanup always runs. A
+ * repository already in the desired state is left untouched. The post-commit dispatcher (if any) is
+ * deliberately left alone: once our hook file is gone it is a harmless no-op.
  *
  * The operation runs through createContext, which fails with BAD_REQUEST when jsonPath is not inside
  * a git repository — so a repository root that cannot be determined is already a structured error.
@@ -36,18 +37,26 @@ function bootstrapRepository(ctx, request) {
   const { git, repoRoot, libraryPath, log } = ctx;
 
   // Repository-config writes touch the user's git config and the repository-tracked .gitignore /
-  // .gitattributes, so they only run when Omnis opts in. The legacy cleanup below runs regardless,
-  // so an upgrading user is always tidied up even with auto-config off.
+  // .gitattributes, so they only run when Omnis opts in. They are also skipped when repoRoot is a
+  // submodule: there the export path resolves into the submodule's own work tree (git resolves the
+  // submodule indirection in resolveRepoRoot), and writing these tracked files would dirty a
+  // submodule the user did not intend to modify — e.g. an external library pulled in as a submodule
+  // that has not migrated to the current GitTools setup. The legacy cleanup below runs regardless
+  // (it only removes ignored or .git/-internal artifacts), so an upgrading user is always tidied up.
   if (request.updateRepositoryConfig) {
-    reconcileRules(path.join(repoRoot, GITIGNORE.file), GITIGNORE.require, GITIGNORE.remove, log);
-    reconcileRules(path.join(repoRoot, GITATTRIBUTES.file), GITATTRIBUTES.require, GITATTRIBUTES.remove, log);
+    if (git.isSubmodule()) {
+      log.debug(`Repository ${repoRoot} is a submodule; skipping .gitignore/.gitattributes/config writes.`);
+    } else {
+      reconcileRules(path.join(repoRoot, GITIGNORE.file), GITIGNORE.require, GITIGNORE.remove, log);
+      reconcileRules(path.join(repoRoot, GITATTRIBUTES.file), GITATTRIBUTES.require, GITATTRIBUTES.remove, log);
 
-    // CR-compatible diff driver. Omnis exports StringTables with old-school Macintosh (CR) line
-    // endings, which git otherwise sees as one giant line; this textconv lets it diff them. Set it
-    // only when missing so a repeated bootstrap is a true no-op.
-    if (git.invokeRaw(['config', '--local', '--get', 'diff.cr.textconv']).status !== 0) {
-      git.invoke(['config', '--local', 'diff.cr.textconv', "tr '\\r' '\\n' <"]);
-      log.info(`Added CR-compatible diffing to git config for repository ${repoRoot}`);
+      // CR-compatible diff driver. Omnis exports StringTables with old-school Macintosh (CR) line
+      // endings, which git otherwise sees as one giant line; this textconv lets it diff them. Set it
+      // only when missing so a repeated bootstrap is a true no-op.
+      if (git.invokeRaw(['config', '--local', '--get', 'diff.cr.textconv']).status !== 0) {
+        git.invoke(['config', '--local', 'diff.cr.textconv', "tr '\\r' '\\n' <"]);
+        log.info(`Added CR-compatible diffing to git config for repository ${repoRoot}`);
+      }
     }
   }
 

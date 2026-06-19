@@ -154,6 +154,32 @@ test('still removes legacy artifacts when updateRepositoryConfig is false', () =
   assert.ok(!fs.existsSync(path.join(hookDir, 'gittools')), 'legacy hook removed');
 });
 
+test('skips config writes for a library inside a submodule, but still cleans legacy artifacts', () => {
+  // A standalone repo that will be embedded as a submodule (needs a commit to be addable).
+  const subSrc = h.newRepo('e2e-subsrc');
+  h.git(subSrc, 'add', '-A');
+  h.git(subSrc, 'commit', '-q', '-m', 'init');
+
+  // A superproject that embeds it under "sub" (local-path submodules need protocol.file allowed).
+  const sup = h.newRepo('e2e-super');
+  h.git(sup, '-c', 'protocol.file.allow=always', 'submodule', 'add', subSrc, 'sub');
+
+  const subPath = path.join(sup, 'sub');
+  const lib = path.join(subPath, 'Lib.lbs');
+  fs.writeFileSync(lib, 'bin');
+  const legacyMeta = path.join(subPath, 'Lib.gittools.meta'); // a stale artifact cleanup must remove
+  fs.writeFileSync(legacyMeta, 'stale');
+
+  // Bootstrap a library whose export path lives inside the submodule. repoRoot resolves to the
+  // submodule, so the config writes must be suppressed even with updateRepositoryConfig on.
+  h.runOp('bootstrapRepository', subPath, J, lib, WITH_CONFIG);
+
+  assert.ok(!fs.existsSync(path.join(subPath, '.gitignore')), '.gitignore not created in submodule');
+  assert.ok(!fs.existsSync(path.join(subPath, '.gitattributes')), '.gitattributes not created in submodule');
+  assert.notEqual(h.gitTry(subPath, 'config', '--local', '--get', 'diff.cr.textconv').status, 0, 'diff driver not set in submodule');
+  assert.ok(!fs.existsSync(legacyMeta), 'legacy meta still removed in submodule');
+});
+
 test('fails with a structured error when the path is not inside a git repository', () => {
   const outside = h.track(h.tmpName('bootstrap-norepo'));
   fs.mkdirSync(outside, { recursive: true });
