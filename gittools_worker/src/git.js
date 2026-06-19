@@ -142,6 +142,19 @@ function createGit(options) {
     return toplevel ? fs.realpathSync(toplevel) : '';
   }
 
+  /**
+   * Whether this runner's repository is itself a submodule of a superproject, detected via
+   * `git rev-parse --show-superproject-working-tree`: a non-empty result is the superproject's
+   * work tree, so we are a submodule. Fails open — a non-zero exit or empty output is
+   * reported as `false`.
+   *
+   * @returns {boolean} true when the repository root is a submodule working tree
+   */
+  function isSubmodule() {
+    const result = invokeRaw(['rev-parse', '--show-superproject-working-tree']);
+    return result.status === 0 && result.stdout.trim() !== '';
+  }
+
   /** Checks whether the git version used has git merge-tree --write-tree capabilities */
   function mergeTreeHasWriteTreeCapabilities() {
     const result = invokeRaw(['merge-tree', '-h']);
@@ -557,6 +570,7 @@ function createGit(options) {
     invoke: invoke,
     version: version,
     resolveRepoRoot: resolveRepoRoot,
+    isSubmodule: isSubmodule,
     mergeTreeHasWriteTreeCapabilities: mergeTreeHasWriteTreeCapabilities,
     resolvePrivatePath: resolvePrivatePath,
     resolveCommonPath: resolveCommonPath,

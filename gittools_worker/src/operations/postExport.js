@@ -353,7 +353,7 @@ function applyConflictedMergeToLiveJsonPath(ctx, mergeResult, knownLiveTree) {
  * @returns {string[]} the repo-relative paths that changed (consumed by resetStagedChanges)
  */
 function writeLiveJsonPathDelta(ctx, tree, liveTree) {
-  const { git, log, jsonPath, jsonAbsolutePath } = ctx;
+  const { git, log, jsonPath, jsonAbsolutePath, repoRoot } = ctx;
 
   const nameStatus = git.invoke(['diff-tree', '-r', '--no-commit-id', '--name-status', liveTree, tree]);
   if (!nameStatus) return [];
@@ -390,15 +390,19 @@ function writeLiveJsonPathDelta(ctx, tree, liveTree) {
   }
 
   // Check out the added/modified files from `tree` via a throwaway index, so the real index
-  // (the user's staging) is never touched. Paths are relative to the tree, written under the
-  // JSON path via GIT_WORK_TREE.
+  // (the user's staging) is never touched. We graft the subtree at its real repository path and
+  // run the checkout with the work tree at the repository root, so git resolves .gitattributes
+  // (text / eol / -text) and core.autocrlf exactly as a normal checkout would. A work tree rooted
+  // at the JSON subpath never sees the repo-root .gitattributes, which lets core.autocrlf silently
+  // rewrite line endings (e.g. LF -> CRLF) — making git report whole files as changed.
   if (writes.length > 0) {
     fs.mkdirSync(jsonAbsolutePath, { recursive: true });
+    const prefix = jsonPath === '.' ? '' : `${jsonPath}/`;
     git.withScratchIndex((scratch) => {
-      scratch.invoke(['read-tree', tree]);
+      scratch.invoke(prefix ? ['read-tree', `--prefix=${prefix}`, tree] : ['read-tree', tree]);
       scratch.invoke(['checkout-index', '-f', '--stdin'], {
-        workTree: jsonAbsolutePath,
-        input: writes.join('\n') + '\n',
+        workTree: repoRoot,
+        input: writes.map(w => `${prefix}${w}`).join('\n') + '\n',
       });
     });
   }
