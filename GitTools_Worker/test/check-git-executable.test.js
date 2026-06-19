@@ -7,13 +7,14 @@ const assert = require('node:assert');
 
 const { run } = require('../src/core.js');
 
-test('reports the configured git as valid with its version string', () => {
+test('reports the configured git as valid with its version number (no "git version " prefix)', () => {
   const res = run({ operation: 'checkGitExecutable', config: { gitPath: 'git', logLevel: 'error' } });
 
   assert.strictEqual(res.ok, true);
   assert.strictEqual(res.operation, 'checkGitExecutable');
   assert.strictEqual(res.valid, true);
-  assert.match(res.version, /^git version /);
+  assert.doesNotMatch(res.version, /^git version /);
+  assert.match(res.version, /^\d+\.\d+/);
 });
 
 test('reports an unusable git path as invalid without failing the operation', () => {

@@ -6,12 +6,18 @@
 
 		],
 		"lvardefs": [
-
+			{
+				"name": "lvTest",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			}
 		]
 	},
 	{
 		"name": "$registerLibraries",
-		"order": 3,
+		"order": 2,
 		"desc": "Attempts to register all currently opened libraries.",
 		"pvardefs": [
 
@@ -35,7 +41,7 @@
 	},
 	{
 		"name": "$registerLibraryFromConfigPath",
-		"order": 4,
+		"order": 3,
 		"desc": "Registers a library based on the given path to a GitTools config file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -95,7 +101,7 @@
 	},
 	{
 		"name": "$registerLibraryFromLibraryPath",
-		"order": 5,
+		"order": 4,
 		"desc": "Registers a library based on the given path to an Omnis library file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -127,7 +133,7 @@
 	},
 	{
 		"name": "$registerLibrary",
-		"order": 6,
+		"order": 5,
 		"desc": "Registers the given library with GitTools. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -146,7 +152,7 @@
 	},
 	{
 		"name": "$updateRegistration",
-		"order": 7,
+		"order": 6,
 		"desc": "Updates the library registered under the given ID, reloading its configuration. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -171,7 +177,7 @@
 	},
 	{
 		"name": "$deregisterLibrary",
-		"order": 8,
+		"order": 7,
 		"desc": "Deregisters a library with the given library ID. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -196,7 +202,7 @@
 	},
 	{
 		"name": "$importLibrary",
-		"order": 9,
+		"order": 8,
 		"desc": "Imports the given library from source, creating a new Omnis library file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -306,7 +312,7 @@
 	},
 	{
 		"name": "$exportLibrary",
-		"order": 10,
+		"order": 9,
 		"desc": "Exports the given library to JSON. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -396,7 +402,7 @@
 	},
 	{
 		"name": "$getRegistration",
-		"order": 11,
+		"order": 10,
 		"desc": "Returns the registration data for the given library, or null if the library is not registered with GitTools.",
 		"pvardefs": [
 			{
@@ -421,7 +427,7 @@
 	},
 	{
 		"name": "----- Properties",
-		"order": 12,
+		"order": 11,
 		"pvardefs": [
 
 		],
@@ -432,7 +438,7 @@
 	},
 	{
 		"name": "$libraries",
-		"order": 13,
+		"order": 12,
 		"desc": "All libraries currently registered with GitTools.",
 		"pvardefs": [
 
@@ -443,7 +449,54 @@
 	},
 	{
 		"name": "$libraries.$assign",
+		"order": 13,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$gitAvailable",
 		"order": 14,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvGitMajorVersion",
+				"order": 4,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvGitMinorVersion",
+				"order": 5,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvResult",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvVersionParts",
+				"order": 3,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$gitAvailable.$assign",
+		"order": 15,
 		"pvardefs": [
 
 		],
@@ -453,7 +506,7 @@
 	},
 	{
 		"name": "----- Private",
-		"order": 15,
+		"order": 16,
 		"pvardefs": [
 
 		],
@@ -464,7 +517,7 @@
 	},
 	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 16,
+		"order": 17,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{
@@ -492,7 +545,7 @@
 	},
 	{
 		"name": "$$getLibraryReferenceFromPath",
-		"order": 17,
+		"order": 18,
 		"desc": "Finds and returns a matching library reference for the given library path.",
 		"pvardefs": [
 			{
@@ -517,7 +570,7 @@
 	},
 	{
 		"name": "$$bootstrapGitRepository",
-		"order": 18,
+		"order": 19,
 		"pvardefs": [
 			{
 				"name": "pRegistration",

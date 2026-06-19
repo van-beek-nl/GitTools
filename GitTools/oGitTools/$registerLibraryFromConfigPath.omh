@@ -1,4 +1,4 @@
-If not(tvGit.$isAvailable)
+If not($cinst.$gitAvailable)
 	Do tvLogger.$error("Git is not available. Refusing to register libraries at this time.")
 	Quit method kFalse
 End If

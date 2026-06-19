@@ -1,0 +1,2 @@
+Do $cinst.$_buildPayload() Returns lvParameters
+Quit method $cinst.$callmethod("checkGitExecutable",lvParameters)

@@ -101,9 +101,12 @@ function createGit(options) {
     return r.stdout.trim();
   }
 
-  /** The configured git's version string. Throws if the executable is unavailable. */
+  /**
+   * The configured git's version number (e.g. "2.39.3"), with git's "git version " prefix
+   * stripped. Throws if the executable is unavailable.
+   */
   function version() {
-    return invoke(['--version']);
+    return invoke(['--version']).replace(/^git version /, '');
   }
 
   /**

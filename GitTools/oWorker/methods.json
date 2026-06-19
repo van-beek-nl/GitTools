@@ -156,8 +156,24 @@
 		]
 	},
 	{
-		"name": "$callmethod",
+		"name": "$checkGitExecutable",
 		"order": 7,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$callmethod",
+		"order": 9,
 		"pvardefs": [
 			{
 				"name": "pMethod",
@@ -202,40 +218,6 @@
 	},
 	{
 		"name": "$methodreturn",
-		"order": 8,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$methoderror",
-		"order": 9,
-		"pvardefs": [
-			{
-				"name": "pResult",
-				"order": 1,
-				"type": "kFieldreference",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$workererror",
 		"order": 10,
 		"pvardefs": [
 			{
@@ -252,8 +234,42 @@
 		]
 	},
 	{
-		"name": "$_install",
+		"name": "$methoderror",
 		"order": 11,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$workererror",
+		"order": 12,
+		"pvardefs": [
+			{
+				"name": "pResult",
+				"order": 1,
+				"type": "kFieldreference",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$_install",
+		"order": 13,
 		"pvardefs": [
 			{
 				"name": "pTargetDirectory",
@@ -311,7 +327,7 @@
 	},
 	{
 		"name": "$_buildPayload",
-		"order": 12,
+		"order": 14,
 		"pvardefs": [
 			{
 				"name": "pRegistration",
@@ -341,7 +357,7 @@
 	},
 	{
 		"name": "$_fail",
-		"order": 14,
+		"order": 15,
 		"pvardefs": [
 			{
 				"name": "pErrorCode",
@@ -379,7 +395,7 @@
 	},
 	{
 		"name": "$_logResults",
-		"order": 15,
+		"order": 16,
 		"pvardefs": [
 
 		],

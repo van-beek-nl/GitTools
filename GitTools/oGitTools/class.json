@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 888,
+	"internalversion": 903,
 	"designtaskname": "GitTools",
 	"cvardefs": [
 		{
@@ -11,9 +11,40 @@
 			"subtype": "kSimplechar",
 			"sublen": 100000000,
 			"initval": "\".gittools.json\""
+		},
+		{
+			"name": "cvGitRequiredMajorVersion",
+			"order": 2,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "2"
+		},
+		{
+			"name": "cvGitRequiredMinorVersion",
+			"order": 3,
+			"type": "kInteger",
+			"subtype": "k32bitint",
+			"sublen": 0,
+			"initval": "23"
 		}
 	],
 	"ivardefs": [
+		{
+			"name": "ivCheckedGitExecutable",
+			"order": 4,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
+			"name": "ivGitAvailable",
+			"order": 3,
+			"type": "kBoolean",
+			"subtype": 0,
+			"sublen": 0,
+			"initval": "kFalse"
+		},
 		{
 			"name": "ivRegisteredLibraries",
 			"order": 2,
@@ -40,7 +71,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2026-06-18 19:14:45",
+		"moddate": "2026-06-19 07:57:39",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",
