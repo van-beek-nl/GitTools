@@ -210,25 +210,6 @@
 		]
 	},
 	{
-		"name": "$libraryPathToMetaPath",
-		"order": 7,
-		"desc": "Returns path to the GitTools meta file for the given Omnis library file.",
-		"pvardefs": [
-			{
-				"name": "pLibraryPath",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"param": 1,
-				"desc": "Omnis library file path."
-			}
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
 		"name": "$getTempDirectory",
 		"order": 8,
 		"desc": "Returns path to the temp directory.",
@@ -435,6 +416,44 @@
 				"type": "kList",
 				"subtype": "",
 				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$copyFolder",
+		"order": 14,
+		"pvardefs": [
+			{
+				"name": "pSource",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pTarget",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvFileList",
+				"order": 3,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvTargetPath",
+				"order": 4,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
 			}
 		]
 	}

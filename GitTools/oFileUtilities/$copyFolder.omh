@@ -1,0 +1,22 @@
+If not(FileOps.$doesfileexist(pTarget))
+	Do FileOps.$createdir(pTarget,kTrue)
+End If
+
+If right(pTarget,1)<>pathsep()
+	Calculate pTarget as con(pTarget,pathsep())
+End If
+
+Do FileOps.$filelist(kFileOpsIncludeFiles+kFileOpsIncludeDirectories,pSource,kFileOpsInfoFullName+kFileOpsInfoName+kFileOpsInfoIsDirectory) Returns lvFileList
+For lvFileList.$line from 1 to lvFileList.$linecount step 1
+	Calculate lvTargetPath as con(pTarget,lvFileList.name)
+	If lvFileList.isdirectory=kTrue
+		Do $cinst.$copyFolder(lvFileList.fullname,lvTargetPath)
+		Jump to start of loop
+	End If
+	
+	If FileOps.$doesfileexist(lvTargetPath)
+		Do FileOps.$deletefile(lvTargetPath)
+	End If
+	
+	Do FileOps.$copyfile(lvFileList.fullname,lvTargetPath)
+End For

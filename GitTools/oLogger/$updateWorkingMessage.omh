@@ -2,6 +2,11 @@ If isclear(cvWorkingMessage)
 	Quit method kFalse
 End If
 
+If not(cvWorkingMessage.$secondary.$cando())
+	Do $cinst.$closeWorkingMessage()
+	Quit method $cinst.$showWorkingMessage(pTitle,pBody)
+End If
+
 If not(isnull(pTitle))
 	Calculate cvWorkingMessage.$primary as con('GitTools - ',pTitle)
 End If

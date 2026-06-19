@@ -1,0 +1,6 @@
+Do $cinst.$_buildPayload(pRegistration) Returns lvParameters
+Do lvParameters.$cols.$add("allowMissingBase",kBoolean)
+Do lvParameters.$cols.$add("cleanIrrelevantKeys",kBoolean)
+Calculate lvParameters.allowMissingBase as kTrue
+Calculate lvParameters.cleanIrrelevantKeys as pCleanExportTree
+Quit method $cinst.$callmethod("postExport",lvParameters)

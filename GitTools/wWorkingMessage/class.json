@@ -1,7 +1,7 @@
 {
 	"classtype": "kWindow",
 	"omnisversion": "10.2",
-	"internalversion": 32,
+	"internalversion": 33,
 	"designtaskname": "GitTools",
 	"nextident": 1020,
 	"lastgroupident": 0,
@@ -55,7 +55,7 @@
 		"menunames": "",
 		"minimizebox": false,
 		"minimizeiconid": 2006,
-		"moddate": "2025-09-25 12:07:38",
+		"moddate": "2026-06-18 19:29:06",
 		"modelessdata": true,
 		"movebehind": true,
 		"osdropflags": "kOSDROPnone",

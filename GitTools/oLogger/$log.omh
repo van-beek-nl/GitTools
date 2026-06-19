@@ -1,0 +1,1 @@
+Do $cinst.$$log($cinst.$$levelCharToInt(pLevel),pMessage)

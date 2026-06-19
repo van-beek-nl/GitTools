@@ -1,0 +1,19 @@
+If not(isclear(pRegistration.id))
+	Do lvParameters.$cols.$add("libraryId",kCharacter,kSimplechar)
+	Do lvParameters.$cols.$add("libraryPath",kCharacter,kSimplechar)
+	Do lvParameters.$cols.$add("jsonPath",kCharacter,kSimplechar)
+	
+	Calculate lvParameters.libraryId as pRegistration.id
+	Calculate lvParameters.libraryPath as pRegistration.libraryPath
+	Calculate lvParameters.jsonPath as pRegistration.jsonPath
+End If
+
+Do lvParameters.$cols.$add("config",kRow)
+Do lvConfig.$cols.$add("gitPath",kCharacter,kSimplechar)
+Do lvConfig.$cols.$add("logLevel",kCharacter,kSimplechar)
+
+Calculate lvConfig.gitPath as tvSettings.$gitExecutable
+Calculate lvConfig.logLevel as tvSettings.$logLevel
+Calculate lvParameters.config as lvConfig
+
+Quit method lvParameters

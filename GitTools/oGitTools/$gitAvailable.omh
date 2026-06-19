@@ -1,0 +1,25 @@
+If tvSettings.$gitExecutable<>ivCheckedGitExecutable
+	Do ivWorker.$checkGitExecutable() Returns lvResult
+	If not(lvResult.ok)|not(lvResult.valid)
+		Calculate ivGitAvailable as kFalse
+	Else
+		# Split the version number into parts and extract the major and minor versions
+		Do split(lvResult.version,'.') Returns lvVersionParts
+		If lvVersionParts.$linecount>=1
+			Calculate lvGitMajorVersion as lvVersionParts.1.value
+		End If
+		
+		If lvVersionParts.$linecount>=2
+			Calculate lvGitMinorVersion as lvVersionParts.2.value
+		End If
+		
+		# If the major version < required major version, reject git.
+		# If the major version == required major version, check if the minor version >= required minor version.
+		# If the major version > required major version, do nothing.
+		Calculate ivGitAvailable as lvGitMajorVersion>cvGitRequiredMajorVersion|(lvGitMajorVersion=cvGitRequiredMajorVersion&lvGitMinorVersion>=cvGitRequiredMinorVersion)
+	End If
+	
+	Calculate ivCheckedGitExecutable as tvSettings.$gitExecutable
+End If
+
+Quit method ivGitAvailable

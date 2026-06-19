@@ -1,0 +1,11 @@
+Do lvResult.$cols.$add("ok",kBoolean)
+Do lvResult.$cols.$add("error",kRow)
+Do lvError.$cols.$add("code",kCharacter,kSimplechar)
+Do lvError.$cols.$add("message",kCharacter,kSimplechar)
+
+Calculate lvResult.ok as kFalse
+Calculate lvError.code as "UNHANDLED"
+Calculate lvError.message as con(pErrorCode," - ",pErrorText)
+Calculate lvResult.error as lvError
+
+Calculate ivResult as lvResult

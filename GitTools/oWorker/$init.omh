@@ -1,0 +1,11 @@
+If $cinst.$state=kWorkerStateRunning
+	Quit method kTrue
+End If
+
+If not($cinst.$_install())
+	Do tvLogger.$error("Unable to initialize worker: install failed.")
+	Quit method kFalse
+End If
+
+
+Quit method $inherited.$init()

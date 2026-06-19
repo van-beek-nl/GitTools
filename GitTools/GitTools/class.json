@@ -1,20 +1,13 @@
 {
 	"classtype": "kTask",
 	"omnisversion": "10.2",
-	"internalversion": 35,
+	"internalversion": 37,
 	"tvardefs": [
 		{
 			"name": "tvFileUtilities",
 			"order": 3,
 			"type": "kObject",
 			"subtype": "oFileUtilities",
-			"sublen": 0
-		},
-		{
-			"name": "tvGit",
-			"order": 1,
-			"type": "kObject",
-			"subtype": "oGitUtilities",
 			"sublen": 0
 		},
 		{
@@ -76,7 +69,7 @@
 		"editordata": "",
 		"external": false,
 		"issupercomponent": false,
-		"moddate": "2025-10-14 09:38:58",
+		"moddate": "2026-06-19 07:49:51",
 		"showascheckedout": false,
 		"userinfo": "",
 		"vcsrevision": 0,
