@@ -15,6 +15,7 @@ src/
   constants.js        Result / ErrorCodes / GitToolsError.
   context.js          createContext(request) -> Context (per-invocation state).
   git.js              spawnSync git wrapper (maxBuffer, per-call env/index/work-tree).
+  fingerprint.js      cheap content fingerprint of the export path (pre -> post live-tree reuse).
   meta.js             meta.json read/write + clean/pending shapes.
   handoff.js          pending-op.json read/write/clear (pre -> post boundary).
   log.js              level-aware logger (debug | info | warning | error).
@@ -28,31 +29,36 @@ test-support/         helpers.js — shared suite helpers (kept out of test/ so 
 
 Omnis invokes `call(method, param, response)`:
 
-- **method** — the operation. The library lifecycle ops: `pre-export` | `post-export` |
-  `pre-import` | `post-import`. Plus two context-free discovery ops used at registration:
-  `resolveRepositoryRoot` | `checkGitExecutable`.
+- **method** — the operation name (the method name *is* the operation name, camelCase). The
+  library lifecycle ops: `preExport` | `postExport` | `preImport` | `postImport`. A
+  context op run at registration to bring a repository up to the current GitTools state (git
+  config, `.gitignore` / `.gitattributes`, and removal of pre-worker leftovers):
+  `bootstrapRepository`. Plus a context-free discovery op used at registration:
+  `checkGitExecutable`.
 - **param** — the request payload. Accepted as an object, a JSON string, or a
   single-element array wrapping either (Omnis commonly sends stringified JSON). The lifecycle
-  ops carry:
+  ops and `bootstrapRepository` carry:
   `{ jsonPath, libraryId, libraryPath, metaPath?, allowMissingBase?, cleanIrrelevantKeys?, config? }`.
   `jsonPath` is absolute; the worker derives the repository root from it (Omnis no longer passes
-  it in). `resolveRepositoryRoot` takes `{ jsonPath, config? }` and returns
-  `{ repositoryRoot: <abs path> | '' }` (`''` = not a git repository); `checkGitExecutable`
-  takes `{ config? }` and returns `{ valid, version }`.
+  it in), and fails with `BAD_REQUEST` when it is not inside a git repository.
+  `bootstrapRepository` also reads `updateRepositoryConfig?: boolean` — when false it still removes
+  the pre-worker leftovers but leaves git config and the tracked `.gitignore` / `.gitattributes`
+  untouched. `checkGitExecutable` takes `{ config? }` and returns `{ valid, version }`.
 - **response** — Omnis's response handle; the result is sent back via `omnis_calls`.
 
 The worker always replies (HTTP 200) with `run()`'s JSON result object; `omnis_calls.sendError`
 (500) is used only for an unexpected crash. So Omnis branches on the payload, not the status:
 
 ```
-success: { ok: true,  op, result?: 'clean'|'conflict'|'missing-base', source?: <abs path>, log }
-failure: { ok: false, op, error: { code, message }, log }
+success: { ok: true,  operation, result?: 'clean'|'conflict'|'missing-base', source?: <abs path>, log }
+failure: { ok: false, operation, error: { code, message }, log }
 ```
 
-Per-phase success shape: `pre-export -> {source}` (cache dir to export into) or
-`{result:'missing-base'}`; `post-export -> {result}`; `pre-import -> {source}` (path to
-import from); `post-import -> {result:'clean'}`. This is the structured equivalent of the
-prototype's `SOURCE=`/`RESULT=` stdout lines — the line-scraping disappears.
+Per-phase success shape: `preExport -> {source}` (cache dir to export into) or
+`{result:'missing-base'}`; `postExport -> {result}`; `preImport -> {source}` (path to
+import from); `postImport -> {result:'clean'}`; `bootstrapRepository -> {}` (its effects are on
+disk; the detail is in `log`). This is the structured equivalent of the prototype's
+`SOURCE=`/`RESULT=` stdout lines — the line-scraping disappears.
 
 `log` is always present on both shapes: an array of `{ level, message }` records the operation
 produced, in order. Every level is included unfiltered (Omnis filters when it re-emits them to
@@ -97,7 +103,7 @@ ports of the original PowerShell e2e suites that validated the `scripts_proto/*.
 
 Each suite is named for the behaviour it covers (`reconcile-merge`, `conflict-resolution`,
 `staging`, `merge-base-from-history`, `missing-base-gate`, `discard-live-edits`,
-`crash-recovery`, `worktree-isolation`).
+`crash-recovery`, `worktree-isolation`, `bootstrap-repository`).
 
 ```
 npm test                                      # node --test, auto-discovers test/*.test.js

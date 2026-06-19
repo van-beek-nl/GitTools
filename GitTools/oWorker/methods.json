@@ -126,36 +126,6 @@
 		]
 	},
 	{
-		"name": "$resolveRepositoryRoot",
-		"order": 6,
-		"pvardefs": [
-			{
-				"name": "pPath",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvParameters",
-				"order": 2,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvResult",
-				"order": 3,
-				"type": "kRow",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
 		"name": "$checkGitExecutable",
 		"order": 7,
 		"pvardefs": [
@@ -165,6 +135,37 @@
 			{
 				"name": "lvParameters",
 				"order": 1,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$bootstrapRepository",
+		"order": 8,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			},
+			{
+				"name": "pUpdateRepositoryConfig",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 2,
 				"type": "kRow",
 				"subtype": "",
 				"sublen": 0

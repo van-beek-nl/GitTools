@@ -11,7 +11,6 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { createGit } = require('../src/git.js');
-const { run } = require('../src/core.js');
 const { newRepo, track } = require('../test-support/helpers.js');
 
 test('resolves the repo root from a jsonPath that does not exist yet', () => {
@@ -26,23 +25,4 @@ test('returns an empty string when the path is not inside a repository', () => {
   fs.mkdirSync(outside, { recursive: true });
 
   assert.strictEqual(createGit().resolveRepoRoot(path.join(outside, 'Source', 'Lib')), '');
-});
-
-test('resolveRepositoryRoot operation returns the repository root for a jsonPath inside a repo', () => {
-  const repo = newRepo('resolve-op');
-  const res = run({ operation: 'resolveRepositoryRoot', path: path.join(repo, 'Source', 'Lib'), config: { logLevel: 'error' } });
-
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.operation, 'resolveRepositoryRoot');
-  assert.strictEqual(res.repositoryRoot, fs.realpathSync(repo));
-  assert.ok(Array.isArray(res.log));
-});
-
-test('resolveRepositoryRoot operation succeeds with an empty root when not in a repository', () => {
-  const outside = track(path.join(os.tmpdir(), `resolve-op-none-${crypto.randomBytes(6).toString('hex')}`));
-  fs.mkdirSync(outside, { recursive: true });
-  const res = run({ operation: 'resolveRepositoryRoot', path: path.join(outside, 'Source', 'Lib'), config: { logLevel: 'error' } });
-
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.repositoryRoot, '');
 });

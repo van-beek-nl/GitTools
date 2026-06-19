@@ -41,19 +41,14 @@ If isclear(lvConfiguration.jsonPath)
 End If
 
 Calculate lvRegistration.jsonPath as tvFileUtilities.$normalizePath(tvFileUtilities.$join(FileOps.$parentdir(lvRegistration.libraryPath),lvConfiguration.jsonPath))
-Calculate lvRegistration.repositoryRoot as tvFileUtilities.$fixPathSeparators(ivWorker.$resolveRepositoryRoot(lvRegistration.jsonPath))
 Calculate lvRegistration.releasePath as tvFileUtilities.$getAbsolutePath(lvConfiguration.releasePath,FileOps.$parentdir(pConfigFilePath))
 Calculate lvRegistration.preImportScript as lvConfiguration.preImportScript
 Calculate lvRegistration.postImportScript as lvConfiguration.postImportScript
 Calculate lvRegistration.preExportScript as lvConfiguration.preExportScript
 Calculate lvRegistration.postExportScript as lvConfiguration.postExportScript
 
-If isclear(lvRegistration.repositoryRoot)
-	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as its source directory is not part of a git repository.")
-	Quit method kFalse
-End If
-
-If not($cinst.$$bootstrapGitRepository(lvRegistration))
+Do ivWorker.$bootstrapRepository(lvRegistration,tvSettings.$autoUpdateRepositoryConfig) Returns lvResult
+If lvResult.ok<>kTrue
 	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as repository bootstrapping failed.")
 	Quit method kFalse
 End If

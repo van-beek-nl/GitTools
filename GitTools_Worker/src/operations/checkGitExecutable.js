@@ -6,8 +6,7 @@ const { GitToolsError } = require('../constants.js');
  * (not found, not executable, or not actually git) is reported as { valid: false } rather
  * than failing the operation, so Omnis gets a clean answer it can act on.
  *
- * Like resolveRepositoryRoot, this has no library context, so it receives (request, log)
- * rather than (ctx, request).
+ * This has no library context, so it receives (request, log) rather than (ctx, request).
  *
  * @param {object} request
  * @param {object} log  logger (see ../log.js)

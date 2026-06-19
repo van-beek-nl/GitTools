@@ -96,6 +96,13 @@
 				"type": "kRow",
 				"subtype": "sLibraryRegistration",
 				"sublen": 0
+			},
+			{
+				"name": "lvResult",
+				"order": 9,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
 			}
 		]
 	},
@@ -562,162 +569,6 @@
 			{
 				"name": "lvOpenLibraries",
 				"order": 2,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$$bootstrapGitRepository",
-		"order": 19,
-		"pvardefs": [
-			{
-				"name": "pRegistration",
-				"order": 6,
-				"type": "kRow",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvDidUpdateGitAttributes",
-				"order": 17,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvDidUpdateGitIgnore",
-				"order": 16,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvErrorCode",
-				"order": 2,
-				"type": "kInteger",
-				"subtype": "k32bitint",
-				"sublen": 0
-			},
-			{
-				"name": "lvFile",
-				"order": 7,
-				"type": "kObject",
-				"subtype": ".FileOps.FileOps",
-				"sublen": 0
-			},
-			{
-				"name": "lvGitAttributes",
-				"order": 18,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvGitAttributesPath",
-				"order": 11,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitAttributesText",
-				"order": 13,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitConfig",
-				"order": 10,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitConfigPath",
-				"order": 9,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitDirectory",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitIgnore",
-				"order": 14,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitIgnorePath",
-				"order": 12,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvGitIgnoreRules",
-				"order": 19,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvGitToolsPostCommitHookPath",
-				"order": 8,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvHooksDirectory",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvIsOk",
-				"order": 15,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvPostCommitHookDirectory",
-				"order": 5,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvPostCommitHookDispatcherPath",
-				"order": 4,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
-			},
-			{
-				"name": "lvRequiredGitAttributes",
-				"order": 21,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvRequiredGitIgnoreRules",
-				"order": 20,
 				"type": "kList",
 				"subtype": "",
 				"sublen": 0

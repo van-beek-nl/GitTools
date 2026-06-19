@@ -7,8 +7,8 @@ const { preExport } = require('./operations/preExport.js');
 const { postExport } = require('./operations/postExport.js');
 const { preImport } = require('./operations/preImport.js');
 const { postImport } = require('./operations/postImport.js');
-const { resolveRepositoryRoot } = require('./operations/resolveRepositoryRoot.js');
 const { checkGitExecutable } = require('./operations/checkGitExecutable.js');
+const { bootstrapRepository } = require('./operations/bootstrapRepository.js');
 
 // The operation registry: operation name -> handler (ctx, request) -> outcome. The keys
 // are the complete set of operations the worker supports and the strings carried in
@@ -18,13 +18,13 @@ const operations = Object.freeze({
   'postExport': postExport,
   'preImport': preImport,
   'postImport': postImport,
+  'bootstrapRepository': bootstrapRepository,
 });
 
 // Operations that have no library context: they don't (and can't) go through createContext
-// because they either produce the repositoryRoot it needs or need no repository at all. Each
-// is a handler (request, log) -> outcome, returning the same response shape as a context operation.
+// because they need no repository at all. Each is a handler (request, log) -> outcome, returning
+// the same response shape as a context operation.
 const contextFreeOperations = Object.freeze({
-  'resolveRepositoryRoot': resolveRepositoryRoot,
   'checkGitExecutable': checkGitExecutable,
 });
 
