@@ -1,0 +1,2 @@
+Do $cinst.$_buildPayload(pRegistration) Returns lvParameters
+Quit method $cinst.$callmethod("postImport",lvParameters)

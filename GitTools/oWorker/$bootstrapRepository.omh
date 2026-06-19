@@ -1,0 +1,4 @@
+Do $cinst.$_buildPayload(pRegistration) Returns lvParameters
+Do lvParameters.$cols.$add("updateRepositoryConfig",kBoolean)
+Calculate lvParameters.updateRepositoryConfig as pUpdateRepositoryConfig
+Quit method $cinst.$callmethod("bootstrapRepository",lvParameters)

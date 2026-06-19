@@ -1,7 +1,7 @@
 {
 	"classtype": "kObjectclass",
 	"omnisversion": "10.2",
-	"internalversion": 69,
+	"internalversion": 77,
 	"designtaskname": "GitTools",
 	"cvardefs": [
 		{
@@ -19,14 +19,6 @@
 			"subtype": "kSimplechar",
 			"sublen": 100000000,
 			"initval": "\".lbs\""
-		},
-		{
-			"name": "cvMetaFileExtension",
-			"order": 3,
-			"type": "kCharacter",
-			"subtype": "kSimplechar",
-			"sublen": 100000000,
-			"initval": "\".gittools.meta\""
 		},
 		{
 			"name": "cvTempDirectory",
@@ -50,7 +42,7 @@
 		"editordata": "",
 		"external": true,
 		"issupercomponent": false,
-		"moddate": "2026-04-28 09:25:50",
+		"moddate": "2026-06-19 12:11:12",
 		"selfcontained": false,
 		"showascheckedout": false,
 		"userinfo": "",

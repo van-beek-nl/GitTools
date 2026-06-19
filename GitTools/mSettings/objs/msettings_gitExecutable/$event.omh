@@ -5,6 +5,5 @@ On evClick
 		Quit method
 	End If
 	
-	Calculate tvGit.$gitExecutable as lvGitExecutable
 	Calculate tvSettings.$gitExecutable as lvGitExecutable
 	Do tvMenu.$buildMenu()
