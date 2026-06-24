@@ -75,7 +75,7 @@ function createContext(request) {
   ctx.jsonPath = relativeJsonPath.split(path.sep).join('/');
 
   /// ctx.stateKey
-  let canonicalKey = ctx.libraryPath ? path.resolve(ctx.libraryPath) : ctx.libraryId;
+  let canonicalKey = ctx.libraryPath ? realpathExistingPrefix(ctx.libraryPath) : ctx.libraryId;
   const libraryName = path.basename(canonicalKey, path.extname(canonicalKey));
   if (process.platform !== 'linux') {
     canonicalKey = canonicalKey.toLowerCase();
