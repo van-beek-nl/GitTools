@@ -417,7 +417,7 @@ function createGit(options) {
       for (const line of splitLines(invoke(['ls-files', '--stage', '--', hashRoot]))) {
         // Regex to parse output of git ls-files:
         // <mode><space><object-sha><space><stage><tab><path>
-        const result = /^(\d{6}) ([0-9a-fA-F]{40,64}) [0-9]\t(.+)$/.exec(line);
+        const result = /^(\d{6}) ([0-9a-fA-F]{40,64}) 0\t(.+)$/.exec(line);
         if (result) {
           const [,, objectId, repoPath] = result;
           const strippedPath = stripRelativePrefix(repoPath);
