@@ -8,15 +8,31 @@
  * @returns {{result: 'clean'}}
  */
 function postImport(ctx, request) {
-  const { git, meta, jsonPath, stateKey } = ctx;
+  const { git, meta, log, jsonPath, stateKey } = ctx;
 
-  const currentSourceTree = git.hashTree(jsonPath);
+  // The tree Omnis imported FROM (the live source on disk). This is the known source tree, so
+  // the next export recognizes it on the fast path.
+  const liveTree = git.hashTree(jsonPath);
 
-  git.advanceBaseRef(stateKey, currentSourceTree);
+  // Record a STABLE base. Imports routinely run over uncommitted source (Omnis can only import
+  // the whole library at once, so the live JSON usually carries pending work). Pinning that dirty,
+  // never-committed live tree as the base produces a base no later export can re-find from history
+  // (recovery walks HEAD's committed subtrees), which surfaces as a false "missing base" once the
+  // live source drifts. The committed tree at jsonPath is durable and reachable, so use it as the
+  // base whenever it exists; only before the first commit of jsonPath does the live tree stand in.
+  let baseTree = liveTree;
+  if (git.isPathInHead(jsonPath)) {
+    baseTree = git.invoke(['rev-parse', `HEAD:${jsonPath}`]);
+    if (baseTree !== liveTree) {
+      log.info('Imported over uncommitted source; recording the committed tree as the reconciliation base.');
+    }
+  }
+
+  git.advanceBaseRef(stateKey, baseTree);
   git.deletePendingRefs(stateKey);
 
-  meta.write(meta.getClean(currentSourceTree, currentSourceTree));
-  
+  meta.write(meta.getClean(baseTree, liveTree));
+
   return { result: 'clean' };
 }
 

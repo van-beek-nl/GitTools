@@ -80,11 +80,18 @@ function postExport(ctx, request) {
     // to merge against, so apply directly unless that would overwrite committed source that
     // differs from this export.
     if (!mergeBase) {
-      const overwritesCommitted = git.isPathInHead(jsonPath) && git.invoke(['rev-parse', `HEAD:${jsonPath}`]) !== exportTree;
+      const committedTree = git.isPathInHead(jsonPath) ? git.invoke(['rev-parse', `HEAD:${jsonPath}`]) : '';
+      const overwritesCommitted = committedTree !== '' && committedTree !== exportTree;
 
       if (overwritesCommitted) {
         log.warning(`No reconciliation base exists; forcing overwrite of the committed source at '${jsonPath}'.`);
         log.warning('If your peers advanced this source, review the diff before committing.');
+        // Anchor the committed source we are about to overwrite into the base lineage. Export-only
+        // workflows (the library was never GitTools-imported) otherwise plant no findable base, so a
+        // later export that returns to this committed state — e.g. after discarding uncommitted work —
+        // would raise another false missing-base. Recording it makes that state recoverable; it does
+        // not change what we write now (still exportTree), only what a future export can merge against.
+        git.advanceBaseRef(stateKey, committedTree);
       } else {
         log.info('No base tree exists yet; applying export directly.');
       }
