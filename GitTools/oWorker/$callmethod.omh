@@ -2,11 +2,11 @@ Calculate ivResult as #NULL
 
 If $cinst.$state<>kWorkerStateRunning
 	If not($cinst.$init())
-		Do $cinst.$_fail(-1,"Unable to initialize worker")
+		Do $cinst.$_fail("INIT_FAILED","Unable to initialize worker")
 	End If
 	
 	If not($cinst.$start())
-		Do $cinst.$_fail(-1,"Unable to start worker")
+		Do $cinst.$_fail("START_FAILED","Unable to start worker")
 	End If
 	
 	If isclear(ivResult)
@@ -19,11 +19,14 @@ End If
 
 If $cinst.$state=kWorkerStateRunning
 	Do $inherited.$callmethod("gittools_worker",pMethod,pParameters,kTrue,lvErrorText) Returns lvIsOk
-	If not(lvIsOk)&isclear(ivResult)
-		Do $cinst.$_fail(-1,lvErrorText)
+	If lvIsOk&isclear(ivResult)
+		# When the debugger is attached, the worker returns OK but $method* is never called, leaving ivResult #NULL.
+		Do $cinst.$_fail("DEBUGGER_ATTACHED","GitTools has detected a situation indicating that you have an active debugger attached. This breaks JavaScript worker result handling. Clear the method stack and retry.")
+	Else If not(lvIsOk)&isclear(ivResult)
+		Do $cinst.$_fail("UNHANDLED",lvErrorText)
 	End If
 Else If isclear(ivResult)
-	Do $cinst.$_fail(-1,"Unknown worker error")
+	Do $cinst.$_fail("UNHANDLED","Unknown worker error")
 End If
 
 Do $cinst.$_logResults(ivResult)

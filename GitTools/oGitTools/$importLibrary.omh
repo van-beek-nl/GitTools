@@ -20,6 +20,10 @@ End If
 
 Do ivWorker.$preImport(lvRegistration) Returns lvWorkerResult
 If not(lvWorkerResult.ok)
+	If not(isclear(lvWorkerResult.error.message))
+		OK message GitTools - [lvWorkerResult.error.code] {[lvWorkerResult.error.message]}
+	End If
+	
 	Do tvLogger.$error("Worker preImport reported error - Aborting")
 	Quit method kFalse
 End If
@@ -95,6 +99,10 @@ End If
 
 Do ivWorker.$postImport(lvRegistration) Returns lvWorkerResult
 If not(lvWorkerResult.ok)|lvWorkerResult.result<>"clean"
+	If not(isclear(lvWorkerResult.error.message))
+		OK message GitTools - [lvWorkerResult.error.code] {[lvWorkerResult.error.message]}
+	End If
+	
 	Do tvLogger.$error("Worker postImport reported error - Aborting")
 	Quit method kFalse
 End If

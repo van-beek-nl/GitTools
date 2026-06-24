@@ -33,6 +33,10 @@ If lvWorkerResult.result="missing-base"
 End If
 
 If not(lvWorkerResult.ok)|isclear(lvWorkerResult.source)
+	If not(isclear(lvWorkerResult.error.message))
+		OK message GitTools - [lvWorkerResult.error.code] {[lvWorkerResult.error.message]}
+	End If
+	
 	Do tvLogger.$error("Worker preExport reported error - Aborting")
 	Quit method kFalse
 End If
@@ -79,6 +83,10 @@ End If
 
 Do ivWorker.$postExport(lvRegistration,tvSettings.$discardIrrelevantChanges) Returns lvWorkerResult
 If not(lvWorkerResult.ok)
+	If not(isclear(lvWorkerResult.error.message))
+		OK message GitTools - [lvWorkerResult.error.code] {[lvWorkerResult.error.message]}
+	End If
+	
 	Do tvLogger.$error("Worker postExport reported error - Aborting")
 	Quit method kFalse
 Else If lvWorkerResult.result="conflict"
