@@ -533,11 +533,17 @@ function createGit(options) {
    * @param {string} tree  tree SHA to record as the new base
    */
   function advanceBaseRef(key, tree) {
-    advanceRef(
-      `refs/gittools/${key}/base`,
-      tree,
-      { message: 'GitTools base' }
-    );
+    const ref = `refs/gittools/${key}/base`;
+
+    // Skip a no-op advance: if the lineage tip already records this exact tree (a repeated
+    // import/export of identical content), chaining another commit would only grow the lineage
+    // with a duplicate. The tree stays discoverable via the existing tip, so nothing is lost.
+    const tip = resolveRef(ref);
+    if (tip && resolveRef(`${tip}^{tree}`) === tree) {
+      return;
+    }
+
+    advanceRef(ref, tree, { message: 'GitTools base' });
   }
 
   /**
