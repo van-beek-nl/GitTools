@@ -1,18 +1,9 @@
-// Shared constants and the worker's response/error contract: the outcome codes Omnis
-// branches on, the error codes, and the one error type the rest of the code throws on a
-// controlled, reportable failure.
-
-/** Machine-readable export/import outcomes. */
-const Result = Object.freeze({
-  CLEAN: 'clean',
-  CONFLICT: 'conflict',
-  MISSING_BASE: 'missing-base',
-});
+// Shared constants and the worker's response/error contract: the error codes, and the one
+// error type the rest of the code throws on a controlled, reportable failure.
 
 /** Codes carried by GitToolsError and surfaced in the failure response. */
 const ErrorCodes = Object.freeze({
   BAD_REQUEST: 'BAD_REQUEST',
-  NOT_IMPLEMENTED: 'NOT_IMPLEMENTED',
   GIT_SPAWN_FAILED: 'GIT_SPAWN_FAILED',
   GIT_FAILED: 'GIT_FAILED',
   UNRESOLVED_CONFLICTS: 'UNRESOLVED_CONFLICTS',
@@ -38,4 +29,4 @@ class GitToolsError extends Error {
   }
 }
 
-module.exports = { Result, ErrorCodes, GitToolsError };
+module.exports = { ErrorCodes, GitToolsError };

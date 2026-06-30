@@ -180,13 +180,14 @@ function resolveCurrentSourceAndBase(ctx, metaObject) {
     return { sourceTree: liveTree, mergeBase: metaObject.baseTree, liveTree: liveTree };
   }
 
-  if (git.doesHeadExist()) {
+  const headCommit = git.headCommit();
+  if (headCommit) {
     // The live source is no longer GitTools' last output (a pull, discard, or partial commit moved
     // it). The live edits are disposable; HEAD becomes the source side.
     log.info('Live JSON path has changed since last export; using HEAD as source. Live changes are disposable.');
 
     let mergeBase;
-    if (metaObject.baseTree && metaObject.syncCommit && git.isAncestor(metaObject.syncCommit, git.headCommit())) {
+    if (metaObject.baseTree && metaObject.syncCommit && git.isAncestor(metaObject.syncCommit, headCommit)) {
       // HEAD is at or ahead of our last sync, so committed history since then is real work; build
       // the base per file (see buildReconciliationBase).
       log.info('HEAD is at or ahead of the last sync; building the reconciliation base from the commit graph.');
@@ -213,10 +214,8 @@ function resolveCurrentSourceAndBase(ctx, metaObject) {
 
     // No HEAD entry for jsonPath yet (e.g. before the very first export/import):
     // fall back to the empty tree.
-    let sourceTree;
-    if (git.isPathInHead(jsonPath)) {
-      sourceTree = git.invoke(['rev-parse', `HEAD:${jsonPath}`]);
-    } else {
+    let sourceTree = git.headSubtree(jsonPath);
+    if (!sourceTree) {
       sourceTree = git.withScratchIndex((scratch) => {
         scratch.invoke(['read-tree', '--empty']);
         return scratch.invoke(['write-tree']);

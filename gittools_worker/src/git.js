@@ -226,9 +226,15 @@ function createGit(options) {
     return invokeRaw(['merge-base', '--is-ancestor', ancestor, descendant]).status === 0;
   }
 
+  /** The SHA at `repoPath` in HEAD (tree for a directory, blob for a file), or '' if absent/unborn. */
+  function headSubtree(repoPath) {
+    const result = invokeRaw(['rev-parse', '--verify', '--quiet', `HEAD:${repoPath}`]);
+    return result.status === 0 ? result.stdout.trim() : '';
+  }
+
   /** True if `repoPath` exists in the HEAD commit's tree. */
   function isPathInHead(repoPath) {
-    return doesHeadExist() && invokeRaw(['rev-parse', '--verify', `HEAD:${repoPath}`]).status === 0;
+    return headSubtree(repoPath) !== '';
   }
 
   /**
@@ -465,7 +471,7 @@ function createGit(options) {
    * @param {string} baseTree    common-ancestor tree SHA (--merge-base)
    * @param {string} sourceTree  one side of the merge
    * @param {string} exportTree  the other side of the merge
-   * @returns {{status:number, resultTree:string, lines:string[], stdout:string}}
+   * @returns {{status:number, resultTree:string, lines:string[]}}
    */
   function mergeTree(baseTree, sourceTree, exportTree) {
     const args = ['merge-tree', '--write-tree', '--messages', `--merge-base=${baseTree}`, sourceTree, exportTree];
@@ -483,7 +489,6 @@ function createGit(options) {
       status: result.status,
       resultTree: lines.length > 0 ? lines[0].trim() : '',
       lines: lines,
-      stdout: result.stdout
     };
   }
 
@@ -603,6 +608,7 @@ function createGit(options) {
     doesHeadExist: doesHeadExist,
     headCommit: headCommit,
     isAncestor: isAncestor,
+    headSubtree: headSubtree,
     isPathInHead: isPathInHead,
     hashObjects: hashObjects,
     catFileBatchCheck: catFileBatchCheck,
@@ -610,8 +616,6 @@ function createGit(options) {
     hashTree: hashTree,
     mergeTree: mergeTree,
     resolveRef: resolveRef,
-    advanceRef: advanceRef,
-    deleteRef: deleteRef,
     advanceBaseRef: advanceBaseRef,
     setPendingRefs: setPendingRefs,
     deletePendingRefs: deletePendingRefs

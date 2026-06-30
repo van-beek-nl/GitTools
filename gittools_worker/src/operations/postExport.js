@@ -76,14 +76,14 @@ function postExport(ctx, request) {
     // noise-free: the merge, the recorded base, and the written-back working tree all operate on
     // a scrubbed tree.
     if (cleanIrrelevantKeys) {
-      exportTree = cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree, gitOpts);
+      exportTree = cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree);
     }
 
     // No reconciliation base: a genuine first export, or the base was lost. There is nothing
     // to merge against, so apply directly unless that would overwrite committed source that
     // differs from this export.
     if (!mergeBase) {
-      const committedTree = git.isPathInHead(jsonPath) ? git.invoke(['rev-parse', `HEAD:${jsonPath}`]) : '';
+      const committedTree = git.headSubtree(jsonPath);
       const overwritesCommitted = committedTree !== '' && committedTree !== exportTree;
 
       if (overwritesCommitted) {
