@@ -43,6 +43,9 @@ function postExport(ctx, request) {
   const exportDirectory = path.join(stateRoot, 'export-cache');
   const exportIndex = `${exportDirectory}.index`;
 
+  // The HEAD commit this export is reconciled against, recorded with the resulting meta.
+  const syncCommit = git.headCommit();
+
   // Hashing the live JSON path is one of the most expensive steps (a full untracked-file scan),
   // and applyTreeToLiveJsonPath needs that tree to compute its delta. Pre-export already hashed
   // it and recorded a cheap fingerprint of the same content; reuse the recorded tree when the
@@ -98,7 +101,7 @@ function postExport(ctx, request) {
 
       const finalSourceTree = applyTreeToLiveJsonPath(ctx, exportTree, knownLiveTree);
       git.advanceBaseRef(stateKey, exportTree);
-      meta.write(meta.getClean(exportTree, finalSourceTree));
+      meta.write(meta.getClean(exportTree, finalSourceTree, syncCommit));
       return { result: 'clean' };
     }
 
@@ -107,7 +110,7 @@ function postExport(ctx, request) {
       log.info('Current source equals base tree; applying export directly.');
       const finalSourceTree = applyTreeToLiveJsonPath(ctx, exportTree, knownLiveTree);
       git.advanceBaseRef(stateKey, exportTree);
-      meta.write(meta.getClean(exportTree, finalSourceTree));
+      meta.write(meta.getClean(exportTree, finalSourceTree, syncCommit));
       return { result: 'clean' };
     }
 
@@ -123,7 +126,7 @@ function postExport(ctx, request) {
       // to recognize its own last output on the next export.
       const finalSourceTree = applyTreeToLiveJsonPath(ctx, mergeResult.resultTree, knownLiveTree);
       git.advanceBaseRef(stateKey, exportTree);
-      meta.write(meta.getClean(exportTree, finalSourceTree));
+      meta.write(meta.getClean(exportTree, finalSourceTree, syncCommit));
       return { result: 'clean' };
     }
 

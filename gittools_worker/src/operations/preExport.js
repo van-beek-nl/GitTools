@@ -131,7 +131,7 @@ function resolvePendingConflict(ctx, metaObject) {
     // assume the old base can be re-used.
     log.info('Pending conflict was discarded; keeping previous base tree.');
     git.deletePendingRefs(stateKey);
-    return meta.getClean(metaObject.pending.baseTree, currentSourceTree);
+    return meta.getClean(metaObject.pending.baseTree, currentSourceTree, git.headCommit());
   }
 
   // The current source tree differs from pending.sourceTree. This can mean two things:
@@ -158,7 +158,7 @@ function resolvePendingConflict(ctx, metaObject) {
     // Replay is clean, we can safely advance the base ref
     log.info('Pending conflict was resolved and accepted; advancing base to export tree.');
     git.advanceBaseRef(stateKey, metaObject.pending.exportTree);
-    return meta.getClean(metaObject.pending.exportTree, currentSourceTree);
+    return meta.getClean(metaObject.pending.exportTree, currentSourceTree, git.headCommit());
   }
 
   // Replay was *not* clean, reset the meta file to force the next export to recompute
@@ -181,27 +181,34 @@ function resolveCurrentSourceAndBase(ctx, metaObject) {
   }
 
   if (git.doesHeadExist()) {
-    // Fallback path: the live source is no longer GitTools' last output, so a pull,
-    // discard, or partial commit moved it. The live edits are disposable; HEAD becomes
-    // the source side. The advanced baseTree is now unreliable, so the base is recomputed
-    // as the true common ancestor from HEAD's history. An empty base there means no
-    // recorded ancestor is reachable; the export then applies as if it had no base, with
-    // the overwrite warning.
+    // The live source is no longer GitTools' last output (a pull, discard, or partial commit moved
+    // it). The live edits are disposable; HEAD becomes the source side.
     log.info('Live JSON path has changed since last export; using HEAD as source. Live changes are disposable.');
-    const baseRefName = `refs/gittools/${stateKey}/base`;
-    let lineage = [];
-    if (git.resolveRef(baseRefName)) {
-      const lineageResult = git.invokeRaw(['rev-list', '--format=%T', '--no-commit-header', baseRefName]);
-      if (lineageResult.status === 0) {
-        lineage = splitLines(lineageResult.stdout);
-      }
-    }
-    const lineageSet = new Set(lineage);
 
-    let mergeBase = findRecordedBaseInHistory(ctx, metaObject, lineageSet, FAST_HISTORY_MAX_COMMITS);
-    if (!mergeBase && lineage.length > 0) {
-      log.info(`No recorded base within the last ${FAST_HISTORY_MAX_COMMITS} commits; extending search to full history.`);
-      mergeBase = findRecordedBaseInHistory(ctx, metaObject, lineageSet, FULL_HISTORY_MAX_COMMITS);
+    let mergeBase;
+    if (metaObject.baseTree && metaObject.syncCommit && git.isAncestor(metaObject.syncCommit, git.headCommit())) {
+      // HEAD is at or ahead of our last sync, so committed history since then is real work; build
+      // the base per file (see buildReconciliationBase).
+      log.info('HEAD is at or ahead of the last sync; building the reconciliation base from the commit graph.');
+      mergeBase = buildReconciliationBase(ctx, metaObject);
+    } else {
+      // No recorded sync, or HEAD moved off that line (reset/branch-switch): recompute the base as
+      // the common ancestor from HEAD's history. An empty result applies as if there were no base.
+      const baseRefName = `refs/gittools/${stateKey}/base`;
+      let lineage = [];
+      if (git.resolveRef(baseRefName)) {
+        const lineageResult = git.invokeRaw(['rev-list', '--format=%T', '--no-commit-header', baseRefName]);
+        if (lineageResult.status === 0) {
+          lineage = splitLines(lineageResult.stdout);
+        }
+      }
+      const lineageSet = new Set(lineage);
+
+      mergeBase = findRecordedBaseInHistory(ctx, metaObject, lineageSet, FAST_HISTORY_MAX_COMMITS);
+      if (!mergeBase && lineage.length > 0) {
+        log.info(`No recorded base within the last ${FAST_HISTORY_MAX_COMMITS} commits; extending search to full history.`);
+        mergeBase = findRecordedBaseInHistory(ctx, metaObject, lineageSet, FULL_HISTORY_MAX_COMMITS);
+      }
     }
 
     // No HEAD entry for jsonPath yet (e.g. before the very first export/import):
@@ -264,6 +271,53 @@ function findRecordedBaseInHistory(ctx, metaObject, lineageSet, maxCommits) {
   }
 
   return '';
+}
+
+// Builds the merge base per file for the drift path, given HEAD is at or ahead of
+// metaObject.syncCommit. Files a commit changed since the sync take metaObject.baseTree's value
+// (so committed/peer changes three-way merge and are never dropped); files no commit touched take
+// HEAD's value (so the library resurfaces over an uncommitted working-tree discard). The base is
+// HEAD's subtree with the committed-since-sync files overlaid from metaObject.baseTree.
+function buildReconciliationBase(ctx, metaObject) {
+  const { git, jsonPath } = ctx;
+
+  const headSubtree = git.invoke(['rev-parse', `HEAD:${jsonPath}`]);
+
+  // The jsonPath subtree at the sync commit, or the empty tree when it did not exist then.
+  const syncSubtreeResult = git.invokeRaw(['rev-parse', '--verify', '--quiet', `${metaObject.syncCommit}:${jsonPath}`]);
+  const syncSubtree = syncSubtreeResult.status === 0 ? syncSubtreeResult.stdout.trim() : git.invoke(['mktree'], { input: '' });
+
+  const committedFiles = splitLines(
+    git.invoke(['diff-tree', '-r', '--no-commit-id', '--name-only', syncSubtree, headSubtree])
+  );
+  if (committedFiles.length === 0) {
+    return headSubtree;
+  }
+
+  return git.withScratchIndex((scratch) => {
+    scratch.invoke(['read-tree', headSubtree]);
+
+    const records = [];
+    const present = new Set();
+    for (const line of splitLines(scratch.invoke(['ls-tree', metaObject.baseTree, '--', ...committedFiles]))) {
+      const match = /^(\d{6}) \w+ ([0-9a-fA-F]+)\t(.+)$/.exec(line);
+      if (match) {
+        records.push(`${match[1]} ${match[2]}\t${match[3]}`);
+        present.add(match[3]);
+      }
+    }
+
+    // Committed files absent from the recorded base are not part of it; drop them.
+    const removed = committedFiles.filter((file) => !present.has(file));
+    if (removed.length > 0) {
+      scratch.invoke(['update-index', '--force-remove', '--stdin'], { input: removed.join('\n') + '\n' });
+    }
+    if (records.length > 0) {
+      scratch.invoke(['update-index', '--index-info'], { input: records.join('\n') + '\n' });
+    }
+
+    return scratch.invoke(['write-tree']);
+  });
 }
 
 module.exports = { preExport };

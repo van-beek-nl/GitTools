@@ -31,7 +31,8 @@ function postImport(ctx, request) {
   git.advanceBaseRef(stateKey, baseTree);
   git.deletePendingRefs(stateKey);
 
-  meta.write(meta.getClean(baseTree, liveTree));
+  // Record the HEAD commit this import synced against.
+  meta.write(meta.getClean(baseTree, liveTree, git.headCommit()));
 
   return { result: 'clean' };
 }

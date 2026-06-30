@@ -209,6 +209,23 @@ function createGit(options) {
     return invokeRaw(['rev-parse', '--verify', 'HEAD']).status === 0;
   }
 
+  /** The current HEAD commit SHA, or '' when there is no HEAD. */
+  function headCommit() {
+    const result = invokeRaw(['rev-parse', '--verify', '--quiet', 'HEAD']);
+    return result.status === 0 ? result.stdout.trim() : '';
+  }
+
+  /** True if `ancestor` is `descendant`, or an ancestor of it. */
+  function isAncestor(ancestor, descendant) {
+    if (!ancestor || !descendant) {
+      return false;
+    }
+    if (ancestor === descendant) {
+      return true;
+    }
+    return invokeRaw(['merge-base', '--is-ancestor', ancestor, descendant]).status === 0;
+  }
+
   /** True if `repoPath` exists in the HEAD commit's tree. */
   function isPathInHead(repoPath) {
     return doesHeadExist() && invokeRaw(['rev-parse', '--verify', `HEAD:${repoPath}`]).status === 0;
@@ -584,6 +601,8 @@ function createGit(options) {
     hasUnresolvedConflicts: hasUnresolvedConflicts,
     isPathDirty: isPathDirty,
     doesHeadExist: doesHeadExist,
+    headCommit: headCommit,
+    isAncestor: isAncestor,
     isPathInHead: isPathInHead,
     hashObjects: hashObjects,
     catFileBatchCheck: catFileBatchCheck,
