@@ -7,6 +7,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { performance } = require('perf_hooks');
 const { GitToolsError, ErrorCodes } = require('./constants.js');
+const { splitLines } = require('./text.js');
 
 // spawnSync caps captured stdout at ~1 MB by default and silently errors past it.
 // Batched calls (cat-file --batch-check, ls-files --stage, hash-object --stdin-paths)
@@ -625,11 +626,6 @@ function createGit(options) {
 /** A unique, non-colliding temp file path (not created) of the form <tmpdir>/<prefix>-<hex>. */
 function tempFilePath(prefix) {
   return path.join(os.tmpdir(), `${prefix}-${crypto.randomUUID().replace(/-/g, '')}`);
-}
-
-/** Splits git stdout into lines, dropping empty lines (so trailing newlines don't yield ''). */
-function splitLines(string) {
-  return string.split(/\r?\n/).filter(line => line !== '');
 }
 
 module.exports = { createGit };

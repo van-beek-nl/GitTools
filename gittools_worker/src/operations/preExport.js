@@ -3,6 +3,7 @@ const path = require('path');
 
 const { GitToolsError, ErrorCodes } = require('../constants.js');
 const { fingerprintPath } = require('../fingerprint.js');
+const { splitLines } = require('../text.js');
 
 const FAST_HISTORY_MAX_COMMITS = 1000;
 const FULL_HISTORY_MAX_COMMITS = 2147483647;
@@ -82,10 +83,6 @@ function preExport(ctx, request) {
   });
 
   return { source: exportDirectory };
-}
-
-function splitLines(string) {
-  return string.split(/\r?\n/).filter(line => line.trim() !== '');
 }
 
 // Called when the previous export left meta in 'pendingExportConflict' state: export wrote

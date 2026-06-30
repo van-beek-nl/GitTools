@@ -3,6 +3,7 @@ const path = require('path');
 
 const { GitToolsError, ErrorCodes } = require('../constants.js');
 const { fingerprintPath } = require('../fingerprint.js');
+const { splitLines } = require('../text.js');
 
 // JSON keys Omnis rewrites on every export — and even on merely opening and closing a class in
 // the IDE — whose values carry no meaning for import. Left alone they change constantly, producing
@@ -12,6 +13,18 @@ const IRRELEVANT_KEYS = ['moddate', 'internalversion'];
 
 // Git's mode for a regular (non-executable) file, used when writing index records by hand.
 const FILE_MODE_REGULAR = '100644';
+
+/** Parses `git diff --name-status` output into { status, rel } records (split on first tab). */
+function parseNameStatus(output) {
+  const records = [];
+  for (const line of splitLines(output)) {
+    const tab = line.indexOf('\t');
+    if (tab !== -1) {
+      records.push({ status: line.slice(0, tab), rel: line.slice(tab + 1) });
+    }
+  }
+  return records;
+}
 
 /**
  * Finalize an export prepared by pre-export.
@@ -169,11 +182,7 @@ function cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree) {
   }
 
   const revertedPaths = [];
-  for (const line of nameStatus.split(/\r?\n/).filter(Boolean)) {
-    const tab = line.indexOf('\t');
-    if (tab === -1) continue;
-    const status = line.slice(0, tab);
-    const rel = line.slice(tab + 1);
+  for (const { status, rel } of parseNameStatus(nameStatus)) {
     if (!status.startsWith('M') || path.basename(rel) !== 'class.json') {
       continue;
     }
@@ -371,11 +380,7 @@ function writeLiveJsonPathDelta(ctx, tree, liveTree) {
   const writes = [];   // paths added/modified by `tree`, to check out
   const changed = [];  // every changed path (repo-relative), for the caller
 
-  for (const line of nameStatus.split(/\r?\n/).filter(Boolean)) {
-    const tab = line.indexOf('\t');
-    if (tab === -1) continue;
-    const status = line.slice(0, tab);
-    const rel = line.slice(tab + 1);
+  for (const { status, rel } of parseNameStatus(nameStatus)) {
     changed.push(jsonPath === '.' ? rel : `${jsonPath}/${rel}`);
     if (status.startsWith('D')) {
       // Deleted by the target: remove the file, then walk up removing each parent directory
@@ -445,7 +450,7 @@ function resetStagedChanges(ctx, changes) {
     return
   }
 
-  const stagedSet = new Set(staged.split(/\r?\n/).filter(Boolean));
+  const stagedSet = new Set(splitLines(staged));
   const pathsToReset = changes.filter(path => stagedSet.has(path));
   if (pathsToReset.length === 0) {
     return;
