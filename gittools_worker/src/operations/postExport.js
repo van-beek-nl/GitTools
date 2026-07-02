@@ -56,8 +56,17 @@ function postExport(ctx, request) {
   const exportDirectory = path.join(stateRoot, 'export-cache');
   const exportIndex = `${exportDirectory}.index`;
 
-  // The HEAD commit this export is reconciled against, recorded with the resulting meta.
-  const syncCommit = git.headCommit();
+  // syncCommit marks the commit the library's content matches. Only import changes the library,
+  // so export must not move syncCommit up to HEAD: after a pull, HEAD can hold peer commits that
+  // were merged into the working tree but never imported, and claiming the library is synced to
+  // HEAD makes the next export drop that peer work. Keep the old syncCommit while it is still
+  // behind HEAD; only reset to HEAD when there is no prior one, or HEAD no longer descends from it
+  // (reset / branch switch).
+  const headCommit = git.headCommit();
+  const priorSyncCommit = meta.read().syncCommit;
+  const syncCommit = (priorSyncCommit && headCommit && git.isAncestor(priorSyncCommit, headCommit))
+    ? priorSyncCommit
+    : headCommit;
 
   // Hashing the live JSON path is one of the most expensive steps (a full untracked-file scan),
   // and applyTreeToLiveJsonPath needs that tree to compute its delta. Pre-export already hashed
