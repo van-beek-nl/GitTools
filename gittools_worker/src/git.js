@@ -14,6 +14,9 @@ const { splitLines } = require('./text.js');
 // can far exceed that on a large library, so we raise the cap well above any realistic
 // export.
 const MAX_BUFFER = 256 * 1024 * 1024;
+// Ceiling on (lineage trees x paths) lookups in one blobsRecordedInLineage batch, so a long-lived
+// lineage cannot turn a provenance check into an unbounded cat-file batch.
+const MAX_LINEAGE_QUERIES = 200000;
 const NULL_OBJECT_ID = '0000000000000000000000000000000000000000';
 const FILE_MODE_REGULAR = '100644';
 
@@ -271,6 +274,94 @@ function createGit(options) {
     return splitLines(invoke(['cat-file', '--batch-check'], {
       input: revisions.join('\n') + '\n',
     }));
+  }
+
+  /**
+   * The blob ids the base lineage has ever recorded at each of `paths` — the provenance record of
+   * what the LIBRARY itself has produced there, as opposed to what arrived from git. Every export
+   * and import chains a tree onto the lineage ref, so a blob appearing in it means the library
+   * produced that exact content at some point.
+   *
+   * Fails open: no ref, an unreadable lineage, or a batch whose output does not line up with its
+   * input all yield an empty map, which callers must treat as "no provenance known". That is the
+   * safe direction — it degrades to the behaviour of not consulting provenance at all.
+   *
+   * @param {string} ref         fully-qualified lineage ref (refs/gittools/<key>/base)
+   * @param {string[]} paths     repo-relative paths (relative to the lineage trees) to look up
+   * @param {number} maxCommits  newest-first bound on how far back the lineage is walked
+   * @returns {Map<string, Set<string>>} path -> set of blob ids recorded at that path
+   */
+  function blobsRecordedInLineage(ref, paths, maxCommits) {
+    const empty = new Map();
+    if (!paths || paths.length === 0) {
+      return empty;
+    }
+
+    if (!resolveRef(ref)) {
+      if (log) { log.info(`No base lineage at ${ref}; every path reads as unknown provenance.`); }
+      return empty;
+    }
+
+    const result = invokeRaw(
+      ['rev-list', '--format=%T', '--no-commit-header', `--max-count=${maxCommits}`, ref]
+    );
+    if (result.status !== 0) {
+      if (log) { log.warning(`Could not read the base lineage at ${ref}; every path reads as unknown provenance.`); }
+      return empty;
+    }
+
+    // Newest first, so the trees most likely to answer the question come first when the cap
+    // below truncates a long lineage.
+    let trees = splitLines(result.stdout);
+    const walked = trees.length;
+    const maxTrees = Math.floor(MAX_LINEAGE_QUERIES / paths.length);
+    if (trees.length > maxTrees) {
+      trees = trees.slice(0, Math.max(1, maxTrees));
+    }
+    if (trees.length === 0) {
+      return empty;
+    }
+
+    // Say so when the answer comes from only part of the lineage: anything the library produced
+    // before the cut reads as unknown provenance, which is the one way this check can be wrong
+    // rather than merely conservative. Without this line that outcome is invisible in a trace.
+    if (log && (trees.length < walked || walked >= maxCommits)) {
+      const scanned = walked >= maxCommits ? `${maxCommits}+` : `${walked}`;
+      log.info(`Base lineage provenance limited to the newest ${trees.length} of ${scanned} entries across ${paths.length} path(s); older library output reads as unknown provenance.`);
+    }
+
+    const queries = [];
+    for (const tree of trees) {
+      for (const repoPath of paths) {
+        queries.push(`${tree}:${repoPath}`);
+      }
+    }
+
+    // cat-file --batch-check emits exactly one line per input rev, in order: "<oid> blob <size>"
+    // for a hit, "<rev> missing" for a miss. Anything else means we cannot trust the alignment.
+    const lines = catFileBatchCheck(queries);
+    if (lines.length !== queries.length) {
+      if (log) { log.warning(`Lineage lookup returned ${lines.length} records for ${queries.length} queries; every path reads as unknown provenance.`); }
+      return empty;
+    }
+
+    const recorded = new Map();
+    for (let i = 0; i < lines.length; i++) {
+      const fields = lines[i].trim().split(' ');
+      if (fields.length < 2 || fields[1] !== 'blob') {
+        continue;
+      }
+
+      const repoPath = paths[i % paths.length];
+      let seen = recorded.get(repoPath);
+      if (!seen) {
+        seen = new Set();
+        recorded.set(repoPath, seen);
+      }
+      seen.add(fields[0]);
+    }
+
+    return recorded;
   }
 
   /**
@@ -613,6 +704,7 @@ function createGit(options) {
     isPathInHead: isPathInHead,
     hashObjects: hashObjects,
     catFileBatchCheck: catFileBatchCheck,
+    blobsRecordedInLineage: blobsRecordedInLineage,
     withScratchIndex: withScratchIndex,
     hashTree: hashTree,
     mergeTree: mergeTree,

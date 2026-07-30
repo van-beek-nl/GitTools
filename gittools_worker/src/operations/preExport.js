@@ -7,6 +7,10 @@ const { splitLines } = require('../text.js');
 
 const FAST_HISTORY_MAX_COMMITS = 1000;
 const FULL_HISTORY_MAX_COMMITS = 2147483647;
+// How far back the base lineage is walked when asking whether the library ever produced HEAD's
+// content for a file (see selectFilesNeedingRecordedBase). Newest-first, so a truncated walk still
+// covers the recent exports that answer the question in practice.
+const LINEAGE_PROVENANCE_MAX_COMMITS = 1000;
 
 /**
  * Resolves and prepares everything Omnis needs before exporting: a clean source/base pair
@@ -138,20 +142,27 @@ function resolvePendingConflict(ctx, metaObject) {
   //    It differs, but not because the user resolved the merge.
   //
   // GitTools needs a way to distinguish these two situations. We do so by replaying
-  // the exact same 3-way merge that originally conflicted:
-  // - If the replay is clean, it's proof that the current source tree already contains
-  //   everything the export wanted. `exportTree` becomes the new base and `currentSourceTree`
-  //   becomes the new source. This prevents the next export from raising unexpected conflicts.
-  // - If the replay conflicts, the current source tree does *not* contain the export's changes.
-  //   Here, we should not treat the `exportTree` as new base. If we did, a future export would
-  //   silently discard work without conflicts or warnings.
+  // the exact same 3-way merge that originally conflicted, and asking whether it would change
+  // anything: only if the merge result IS the current source tree does that tree already contain
+  // everything the export wanted, which is what proves the user accepted it. `exportTree` then
+  // becomes the new base and `currentSourceTree` the new source, so the next export does not
+  // raise unexpected conflicts.
+  //
+  // A clean exit alone proves nothing, and trusting it silently destroyed work in the field: when
+  // the discard above lands `currentSourceTree` on `pending.baseTree`, the replay degenerates into
+  // merge(X, X, exportTree), and a merge whose base equals one of its sides can never conflict —
+  // it just returns the other side. That guaranteed exit 0 was read as acceptance, so the base
+  // advanced to an export tree the working tree had never taken. From then on the base equalled the
+  // export, every later merge resolved to `ours`, and no library change could reach git again.
+  // Comparing trees instead of statuses is not fooled by the degenerate case: there the result is
+  // `exportTree`, which differs from the source that never absorbed it.
   const replay = git.mergeTree(
     metaObject.pending.baseTree,
     currentSourceTree,
     metaObject.pending.exportTree
   );
   git.deletePendingRefs(stateKey);
-  if (replay.status === 0) {
+  if (replay.status === 0 && replay.resultTree === currentSourceTree) {
     // Replay is clean, we can safely advance the base ref
     log.info('Pending conflict was resolved and accepted; advancing base to export tree.');
     git.advanceBaseRef(stateKey, metaObject.pending.exportTree);
@@ -270,10 +281,11 @@ function findRecordedBaseInHistory(ctx, metaObject, lineageSet, maxCommits) {
 }
 
 // Builds the merge base per file for the drift path, given HEAD is at or ahead of
-// metaObject.syncCommit. Files a commit changed since the sync take metaObject.baseTree's value
-// (so committed/peer changes three-way merge and are never dropped); files no commit touched take
-// HEAD's value (so the library resurfaces over an uncommitted working-tree discard). The base is
-// HEAD's subtree with the committed-since-sync files overlaid from metaObject.baseTree.
+// metaObject.syncCommit. Files no commit touched take HEAD's value (so the library resurfaces over
+// an uncommitted working-tree discard). Files a commit changed since the sync take
+// metaObject.baseTree's value ONLY when HEAD's content for them is foreign to the library — see
+// selectFilesNeedingRecordedBase. The base is HEAD's subtree with those files overlaid from
+// metaObject.baseTree.
 function buildReconciliationBase(ctx, metaObject) {
   const { git, jsonPath } = ctx;
 
@@ -290,12 +302,17 @@ function buildReconciliationBase(ctx, metaObject) {
     return headSubtree;
   }
 
+  const overlayFiles = selectFilesNeedingRecordedBase(ctx, headSubtree, committedFiles);
+  if (overlayFiles.length === 0) {
+    return headSubtree;
+  }
+
   return git.withScratchIndex((scratch) => {
     scratch.invoke(['read-tree', headSubtree]);
 
     const records = [];
     const present = new Set();
-    for (const line of splitLines(scratch.invoke(['ls-tree', metaObject.baseTree, '--', ...committedFiles]))) {
+    for (const line of splitLines(scratch.invoke(['ls-tree', metaObject.baseTree, '--', ...overlayFiles]))) {
       const match = /^(\d{6}) \w+ ([0-9a-fA-F]+)\t(.+)$/.exec(line);
       if (match) {
         records.push(`${match[1]} ${match[2]}\t${match[3]}`);
@@ -303,8 +320,8 @@ function buildReconciliationBase(ctx, metaObject) {
       }
     }
 
-    // Committed files absent from the recorded base are not part of it; drop them.
-    const removed = committedFiles.filter((file) => !present.has(file));
+    // Overlaid files absent from the recorded base are not part of it; drop them.
+    const removed = overlayFiles.filter((file) => !present.has(file));
     if (removed.length > 0) {
       scratch.invoke(['update-index', '--force-remove', '--stdin'], { input: removed.join('\n') + '\n' });
     }
@@ -314,6 +331,75 @@ function buildReconciliationBase(ctx, metaObject) {
 
     return scratch.invoke(['write-tree']);
   });
+}
+
+/**
+ * Of the files a commit touched since the sync, the ones whose base must come from
+ * metaObject.baseTree (the last export) rather than from HEAD.
+ *
+ * Taking baseTree's value makes the library side of the merge look unchanged for that file, so
+ * HEAD wins. That is right for a peer's committed work and wrong for the developer's own
+ * exported-but-uncommitted work, and the two are indistinguishable from the trees alone: both are
+ * "base == theirs, ours differs". What separates them is PROVENANCE — has the library ever
+ * produced what HEAD holds here?
+ *
+ *   - Yes: the library produced that content and has since moved past it. HEAD is not superseding
+ *     anything, it is simply behind, so leaving the base at HEAD's value lets the library's newer
+ *     content apply. This is the developer's own uncommitted work, which must survive.
+ *   - No: the content arrived from git and the library has never seen it (a pulled peer commit).
+ *     Overlay baseTree so the peer's work is protected, and so a library change to the same file
+ *     surfaces as a real conflict instead of silently winning.
+ *
+ * The base lineage ref records every tree an export or import ever produced, which answers this
+ * directly. When it is unavailable (a fresh clone, a pruned ref) no file has known provenance and
+ * every file is overlaid — exactly the behaviour before provenance was consulted.
+ *
+ * @param {import('../context.js').Context} ctx
+ * @param {string} headSubtree     HEAD's tree at jsonPath
+ * @param {string[]} committedFiles files a commit changed since metaObject.syncCommit
+ * @returns {string[]} the subset to overlay from the recorded base
+ */
+function selectFilesNeedingRecordedBase(ctx, headSubtree, committedFiles) {
+  const { git, log, stateKey } = ctx;
+
+  const headBlobs = new Map();
+  for (const line of splitLines(git.invoke(['ls-tree', headSubtree, '--', ...committedFiles]))) {
+    const match = /^(\d{6}) \w+ ([0-9a-fA-F]+)\t(.+)$/.exec(line);
+    if (match) {
+      headBlobs.set(match[3], match[2]);
+    }
+  }
+
+  const recorded = git.blobsRecordedInLineage(
+    `refs/gittools/${stateKey}/base`,
+    committedFiles,
+    LINEAGE_PROVENANCE_MAX_COMMITS
+  );
+
+  const overlayFiles = [];
+  const keptFromHead = [];
+  for (const file of committedFiles) {
+    const headBlob = headBlobs.get(file);
+    const seen = recorded.get(file);
+    if (headBlob && seen && seen.has(headBlob)) {
+      keptFromHead.push(file);
+      continue;
+    }
+
+    overlayFiles.push(file);
+  }
+
+  // Both halves are logged, because which files landed on which side is the first thing anyone
+  // debugging a "my change did not export" report needs to know, and it is not recoverable from
+  // the git commands alone.
+  if (keptFromHead.length > 0) {
+    log.debug(`Library has produced HEAD's content for ${keptFromHead.length} file(s); basing them on HEAD so its newer content still applies.`);
+  }
+  if (overlayFiles.length > 0) {
+    log.debug(`No recorded provenance for HEAD's content in ${overlayFiles.length} file(s); keeping the committed content and basing them on the last export.`);
+  }
+
+  return overlayFiles;
 }
 
 module.exports = { preExport };
