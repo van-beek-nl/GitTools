@@ -58,6 +58,31 @@ test('a conflict that was discarded (not resolved) must not advance the base pas
   assert.equal(h.read1(r, J, 'a.json'), 'aX', 'still present after a further export');
 });
 
+// The contract for discarding a resolved-but-uncommitted conflict: export writes the library over
+// the export tree, and a hand-merge that was never imported is not part of the library, so
+// discarding it is legitimate. What makes that safe rather than lossy is that the disagreement it
+// resolved must COME BACK -- the export may not quietly settle it in either direction.
+test('a hand-merged but uncommitted resolution is discarded, and the conflict comes back', () => {
+  const r = h.newRepo(); const lib = h.libOf(r);
+
+  h.importLib(r, J, lib, { 'a.json': 'a0', 'b.json': 'b0' });
+  h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'bC' }, 'colleague edits b');
+
+  // The library edits the same file the colleague committed.
+  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'a0', 'b.json': 'bY' }), 'conflict',
+    'library bY collides with the colleague bC');
+
+  // The developer hand-merges to a third value and stages it, but does not commit.
+  h.writeFiles(`${r}/${J}`, { 'b.json': 'bBOTH' });
+  h.git(r, 'add', '-A');
+
+  const res = h.exportLib(r, J, lib, { 'a.json': 'a0', 'b.json': 'bY' });
+
+  assert.equal(res, 'conflict', 'the disagreement re-surfaces instead of being settled silently');
+  assert.equal(h.stat(r, `${J}/b.json`), 'UU', 'b is a real unmerged conflict again');
+  assert.notEqual(h.read1(r, J, 'b.json'), 'bC', "the colleague's value did not silently win");
+});
+
 test('a genuinely resolved conflict is still recognised and still advances the base', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
 

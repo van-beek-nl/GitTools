@@ -190,7 +190,7 @@ function cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree) {
     return exportTree;
   }
 
-  const revertedPaths = [];
+  const reverted = [];
   for (const { status, rel } of parseNameStatus(nameStatus)) {
     if (!status.startsWith('M') || path.basename(rel) !== 'class.json') {
       continue;
@@ -202,23 +202,24 @@ function cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree) {
       continue;
     }
 
-    if (cleanFileLines(path.join(exportDirectory, rel), sourceBlob.stdout)) {
-      revertedPaths.push(rel);
+    const content = cleanFileLines(path.join(exportDirectory, rel), sourceBlob.stdout);
+    if (content !== null) {
+      reverted.push({ rel: rel, content: content });
       log.debug(`Reverted irrelevant-key changes in ${rel}`);
     }
   }
 
-  if (revertedPaths.length === 0) {
+  if (reverted.length === 0) {
     return exportTree;
   }
 
   // Patch only the reverted files onto the already-built exportTree rather than re-scanning the
-  // whole cache: hash the rewritten files in one process, overlay them on a scratch index seeded
+  // whole cache: hash the scrubbed content in one process, overlay it on a scratch index seeded
   // from exportTree, and write the tree back. This avoids a second full working-tree scan (the
   // untracked-file walk that dominates a from-scratch rebuild).
-  log.info(`Cleaned up ${revertedPaths.length} file(s); rebuilding export tree.`);
-  const objectIds = git.hashObjects(revertedPaths.map(rel => path.join(exportDirectory, rel)));
-  const indexRecords = revertedPaths.map((rel, i) => `${FILE_MODE_REGULAR} ${objectIds[i]}\t${rel}`);
+  log.info(`Cleaned up ${reverted.length} file(s); rebuilding export tree.`);
+  const objectIds = hashScrubbedContent(ctx, exportDirectory, reverted);
+  const indexRecords = reverted.map((entry, i) => `${FILE_MODE_REGULAR} ${objectIds[i]}\t${entry.rel}`);
   return git.withScratchIndex((scratch) => {
     scratch.invoke(['read-tree', exportTree]);
     scratch.invoke(['update-index', '--index-info'], { input: indexRecords.join('\n') + '\n' });
@@ -227,15 +228,60 @@ function cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree) {
 }
 
 /**
+ * Hashes scrubbed class.json content into the object store WITHOUT writing it back into the export
+ * cache, returning one object id per entry in order.
+ *
+ * Keeping the cache byte-identical to what Omnis wrote is the whole point. Omnis' export is
+ * incremental: it re-exports a class when the copy in the JSON tree no longer matches what it last
+ * wrote there (`$comparejson` calls that a "conflict"). Rewriting class.json in the cache made every
+ * scrubbed class permanently conflicted, so Omnis re-exported the same set on every single run —
+ * measured in the field as 32 of 1201 class directories rewritten every time, exactly the set
+ * GitTools had doctored, while the other 1169 sat untouched for two days.
+ *
+ * The content is staged in a scratch directory instead. It keeps each file's ORIGINAL relative path
+ * (hence its basename and extension), because git resolves .gitattributes by path: a scrubbed
+ * class.json staged as some flat temp name stops matching a rule like `*.json -text`, and
+ * core.autocrlf then rewrites its line endings, silently changing the blob id and turning the file
+ * into a phantom whole-file diff. Staging beside the cache under the same names reproduces the
+ * cache-path hash exactly.
+ *
+ * @param {import('../context.js').Context} ctx
+ * @param {string} exportDirectory  absolute path to the export cache (staging goes beside it)
+ * @param {{rel: string, content: string}[]} reverted
+ * @returns {string[]} object ids, one per entry, in order
+ */
+function hashScrubbedContent(ctx, exportDirectory, reverted) {
+  const { git } = ctx;
+
+  const staging = path.join(path.dirname(exportDirectory), 'scrub-staging');
+  fs.rmSync(staging, { recursive: true, force: true });
+  try {
+    const stagedPaths = reverted.map((entry) => {
+      const staged = path.join(staging, entry.rel);
+      fs.mkdirSync(path.dirname(staged), { recursive: true });
+      fs.writeFileSync(staged, entry.content, 'utf-8');
+      return staged;
+    });
+
+    return git.hashObjects(stagedPaths);
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+}
+
+/**
  * Revert the irrelevant-key lines in the file at `cacheFilePath` to the matching lines in
- * `sourceContent`, in place. For each key, the lines in each version are paired in order of
- * appearance; pairing only happens when both versions hold the same number of that key's lines,
- * so a structural change (a differing count) is left untouched rather than guessed at. The file's
+ * `sourceContent`. For each key, the lines in each version are paired in order of appearance;
+ * pairing only happens when both versions hold the same number of that key's lines, so a
+ * structural change (a differing count) is left untouched rather than guessed at. The file's
  * existing newline style and trailing newline are preserved.
  *
- * @param {string} cacheFilePath  absolute path to the cache file to rewrite
+ * The cache file is READ ONLY — the scrubbed text is returned for the caller to hash, never
+ * written back. See hashScrubbedContent for why the cache must stay as Omnis left it.
+ *
+ * @param {string} cacheFilePath  absolute path to the cache file to read
  * @param {string} sourceContent  raw text of the source-side version
- * @returns {boolean} true when the file was changed
+ * @returns {string|null} the scrubbed text, or null when nothing needed reverting
  */
 function cleanFileLines(cacheFilePath, sourceContent) {
   const raw = fs.readFileSync(cacheFilePath, 'utf-8');
@@ -273,15 +319,14 @@ function cleanFileLines(cacheFilePath, sourceContent) {
   }
 
   if (!changed) {
-    return false;
+    return null;
   }
 
   let output = cacheLines.join(eol);
   if (hadTrailingNewline) {
     output += eol;
   }
-  fs.writeFileSync(cacheFilePath, output, 'utf-8');
-  return true;
+  return output;
 }
 
 /**

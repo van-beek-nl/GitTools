@@ -75,3 +75,32 @@ test('without the option, an irrelevant-key bump is applied verbatim', () => {
   assert.equal(res, 'clean');
   assert.equal(h.readSrc(r, J)['C/class.json'], klass(999, 7, 'real'), 'the bumped keys are left in place');
 });
+
+// The scrub must never write back into the export cache. Omnis' export is incremental: it
+// re-exports a class when the copy in the JSON tree no longer matches what it last wrote there
+// ($comparejson calls that a "conflict", and GitTools runs with exportoverwritesconflicts=kTrue).
+// Rewriting class.json in the cache therefore made every scrubbed class permanently conflicted, so
+// Omnis re-exported the same set forever -- measured in the field as 32 of 1201 class directories
+// rewritten on every run, exactly the set GitTools had doctored, while the other 1169 went two days
+// untouched. Keeping the cache byte-identical is what lets the cache do its job.
+test('scrubbing leaves the export cache byte-identical to what Omnis wrote', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  const r = h.newRepo(); const lib = h.libOf(r);
+  h.importLib(r, J, lib, { 'C/class.json': klass(100, 1, 'real') });
+
+  const exported = klass(999, 7, 'real');
+  const cacheFile = path.join(h.cacheDir(r, J, lib), 'C', 'class.json');
+
+  const res = h.exportLib(r, J, lib, { 'C/class.json': exported }, ON);
+
+  assert.equal(res, 'clean');
+  // The scrub still happened where it matters: the working tree carries the source's key values.
+  assert.equal(h.readSrc(r, J)['C/class.json'], klass(100, 1, 'real'), 'the tree still gets scrubbed values');
+  // ...but Omnis' own bytes are still sitting in the cache, so it will not see a conflict next run.
+  assert.equal(fs.readFileSync(cacheFile, 'utf8'), exported, 'the cache still holds exactly what Omnis wrote');
+  // And no scratch staging is left lying around next to the cache.
+  assert.equal(fs.existsSync(path.join(path.dirname(h.cacheDir(r, J, lib)), 'scrub-staging')), false,
+    'the staging directory is cleaned up');
+});
