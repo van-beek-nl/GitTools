@@ -17,11 +17,12 @@ End If
 Do lvFailures.$cols.$add("name",kCharacter,kSimplechar)
 For lvLibraries.$line from 1 to lvLibraries.$linecount step 1
 	Do tvLogger.$showWorkingMessage(con('(',lvLibraries.$line,'/',lvLibraries.$linecount,') Importing ',lvLibraries.id),"")
-	If not(tvGitTools.$importLibrary(lvLibraries.id))
+	If not(tvGitTools.$importLibrary(lvLibraries.id,kFalse))
 		Do lvFailures.$add(lvLibraries.id)
 	End If
 	Do tvLogger.$closeWorkingMessage()
 End For
+Do tvGitTools.$registerLibraries()
 
 Calculate lvResultMessage as con('Imports finished (',lvLibraries.$linecount-lvFailures.$linecount,'/',lvLibraries.$linecount,' succeeded).')
 If lvFailures.$linecount>0

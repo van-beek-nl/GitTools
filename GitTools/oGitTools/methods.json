@@ -229,6 +229,16 @@
 				"sublen": 100000000,
 				"param": 1,
 				"desc": "Library ID."
+			},
+			{
+				"name": "pRegisterLibrariesAfterImport",
+				"order": 18,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kTrue",
+				"desc": "Whether to scan and register libraries after a successful import."
 			}
 		],
 		"lvardefs": [
