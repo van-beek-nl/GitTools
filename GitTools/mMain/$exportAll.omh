@@ -2,7 +2,7 @@ Calculate lvLibraries as tvGitTools.$libraries
 Do lvLibraries.$sort($ref.id,kFalse)
 
 If lvLibraries.$linecount=1
-	Do tvLogger.$showWorkingMessage(con('Importing ',lvLibraries.1.id))
+	Do tvLogger.$showWorkingMessage(con('Exporting ',lvLibraries.1.id))
 	Do tvGitTools.$exportLibrary(lvLibraries.1.id,lvMergeConflicts) Returns lvIsOk
 	Do tvLogger.$closeWorkingMessage()
 	
