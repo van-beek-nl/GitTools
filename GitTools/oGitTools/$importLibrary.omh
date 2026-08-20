@@ -144,11 +144,6 @@ End If
 Do tvLogger.$info("Import succeeded")
 Calculate ivBusy as kFalse
 
-# Ensure that any new libraries opened as a result of the import are registered
-If pRegisterLibrariesAfterImport
-	Do $cinst.$registerLibraries()
-End If
-
 # Self-imports require a specialized flow as GitTools would otherwise attempt to close itself during an import
 # This workaround swaps the old library with the imported one after the fact using a second library
 If lvIsSelfImport
@@ -171,6 +166,11 @@ If lvIsSelfImport
 	Do lvSelfImportLibrary.$tasks.$findname("SelfImport").$open("*",$clib().$ref)
 	
 	Quit method kTrue
+End If
+
+# Ensure that any new libraries opened as a result of the import are registered
+If pRegisterLibrariesAfterImport
+	Do $cinst.$registerLibraries()
 End If
 
 Quit method kTrue
