@@ -1,2 +1,0 @@
-Calculate lvHelper as $objects.oSelfImportHelper.$new(pLibrary)
-Do lvHelper.$starttimer()

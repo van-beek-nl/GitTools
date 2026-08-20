@@ -1,0 +1,18 @@
+# Remove all current menu entries
+While $cinst.$objs.$count()>0
+	Do $cinst.$objs.$remove($cinst.$objs.$first())
+End While
+
+For ivUnregisteredLibraries.$line from 1 to ivUnregisteredLibraries.$linecount step 1
+	Do $cinst.$objs.$add(ivUnregisteredLibraries.C1().$name) Returns lvMenuEntry
+	Calculate lvMenuEntry.$enabled as kTrue
+	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,'Do ivTest.$starttimer(tvMenu,"$registerLibrary(',"'",ivUnregisteredLibraries.C1().$pathname,"'",')")')
+End For
+
+Do $cinst.$objs.$add("")
+
+Do $cinst.$objs.$add("Select from file...") Returns lvMenuEntry
+Calculate lvMenuEntry.$enabled as kTrue
+Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+Calculate lvEventMethod.$methodtext as con("On evClick",kCr,'Do ivTest.$starttimer(tvMenu,"$registerLibrary()")')

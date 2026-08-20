@@ -61,6 +61,13 @@
 			"sublen": 0
 		},
 		{
+			"name": "ivSelfImportPath",
+			"order": 6,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
 			"name": "ivWorker",
 			"order": 1,
 			"type": "kObject",

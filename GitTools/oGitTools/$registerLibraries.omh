@@ -11,7 +11,7 @@ If pCleanStaleEntries
 	Do tvLogger.$debug("Cleaning up stale library registrations")
 	For ivRegisteredLibraries.$line from ivRegisteredLibraries.$linecount to 1 step -1
 		If not(lvOpenLibraries.$search($ref.C1().$pathname=ivRegisteredLibraries.libraryPath,kTrue,kFalse,kFalse,kFalse))
-			Do $cinst.$deregisterLibrary(ivRegisteredLibraries.id)
+			Do $cinst.$deregisterLibrary(ivRegisteredLibraries.id,kFalse)
 		End If
 	End For
 End If
@@ -22,7 +22,7 @@ For lvOpenLibraries.$line from 1 to lvOpenLibraries.$linecount step 1
 		Do tvLogger.$updateWorkingMessage(#NULL,con(lvOpenLibraries.C1().$name," (",lvOpenLibraries.$line,"/",lvOpenLibraries.$linecount,")"))
 	End If
 	
-	Do $cinst.$registerLibrary(lvOpenLibraries.C1)
+	Do $cinst.$registerLibrary(lvOpenLibraries.C1,kFalse)
 End For
 
 If lvShowingWorkingMessage

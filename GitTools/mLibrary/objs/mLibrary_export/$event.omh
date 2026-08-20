@@ -1,6 +1,7 @@
 On evClick
 	Do tvLogger.$showWorkingMessage(con('Exporting ',ivLibraryID),"")
 	Do tvGitTools.$exportLibrary(ivLibraryID,lvMergeConflicts) Returns lvIsOk
+	Do tvMenu.$buildMenu()
 	Do tvLogger.$closeWorkingMessage()
 	
 	If not(lvIsOk)

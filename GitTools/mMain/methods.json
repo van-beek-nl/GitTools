@@ -57,6 +57,20 @@
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
 				"sublen": 100000000
+			},
+			{
+				"name": "lvTest",
+				"order": 7,
+				"type": "kItemref",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvUnregisteredLibraries",
+				"order": 6,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
 			}
 		]
 	},
@@ -64,7 +78,14 @@
 		"name": "$registerLibrary",
 		"order": 3,
 		"pvardefs": [
-
+			{
+				"name": "pPath",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
 		],
 		"lvardefs": [
 			{

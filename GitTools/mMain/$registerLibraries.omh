@@ -1,1 +1,2 @@
 Do tvGitTools.$registerLibraries()
+Do $cinst.$buildMenu()

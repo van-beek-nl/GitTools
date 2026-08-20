@@ -1,1 +1,2 @@
-Do ivHelper.$starttimer(pLibrary)
+Set reference ivLibrary to pLibrary
+Do ivDeferralTimer.$starttimer($cinst.$ref(),"$selfImport()")

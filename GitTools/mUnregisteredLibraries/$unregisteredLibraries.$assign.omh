@@ -1,0 +1,2 @@
+Calculate ivUnregisteredLibraries as pUnregisteredLibraries
+Do $cinst.$buildMenu()

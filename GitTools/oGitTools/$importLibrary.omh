@@ -148,21 +148,20 @@ Calculate ivBusy as kFalse
 # This workaround swaps the old library with the imported one after the fact using a second library
 If lvIsSelfImport
 	Do tvLogger.$debug("Entering self-import flow")
-	Calculate lvSelfImportPath as tvFileUtilities.$join(tvFileUtilities.$getTempDirectory(),con("gittools-selfimport.lbs"))
 	
 	# Ensure another copy of the self-import library is not currently open
-	Do $cinst.$$getLibraryReferenceFromPath(lvSelfImportPath) Returns lvSelfImportLibrary
+	Do $cinst.$$getLibraryReferenceFromPath($cinst.$selfImportPath) Returns lvSelfImportLibrary
 	If not(isclear(lvSelfImportLibrary))
 		Close library [lvSelfImportLibrary.$name()]
 	End If
 	
 	# Copy imported library over to temp path
-	Do FileOps.$deletefile(lvSelfImportPath)
-	Do FileOps.$copyfile(lvImportPath,lvSelfImportPath)
+	Do FileOps.$deletefile($cinst.$selfImportPath)
+	Do FileOps.$copyfile(lvImportPath,$cinst.$selfImportPath)
 	
 	# Open copy and run SelfImport task to finish import
-	Open library (Do not close others,Do not open startup task) [lvSelfImportPath]
-	Do $cinst.$$getLibraryReferenceFromPath(lvSelfImportPath) Returns lvSelfImportLibrary
+	Open library (Do not close others,Do not open startup task) [$cinst.$selfImportPath]
+	Do $cinst.$$getLibraryReferenceFromPath($cinst.$selfImportPath) Returns lvSelfImportLibrary
 	Do lvSelfImportLibrary.$tasks.$findname("SelfImport").$open("*",$clib().$ref)
 	
 	Quit method kTrue

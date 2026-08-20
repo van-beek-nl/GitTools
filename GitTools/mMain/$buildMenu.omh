@@ -20,13 +20,11 @@ Else
 	End If
 	
 	If lvLibraries.$linecount>0
-		Do $cinst.$objs.$add(con("Import ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all"))) Returns lvMenuEntry
-		Calculate lvMenuEntry.$enabled as kTrue
+		Do $cinst.$objs.$add(con("Import ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all")),kTrue) Returns lvMenuEntry
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$importAll()")
 		
-		Do $cinst.$objs.$add(con("Export ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all"))) Returns lvMenuEntry
-		Calculate lvMenuEntry.$enabled as kTrue
+		Do $cinst.$objs.$add(con("Export ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all")),kTrue) Returns lvMenuEntry
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$exportAll()")
 		
@@ -43,12 +41,27 @@ Else
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibraries()")
 	End If
 	
+	Do $libs.$makelist($ref) Returns lvUnregisteredLibraries
+	For lvUnregisteredLibraries.$line from 1 to lvUnregisteredLibraries.$linecount step 1
+		If lvUnregisteredLibraries.C1.$pathname=tvGitTools.$selfImportPath
+			Jump to start of loop
+		End If
+		
+		Calculate lvUnregisteredLibraries.$selected as isclear(lvLibraries.$search($ref.libraryPath=lvUnregisteredLibraries.C1.$pathname,kTrue,kFalse,kFalse,kFalse))
+	End For
+	Do lvUnregisteredLibraries.$remove(kListKeepSelected)
+	
+	
 	Do $cinst.$objs.$add("Register library") Returns lvMenuEntry
 	Calculate lvMenuEntry.$enabled as kTrue
-	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibrary()")
+	If lvUnregisteredLibraries.$linecount>0
+		Calculate lvMenuEntry.$cascade as "mUnregisteredLibraries"
+		Calculate lvMenuEntry.$menuinst().$unregisteredLibraries as lvUnregisteredLibraries
+	Else
+		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibrary()")
+	End If
 End If
 
-Do $cinst.$objs.$add("Settings") Returns lvMenuEntry
-Calculate lvMenuEntry.$enabled as kTrue
+Do $cinst.$objs.$add("Settings",kTrue) Returns lvMenuEntry
 Calculate lvMenuEntry.$cascade as "mSettings"

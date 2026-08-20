@@ -559,8 +559,28 @@
 		]
 	},
 	{
-		"name": "----- Private",
+		"name": "$selfImportPath",
 		"order": 16,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$selfImportPath.$assign",
+		"order": 17,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "----- Private",
+		"order": 18,
 		"pvardefs": [
 
 		],
@@ -571,7 +591,7 @@
 	},
 	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 18,
+		"order": 19,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{
@@ -599,7 +619,7 @@
 	},
 	{
 		"name": "$$getLibraryReferenceFromPath",
-		"order": 19,
+		"order": 20,
 		"desc": "Finds and returns a matching library reference for the given library path.",
 		"pvardefs": [
 			{
@@ -624,7 +644,7 @@
 	},
 	{
 		"name": "----- Scripts",
-		"order": 20,
+		"order": 21,
 		"pvardefs": [
 
 		],
@@ -635,7 +655,7 @@
 	},
 	{
 		"name": "$$runScript",
-		"order": 21,
+		"order": 22,
 		"desc": "Runs GitTools script. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -663,7 +683,7 @@
 	},
 	{
 		"name": "$$runScriptAction",
-		"order": 22,
+		"order": 23,
 		"desc": "Runs a given GitTools script action. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -732,7 +752,7 @@
 	},
 	{
 		"name": "$$extractSourceAndDestination",
-		"order": 23,
+		"order": 24,
 		"desc": "Extracts source and destination paths from the given GitTools script action value. Returns a row with \"source\" and \"destination\" columns.",
 		"pvardefs": [
 			{

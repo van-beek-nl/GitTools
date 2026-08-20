@@ -32,7 +32,13 @@
 			}
 		],
 		"lvardefs": [
-
+			{
+				"name": "lvIsOk",
+				"order": 2,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			}
 		]
 	},
 	{
@@ -51,28 +57,11 @@
 			}
 		],
 		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$$finalizeSelfImport",
-		"order": 4,
-		"pvardefs": [
 			{
-				"name": "pLibrary",
+				"name": "lvIsOk",
 				"order": 2,
-				"type": "kItemref",
-				"subtype": "",
-				"sublen": 0,
-				"param": 1
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvHelper",
-				"order": 1,
-				"type": "kObject",
-				"subtype": "oSelfImportHelper",
+				"type": "kBoolean",
+				"subtype": 0,
 				"sublen": 0
 			}
 		]

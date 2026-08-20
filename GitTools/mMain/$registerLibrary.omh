@@ -1,6 +1,10 @@
-Do FileOps.$getfilename(lvPath,"Select library or GitTools config file","*.gittools.json,*.lbs")
-If isclear(lvPath)
-	Quit method
+If isclear(pPath)
+	Do FileOps.$getfilename(lvPath,"Select library or GitTools config file","*.gittools.json,*.lbs")
+	If isclear(lvPath)
+		Quit method
+	End If
+Else
+	Calculate lvPath as pPath
 End If
 
 If low(right(lvPath,4))=".lbs"
@@ -13,3 +17,5 @@ If not(lvIsOk)
 	Open trace log
 	OK message GitTools - Registration failed {The selected library could not be registered. Check the trace log for details.}
 End If
+
+Do $cinst.$buildMenu()

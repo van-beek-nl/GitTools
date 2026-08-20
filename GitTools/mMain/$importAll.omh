@@ -11,6 +11,7 @@ If lvLibraries.$linecount=1
 		OK message [lvLibraries.1.id] - Import failed {Check the trace log for details.}
 	End If
 	
+	Do $cinst.$buildMenu()
 	Quit method
 End If
 
@@ -36,3 +37,4 @@ If lvFailures.$linecount>0
 End If
 
 OK message Import results {[lvResultMessage]}
+Do $cinst.$buildMenu()

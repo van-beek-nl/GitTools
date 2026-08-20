@@ -1,1 +1,3 @@
-Quit method tvGitTools.$registerLibrary(pLibrary)
+Do tvGitTools.$registerLibrary(pLibrary) Returns lvIsOk
+Do tvMenu.$buildMenu()
+Quit method lvIsOk

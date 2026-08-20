@@ -1,0 +1,5 @@
+If isclear(ivSelfImportPath)
+	Calculate ivSelfImportPath as tvFileUtilities.$join(tvFileUtilities.$getTempDirectory(),con("gittools-selfimport.lbs"))
+End If
+
+Quit method ivSelfImportPath

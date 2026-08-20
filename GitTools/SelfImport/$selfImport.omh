@@ -1,5 +1,3 @@
-Do inherited
-
 Calculate lvBasePath as ivLibrary.$pathname
 Calculate lvBackupPath as con(lvBasePath,".bak")
 Calculate lvImportPath as con(lvBasePath,".import")
@@ -19,4 +17,4 @@ If lvErrorCode<>kFileOpsOK
 End If
 
 Open library (Do not close others) [lvBasePath]
-Close library [$clib().$name()]
+Close library [$clib().$name]

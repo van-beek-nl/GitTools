@@ -1,6 +1,7 @@
 On evClick
 	Do tvLogger.$showWorkingMessage(con('Importing ',ivLibraryID),"")
 	Do tvGitTools.$importLibrary(ivLibraryID) Returns lvIsOk
+	Do tvMenu.$buildMenu()
 	Do tvLogger.$closeWorkingMessage()
 	
 	If not(lvIsOk)

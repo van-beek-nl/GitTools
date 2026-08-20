@@ -5,6 +5,6 @@ If lvLine<1
 End If
 
 Do ivRegisteredLibraries.$remove(lvLine)
-Do tvMenu.$buildMenu()
+
 Do tvLogger.$info("Deregistered library ",pLibraryID)
 Quit method kTrue
