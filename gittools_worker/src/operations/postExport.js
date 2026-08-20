@@ -45,7 +45,7 @@ function parseNameStatus(output) {
  */
 function postExport(ctx, request) {
   const { cleanIrrelevantKeys } = request;
-  const { log, git, meta, handoff, jsonPath, jsonAbsolutePath, stateRoot, stateKey } = ctx;
+  const { log, git, meta, handoff, jsonPath, jsonAbsolutePath, exportCache, exportCacheIndex, stateKey } = ctx;
 
   const pendingOperation = handoff.read();
   if (!pendingOperation || pendingOperation.op !== 'export') {
@@ -53,8 +53,6 @@ function postExport(ctx, request) {
   }
 
   const { currentSourceTree, mergeBase, liveTree, liveFingerprint } = pendingOperation;
-  const exportDirectory = path.join(stateRoot, 'export-cache');
-  const exportIndex = `${exportDirectory}.index`;
 
   // syncCommit marks the commit the library's content matches. Only import changes the library,
   // so export must not move syncCommit up to HEAD: after a pull, HEAD can hold peer commits that
@@ -88,7 +86,7 @@ function postExport(ctx, request) {
     // updates the index's stat cache so hashTree's diff against the on-disk cache is accurate
     // (and is repeated afterwards to leave the index clean for the next export). The cache and
     // its index live in the per-worktree state dir, so this is the worktree's own export.
-    const gitOpts = { indexFile: exportIndex, workTree: exportDirectory };
+    const gitOpts = { indexFile: exportCacheIndex, workTree: exportCache };
     git.invokeRaw(['update-index', '-q', '--refresh'], gitOpts);
     let exportTree = git.hashTree(null, gitOpts);
     log.debug(`Export tree: ${exportTree}`);
@@ -98,7 +96,7 @@ function postExport(ctx, request) {
     // noise-free: the merge, the recorded base, and the written-back working tree all operate on
     // a scrubbed tree.
     if (cleanIrrelevantKeys) {
-      exportTree = cleanExportTree(ctx, exportDirectory, currentSourceTree, exportTree);
+      exportTree = cleanExportTree(ctx, exportCache, currentSourceTree, exportTree);
     }
 
     // No reconciliation base: a genuine first export, or the base was lost. There is nothing

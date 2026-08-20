@@ -24,7 +24,7 @@ const LINEAGE_PROVENANCE_MAX_COMMITS = 1000;
  *   result = 'missing-base' when the safety gate fires (no handoff written)
  */
 function preExport(ctx, request) {
-  const { git, handoff, meta, log, jsonPath, jsonAbsolutePath, stateRoot } = ctx;
+  const { git, handoff, meta, log, jsonPath, jsonAbsolutePath, exportCache, exportCacheIndex } = ctx;
 
   if (!git.mergeTreeHasWriteTreeCapabilities()) {
     throw new GitToolsError(
@@ -67,11 +67,9 @@ function preExport(ctx, request) {
   }
 
   // Prepare export directory and index
-  const exportDirectory = path.join(stateRoot, 'export-cache');
-  const exportIndex = `${exportDirectory}.index`;
-  fs.mkdirSync(exportDirectory, { recursive: true });
-  if (!fs.existsSync(exportIndex)) {
-    git.invoke(['read-tree', '--empty'], { indexFile: exportIndex });
+  fs.mkdirSync(exportCache, { recursive: true });
+  if (!fs.existsSync(exportCacheIndex)) {
+    git.invoke(['read-tree', '--empty'], { indexFile: exportCacheIndex });
   }
 
   // Write pending operation to file for the post-export script to use. `liveTree` is the tree
@@ -86,7 +84,7 @@ function preExport(ctx, request) {
     liveFingerprint: fingerprintPath(jsonAbsolutePath),
   });
 
-  return { source: exportDirectory };
+  return { source: exportCache };
 }
 
 // Called when the previous export left meta in 'pendingExportConflict' state: export wrote

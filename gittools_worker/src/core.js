@@ -9,6 +9,7 @@ const { preImport } = require('./operations/preImport.js');
 const { postImport } = require('./operations/postImport.js');
 const { checkGitExecutable } = require('./operations/checkGitExecutable.js');
 const { bootstrapRepository } = require('./operations/bootstrapRepository.js');
+const { clearExportCache } = require('./operations/clearExportCache.js');
 
 // The operation registry: operation name -> handler (ctx, request) -> outcome. The keys
 // are the complete set of operations the worker supports and the strings carried in
@@ -19,6 +20,7 @@ const operations = Object.freeze({
   'preImport': preImport,
   'postImport': postImport,
   'bootstrapRepository': bootstrapRepository,
+  'clearExportCache': clearExportCache,
 });
 
 // Operations that have no library context: they don't (and can't) go through createContext

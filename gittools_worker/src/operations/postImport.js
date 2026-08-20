@@ -14,20 +14,31 @@ function postImport(ctx, request) {
   // the next export recognizes it on the fast path.
   const liveTree = git.hashTree(jsonPath);
 
-  // Record a STABLE base. Imports routinely run over uncommitted source (Omnis can only import
-  // the whole library at once, so the live JSON usually carries pending work). Pinning that dirty,
-  // never-committed live tree as the base produces a base no later export can re-find from history
-  // (recovery walks HEAD's committed subtrees), which surfaces as a false "missing base" once the
-  // live source drifts. The committed tree at jsonPath is durable and reachable, so use it as the
-  // base whenever it exists; only before the first commit of jsonPath does the live tree stand in.
-  let baseTree = liveTree;
+  // The base is the tree the library now holds, which is the tree Omnis just imported FROM. That
+  // has to be `liveTree`, uncommitted or not. Recording anything else makes meta claim the library
+  // is at a state it has never been at, and the next export pays for it: post-export three-way
+  // merges (base, source = this same live tree, export), so a base the library never held turns
+  // the developer's own uncommitted work into a competing edit present on BOTH sides. Every
+  // re-export over it then conflicts — the daily "export, change something, export again" loop.
+  //
+  // Imports routinely run over uncommitted source: Omnis imports the whole library at once, so the
+  // live JSON usually carries an export that has not been committed yet.
   if (git.isPathInHead(jsonPath)) {
-    baseTree = git.invoke(['rev-parse', `HEAD:${jsonPath}`]);
-    if (baseTree !== liveTree) {
-      log.info('Imported over uncommitted source; recording the committed tree as the reconciliation base.');
+    const committedTree = git.invoke(['rev-parse', `HEAD:${jsonPath}`]);
+    if (committedTree !== liveTree) {
+      // The live tree is durable (the lineage ref below pins it) but it is not reachable from
+      // HEAD, so the recovery path that scans HEAD's committed subtrees for a recorded base
+      // (findRecordedBaseInHistory) cannot match it. That path runs when HEAD has moved off the
+      // line we synced against — a reset or branch switch — and finding nothing there means a
+      // false "missing base". Anchoring the committed tree in the lineage keeps it findable.
+      // This does not change what we record as the base now, only what a later export can fall
+      // back to. Same reasoning as post-export anchoring the source it overwrites.
+      log.info('Imported over uncommitted source; anchoring the committed tree in the base lineage.');
+      git.advanceBaseRef(stateKey, committedTree);
     }
   }
 
+  const baseTree = liveTree;
   git.advanceBaseRef(stateKey, baseTree);
   git.deletePendingRefs(stateKey);
 

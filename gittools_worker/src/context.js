@@ -20,6 +20,8 @@ const { createHandoff } = require('./handoff.js');
  * @property {string} stateKey          sha1-derived key identifying this library's state
  * @property {string} stateRoot         PER-WORKTREE state dir (".../gittools/<stateKey>")
  * @property {string} metaPath          meta.json within stateRoot, unless request overrides it
+ * @property {string} exportCache       the export cache directory within stateRoot (a build artifact)
+ * @property {string} exportCacheIndex  the persistent git index describing that cache
  * @property {object} meta              meta file helper
  * @property {object} handoff           handoff file helper
  * @property {object} config            normalized config ({ gitPath, logLevel, ... })
@@ -91,6 +93,11 @@ function createContext(request) {
   /// One-liners depending on other parts of the context
   ctx.metaPath = request.metaPath || path.join(ctx.stateRoot, "meta.json");
   ctx.jsonAbsolutePath = path.join(ctx.repoRoot, ctx.jsonPath);
+  // Derived here, not at each use site: pre-export creates the cache, post-export hashes it, and
+  // clearExportCache deletes it. A convention spelled out in three places is one rename away from
+  // an operation quietly acting on the wrong directory.
+  ctx.exportCache = path.join(ctx.stateRoot, 'export-cache');
+  ctx.exportCacheIndex = `${ctx.exportCache}.index`;
 
   // Helper objects
   ctx.meta = createMeta(ctx.metaPath, ctx.jsonPath);

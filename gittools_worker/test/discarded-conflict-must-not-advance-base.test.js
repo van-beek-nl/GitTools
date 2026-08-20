@@ -12,9 +12,12 @@
 // library's content can never reach git again. In the field this showed up as "no more changed
 // files from the codebase" and exports that silently did nothing.
 //
-// The state that triggers it (base == HEAD's tree while source != base) is not exotic: it is
-// exactly what postImport records when an import runs over uncommitted source, which is the
-// normal case (Omnis can only import a whole library at once).
+// Reaching the replay at all needs a pending conflict whose source side is NOT what the working
+// tree settles on. postImport used to hand that over on a plate, by recording HEAD's committed tree
+// as the base while the live tree was the source; that mismatch was itself a bug and is fixed, so
+// the route below builds the state the way it still arises: an export that merges cleanly leaves
+// base = the raw export tree and source = the merged result, and the next export conflicts against
+// that source. HEAD then moves out from under the pending conflict.
 
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -25,36 +28,37 @@ const { J } = h;
 test('a conflict that was discarded (not resolved) must not advance the base past the library', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
 
-  // Commit a source, then leave an uncommitted edit in the JSON path and import over it.
-  // postImport records baseTree = HEAD's tree, sourceTree = the live tree -> base != source,
-  // and crucially base == HEAD's tree.
-  h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'b0' }, 'initial source');
-  h.writeFiles(`${r}/${J}`, { 'a.json': 'aLIVE' });
-  h.runOp('postImport', r, J, lib);
+  h.importLib(r, J, lib, { 'a.json': 'a0', 'b.json': 'b0' });
+  h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'bC' }, 'colleague edits b');
 
-  const meta = h.readMeta(r, J, lib);
-  assert.equal(meta.baseTree, h.git(r, 'rev-parse', `HEAD:${J}`), 'precondition: base == HEAD tree');
-  assert.notEqual(meta.sourceTree, meta.baseTree, 'precondition: source has uncommitted work');
+  // A clean three-way merge: the library's a wins, the colleague's b survives. This is what
+  // leaves base != source -- base is the raw export, source is the merged working tree.
+  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'b0' }), 'clean', 'export merges cleanly');
+  const merged = h.readMeta(r, J, lib);
+  assert.notEqual(merged.baseTree, merged.sourceTree, 'precondition: a merging export leaves base != source');
 
-  // Export a library that edits the same file -> modify/modify conflict against the live edit.
-  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'b0' }), 'conflict',
-    'export conflicts with the uncommitted live edit');
+  // Now the library edits b as well, colliding with the colleague's value.
+  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bZ' }), 'conflict',
+    'the library and the colleague both moved b');
 
-  // The user discards the conflict in their Git client, landing the source on HEAD --
-  // which here is exactly pending.baseTree, making the acceptance replay degenerate.
-  h.git(r, 'restore', '--source=HEAD', '--staged', '--worktree', '--', J);
-  h.git(r, 'clean', '-fdq', '--', J);
+  // HEAD moves out from under the pending conflict (a pull that reverts both files). The working
+  // tree now sits on a state that is neither pending.sourceTree nor pending.exportTree, so the
+  // replay runs -- and it merges CLEANLY, because each side's change is unopposed there. A clean
+  // exit is therefore no evidence at all that the user accepted the export.
+  h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'b0' }, 'colleague reverts both files');
 
   // Re-export the SAME library.
-  h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'b0' });
+  h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bZ' });
 
-  // The discard threw away the live edit, so the library is the only surviving authority for
-  // a.json: its content must be on disk. Before the fix this was 'a0' -- the base had been
-  // advanced to the export tree, so the merge resolved to HEAD and wrote nothing.
-  assert.equal(h.read1(r, J, 'a.json'), 'aX', "the library's content reaches the working tree");
+  // Nothing accepted the export, so the base must not have advanced to it: the library is still
+  // the only authority for both files and its content must reach the working tree. Reading the
+  // replay's clean exit as acceptance instead produced base == exportTree, after which every
+  // merge resolved to `ours` and wrote nothing -- here, 'a0' and 'b0' forever.
+  assert.equal(h.read1(r, J, 'a.json'), 'aX', "the library's a reaches the working tree");
+  assert.equal(h.read1(r, J, 'b.json'), 'bZ', "the library's b reaches the working tree");
 
   // And it must not be a one-off: with the base wrongly advanced, the loss was permanent.
-  h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'b0' });
+  h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bZ' });
   assert.equal(h.read1(r, J, 'a.json'), 'aX', 'still present after a further export');
 });
 
@@ -83,23 +87,25 @@ test('a hand-merged but uncommitted resolution is discarded, and the conflict co
   assert.notEqual(h.read1(r, J, 'b.json'), 'bC', "the colleague's value did not silently win");
 });
 
+// The other half of the contract: the tree comparison must not be so strict that a real
+// resolution stops counting. Resolving in the user's Git client and committing is the route the
+// conflict message tells them to take, and it must be recognised as acceptance.
 test('a genuinely resolved conflict is still recognised and still advances the base', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
 
-  h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'b0' }, 'initial source');
-  h.writeFiles(`${r}/${J}`, { 'a.json': 'aLIVE' });
-  h.runOp('postImport', r, J, lib);
+  h.importLib(r, J, lib, { 'a.json': 'a0', 'b.json': 'b0' });
+  h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'bC' }, 'colleague edits b');
 
-  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'b0' }), 'conflict',
-    'export conflicts with the uncommitted live edit');
+  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bY' }), 'conflict',
+    'the library and the colleague both moved b');
+  const pendingExport = h.readMeta(r, J, lib).pending.exportTree;
 
-  // Resolve by hand in favour of the export, exactly as the conflict message instructs,
-  // and leave the resolution uncommitted (GitTools' own model surfaces exports as unstaged
-  // working-tree edits the user reviews and stages deliberately).
-  h.writeFiles(`${r}/${J}`, { 'a.json': 'aX' });
-  h.git(r, 'add', '-A');
+  // Resolve in favour of the export and commit, exactly as the conflict message instructs.
+  h.commitSource(r, J, { 'a.json': 'aX', 'b.json': 'bY' }, 'resolve in favour of the export');
 
-  const res = h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'b0' });
+  const res = h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bY' });
   assert.equal(res, 'clean', 'the accepted export does not re-conflict');
+  assert.equal(h.readMeta(r, J, lib).baseTree, pendingExport, 'the base advanced to the export tree');
   assert.equal(h.read1(r, J, 'a.json'), 'aX', 'the resolution is preserved');
+  assert.equal(h.read1(r, J, 'b.json'), 'bY', 'the resolution is preserved');
 });
