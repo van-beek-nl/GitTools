@@ -1,3 +1,12 @@
 Do inherited
 Install menu mMain
-Do $cinst.$openlibschanged()
+
+# Omnis v10/v11+ compatibility workaround:
+# $openlibschanged is a built-in method available since Omnis v11.
+# Due to a library conversion bug when GitTools (which maintains Omnis v10 compatibility)
+# is converted for Omnis v11, $openlibschanged is never called by Omnis when the method
+# was created in an Omnis v10 library. To work around this issue, we create the method
+# as a temporary/instance method dynamically instead.
+Do $cinst.$methods.$add("$openlibschanged") Returns lvMethod
+Calculate lvMethod.$methodtext as "Do tvGitTools.$registerLibraries()"
+Do $cinst.["$openlibschanged"]()

@@ -1,7 +1,22 @@
+If ivBusy
+	Do tvLogger.$debug("Skipping $registerLibraries - GitTools is busy")
+	Quit method
+End If
+
 Do tvLogger.$showWorkingMessage("Registering libraries") Returns lvShowingWorkingMessage
-Do tvLogger.$debug("Attempting to register all currently open libraries")
 
 Do $libs.$makelist($ref) Returns lvOpenLibraries
+
+If pCleanStaleEntries
+	Do tvLogger.$debug("Cleaning up stale library registrations")
+	For ivRegisteredLibraries.$line from ivRegisteredLibraries.$linecount to 1 step -1
+		If not(lvOpenLibraries.$search($ref.C1().$pathname=ivRegisteredLibraries.libraryPath,kTrue,kFalse,kFalse,kFalse))
+			Do $cinst.$deregisterLibrary(ivRegisteredLibraries.id)
+		End If
+	End For
+End If
+
+Do tvLogger.$debug("Attempting to register all currently open libraries")
 For lvOpenLibraries.$line from 1 to lvOpenLibraries.$linecount step 1
 	If lvShowingWorkingMessage
 		Do tvLogger.$updateWorkingMessage(#NULL,con(lvOpenLibraries.C1().$name," (",lvOpenLibraries.$line,"/",lvOpenLibraries.$linecount,")"))

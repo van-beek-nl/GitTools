@@ -1,0 +1,5 @@
+Calculate $cinst.$autoreset as kFalse
+Calculate $cinst.$reentrant as kFalse
+Calculate $cinst.$useseconds as kFalse
+Calculate $cinst.$timervalue as 0
+Do inherited

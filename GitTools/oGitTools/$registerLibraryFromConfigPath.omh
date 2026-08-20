@@ -9,11 +9,6 @@ Calculate lvRegistration.basePath as FileOps.$parentdir(pConfigFilePath)
 Calculate lvRegistration.libraryPath as tvFileUtilities.$configPathToLibraryPath(pConfigFilePath)
 Calculate lvRegistration.configPath as pConfigFilePath
 
-If lvRegistration.libraryPath=$clib.$pathname
-	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as it matches our (GitTools) path")
-	Quit method kFalse
-End If
-
 If ivRegisteredLibraries.$search($ref.libraryPath=lvRegistration.libraryPath,kTrue,kFalse,kFalse,kFalse)
 	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as it is already registered")
 	Quit method kTrue

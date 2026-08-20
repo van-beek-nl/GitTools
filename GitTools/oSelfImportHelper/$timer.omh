@@ -1,0 +1,22 @@
+Do inherited
+
+Calculate lvBasePath as ivLibrary.$pathname
+Calculate lvBackupPath as con(lvBasePath,".bak")
+Calculate lvImportPath as con(lvBasePath,".import")
+
+Close library [ivLibrary.$name()]
+
+Do FileOps.$movefile(lvBasePath,lvBackupPath) Returns lvErrorCode
+If lvErrorCode<>kFileOpsOK
+	OK message Self-import error {Unable to back up previous library (FileOps #[lvErrorCode])}
+	Quit method
+End If
+
+Do FileOps.$movefile(lvImportPath,lvBasePath) Returns lvErrorCode
+If lvErrorCode<>kFileOpsOK
+	OK message Self-import error {Unable to rename imported library (FileOps #[lvErrorCode])}
+	Quit method
+End If
+
+Open library (Do not close others) [lvBasePath]
+Close library [$clib().$name()]

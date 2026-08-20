@@ -31,6 +31,14 @@
 	],
 	"ivardefs": [
 		{
+			"name": "ivBusy",
+			"order": 5,
+			"type": "kBoolean",
+			"subtype": 0,
+			"sublen": 0,
+			"initval": "kFalse"
+		},
+		{
 			"name": "ivCheckedGitExecutable",
 			"order": 4,
 			"type": "kCharacter",

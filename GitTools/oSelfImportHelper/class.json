@@ -1,0 +1,37 @@
+{
+	"classtype": "kObjectclass",
+	"omnisversion": "10.2",
+	"internalversion": 9,
+	"superclass": ".Timer Library.Timer",
+	"designtaskname": "GitTools",
+	"cvardefs": [
+
+	],
+	"ivardefs": [
+		{
+			"name": "ivLibrary",
+			"order": 1,
+			"type": "kItemref",
+			"subtype": "",
+			"sublen": 0
+		}
+	],
+	"properties": {
+		"canremotedebugwhenlocked": false,
+		"collectperformancedata": false,
+		"componenticon": 0,
+		"componenttype": "kCompStoreHidden",
+		"createdate": "2026-08-20 07:52:03",
+		"desc": "",
+		"editor": "",
+		"editordata": "",
+		"external": true,
+		"issupercomponent": false,
+		"moddate": "2026-08-20 08:15:18",
+		"selfcontained": false,
+		"showascheckedout": false,
+		"userinfo": "",
+		"vcsrevision": 0,
+		"version": ""
+	}
+}

@@ -1,3 +1,4 @@
+Calculate ivBusy as kTrue
 Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse)
 Calculate lvRegistration as ivRegisteredLibraries
 
@@ -10,12 +11,14 @@ If isclear(lvLibrary)
 	Open library (Do not close others,Do not open startup task) [lvRegistration.libraryPath]
 	If flag false
 		Do tvLogger.$error("Unable to open library ",lvRegistration.libraryPath)
+		Calculate ivBusy as kFalse
 		Quit method kFalse
 	End If
 	
 	Do $cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath) Returns lvLibrary
 	If isclear(lvLibrary)
 		Do tvLogger.$error("Unable to obtain reference after opening library")
+		Calculate ivBusy as kFalse
 		Quit method kFalse
 	End If
 	
@@ -26,6 +29,7 @@ Do ivWorker.$preExport(lvRegistration,kFalse) Returns lvWorkerResult
 If lvWorkerResult.result="missing-base"
 	OK message Unable to determine merge base (Cancel button) {This can occur if the source has never been exported before or you haven't used GitTools with this library before. Your git client will report any differences from the actual source as new, discarding lines that don't match.}
 	If msgcancelled()
+		Calculate ivBusy as kFalse
 		Quit method kFalse
 	End If
 	
@@ -38,6 +42,7 @@ If not(lvWorkerResult.ok)|isclear(lvWorkerResult.source)
 	End If
 	
 	Do tvLogger.$error("Worker preExport reported error - Aborting")
+	Calculate ivBusy as kFalse
 	Quit method kFalse
 End If
 
@@ -46,6 +51,7 @@ If not(isclear(lvRegistration.preExportScript))
 	Do tvLogger.$updateWorkingMessage(#NULL,"Running pre-export script")
 	If not($cinst.$$runScript(lvRegistration.preExportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Pre-export script failure")
+		Calculate ivBusy as kFalse
 		Quit method kFalse
 	End If
 End If
@@ -72,6 +78,7 @@ End If
 Do $cinst.$$logErrorsAndWarnings(lvExportErrors,lvExportWarnings)
 
 If not(lvIsOk)
+	Calculate ivBusy as kFalse
 	Quit method kFalse
 End If
 
@@ -88,6 +95,7 @@ If not(lvWorkerResult.ok)
 	End If
 	
 	Do tvLogger.$error("Worker postExport reported error - Aborting")
+	Calculate ivBusy as kFalse
 	Quit method kFalse
 Else If lvWorkerResult.result="conflict"
 	Do tvLogger.$warn("Merge of exported changes with external changes caused merge conflict(s).")
@@ -98,9 +106,11 @@ If not(isclear(lvRegistration.postExportScript))
 	Do tvLogger.$updateWorkingMessage(#NULL,"Running post-export script")
 	If not($cinst.$$runScript(lvRegistration.postExportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Post-export script failure")
+		Calculate ivBusy as kFalse
 		Quit method kFalse
 	End If
 End If
 
 Do tvLogger.$info("Export succeeded")
+Calculate ivBusy as kFalse
 Quit method kTrue

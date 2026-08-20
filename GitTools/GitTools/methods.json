@@ -7,23 +7,18 @@
 
 		],
 		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$openlibschanged",
-		"order": 2,
-		"desc": "This method is automatically called by Omnis Studio 11+ IDEs. For older Omnis Studio versions (or Omnis Studio runtime), call this method manually to make GitTools scan for libraries to register.\rIf calling this manually, it's recommended to do so as follows:\r\rIf $itasks.[\"GitTools\"].[\"$openlibschanged\"].$cando()\r    Do $itasks.[\"GitTools\"].[\"$openlibschanged\"]()\rEnd if",
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-
+			{
+				"name": "lvMethod",
+				"order": 1,
+				"type": "kItemref",
+				"subtype": "$methods.method",
+				"sublen": 0
+			}
 		]
 	},
 	{
 		"name": "$registerLibrary",
-		"order": 3,
+		"order": 2,
 		"desc": "Registers the given library with GitTools. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -42,7 +37,7 @@
 	},
 	{
 		"name": "$registerLibraryFromPath",
-		"order": 4,
+		"order": 3,
 		"desc": "Registers a library with GitTools based on the given path. The path can point to an Omnis library file or a GitTools config file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -57,6 +52,29 @@
 		],
 		"lvardefs": [
 
+		]
+	},
+	{
+		"name": "$$finalizeSelfImport",
+		"order": 4,
+		"pvardefs": [
+			{
+				"name": "pLibrary",
+				"order": 2,
+				"type": "kItemref",
+				"subtype": "",
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvHelper",
+				"order": 1,
+				"type": "kObject",
+				"subtype": "oSelfImportHelper",
+				"sublen": 0
+			}
 		]
 	}
 ]

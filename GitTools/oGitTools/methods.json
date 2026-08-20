@@ -20,7 +20,16 @@
 		"order": 2,
 		"desc": "Attempts to register all currently opened libraries.",
 		"pvardefs": [
-
+			{
+				"name": "pCleanStaleEntries",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1,
+				"initval": "kTrue",
+				"desc": "Whether to clean up stale library registrations."
+			}
 		],
 		"lvardefs": [
 			{
@@ -259,6 +268,13 @@
 				"sublen": 0
 			},
 			{
+				"name": "lvIsSelfImport",
+				"order": 14,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
 				"name": "lvLibrary",
 				"order": 7,
 				"type": "kItemref",
@@ -292,6 +308,27 @@
 				"type": "kRow",
 				"subtype": "sLibraryRegistration",
 				"sublen": 0
+			},
+			{
+				"name": "lvSelfImportHelper",
+				"order": 17,
+				"type": "kObject",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvSelfImportLibrary",
+				"order": 16,
+				"type": "kItemref",
+				"subtype": "$libs.lib",
+				"sublen": 0
+			},
+			{
+				"name": "lvSelfImportPath",
+				"order": 15,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000
 			},
 			{
 				"name": "lvStartupTaskWasOpen",
@@ -524,7 +561,7 @@
 	},
 	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 17,
+		"order": 18,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{
@@ -552,7 +589,7 @@
 	},
 	{
 		"name": "$$getLibraryReferenceFromPath",
-		"order": 18,
+		"order": 19,
 		"desc": "Finds and returns a matching library reference for the given library path.",
 		"pvardefs": [
 			{
