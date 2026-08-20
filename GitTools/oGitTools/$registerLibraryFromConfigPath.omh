@@ -15,8 +15,13 @@ If ivRegisteredLibraries.$search($ref.libraryPath=lvRegistration.libraryPath,kTr
 End If
 
 # Read config file
-If not(lvFile.$openfile(pConfigFilePath))
-	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as its config file could not be opened.")
+If not(FileOps.$doesfileexist(pConfigFilePath))
+	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as it does not have a config file")
+	Quit method kFalse
+End If
+
+If not(lvFile.$openfile(pConfigFilePath,kTrue))
+	Do tvLogger.$error("Could not open config file for ",lvRegistration.id)
 	Quit method kFalse
 End If
 Do lvFile.$readcharacter(kUniTypeUTF8,lvConfigText)
@@ -25,7 +30,7 @@ Do lvFile.$closefile()
 # Parse config file
 Do OJSON.$jsontolistorrow(lvConfigText,lvError,kTrue) Returns lvParsedConfig
 If isnull(lvParsedConfig)
-	Do tvLogger.$error("Skipping registration of ",lvRegistration.id," as its config file could not be parsed: ",lvError)
+	Do tvLogger.$error("Could not parse config file for ",lvRegistration.id,": ",lvError)
 	Quit method kFalse
 End If
 
@@ -44,7 +49,7 @@ Calculate lvRegistration.postExportScript as lvConfiguration.postExportScript
 
 Do ivWorker.$bootstrapRepository(lvRegistration,tvSettings.$autoUpdateRepositoryConfig) Returns lvResult
 If lvResult.ok<>kTrue
-	Do tvLogger.$warn("Skipping registration of ",lvRegistration.id," as repository bootstrapping failed.")
+	Do tvLogger.$error("Bootstrapping failed for ",lvRegistration.id)
 	Quit method kFalse
 End If
 
