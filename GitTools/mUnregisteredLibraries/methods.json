@@ -29,13 +29,6 @@
 				"type": "kItemref",
 				"subtype": "",
 				"sublen": 0
-			},
-			{
-				"name": "lvTest",
-				"order": 3,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
 			}
 		]
 	},
