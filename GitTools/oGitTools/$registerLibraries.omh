@@ -10,6 +10,10 @@ Do $libs.$makelist($ref) Returns lvOpenLibraries
 If pCleanStaleEntries
 	Do tvLogger.$debug("Cleaning up stale library registrations")
 	For ivRegisteredLibraries.$line from ivRegisteredLibraries.$linecount to 1 step -1
+		If not(ivRegisteredLibraries.autoPrune)
+			Jump to start of loop
+		End If
+		
 		If not(lvOpenLibraries.$search($ref.C1().$pathname=ivRegisteredLibraries.libraryPath,kTrue,kFalse,kFalse,kFalse))
 			Do $cinst.$deregisterLibrary(ivRegisteredLibraries.id,kFalse)
 		End If

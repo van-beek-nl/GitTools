@@ -2,7 +2,7 @@
 	"classtype": "kSchema",
 	"omnisversion": "10.2",
 	"internalversion": 13,
-	"nextident": 32024,
+	"nextident": 32025,
 	"properties": {
 		"componenticon": 0,
 		"componenttype": "kCompStoreHidden",

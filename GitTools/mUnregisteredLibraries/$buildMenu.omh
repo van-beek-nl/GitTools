@@ -12,7 +12,7 @@ End For
 
 Do $cinst.$objs.$add("")
 
-Do $cinst.$objs.$add("Select from file...") Returns lvMenuEntry
+Do $cinst.$objs.$add("Register from file...") Returns lvMenuEntry
 Calculate lvMenuEntry.$enabled as kTrue
 Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 Calculate lvEventMethod.$methodtext as con("On evClick",kCr,'Do ivDeferralTimer.$starttimer(tvMenu,"$registerLibrary()")')

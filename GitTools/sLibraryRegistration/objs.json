@@ -138,5 +138,19 @@
 			"primarykey": false,
 			"userinfo": ""
 		}
+	},
+	{
+		"name": "autoPrune",
+		"ident": 32024,
+		"order": 11,
+		"type": "kBoolean",
+		"subtype": 0,
+		"sublen": 0,
+		"properties": {
+			"desc": "",
+			"nonull": false,
+			"primarykey": false,
+			"userinfo": ""
+		}
 	}
 ]

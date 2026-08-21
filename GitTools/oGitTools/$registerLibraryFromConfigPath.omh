@@ -10,6 +10,7 @@ Calculate lvRegistration.libraryPath as tvFileUtilities.$configPathToLibraryPath
 Calculate lvRegistration.configPath as pConfigFilePath
 
 If ivRegisteredLibraries.$search($ref.libraryPath=lvRegistration.libraryPath,kTrue,kFalse,kFalse,kFalse)
+	Calculate ivRegisteredLibraries.autoPrune as kTrue
 	Do tvLogger.$debug("Skipping registration of ",lvRegistration.id," as it is already registered")
 	Quit method kTrue
 End If
@@ -46,6 +47,7 @@ Calculate lvRegistration.preImportScript as lvConfiguration.preImportScript
 Calculate lvRegistration.postImportScript as lvConfiguration.postImportScript
 Calculate lvRegistration.preExportScript as lvConfiguration.preExportScript
 Calculate lvRegistration.postExportScript as lvConfiguration.postExportScript
+Calculate lvRegistration.autoPrune as not(isclear($cinst.$$getLibraryReferenceFromPath(lvRegistration.libraryPath)))
 
 Do ivWorker.$bootstrapRepository(lvRegistration,tvSettings.$autoUpdateRepositoryConfig) Returns lvResult
 If lvResult.ok<>kTrue
