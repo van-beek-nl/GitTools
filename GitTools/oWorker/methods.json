@@ -127,7 +127,7 @@
 	},
 	{
 		"name": "$checkGitExecutable",
-		"order": 7,
+		"order": 6,
 		"pvardefs": [
 
 		],
@@ -135,6 +135,29 @@
 			{
 				"name": "lvParameters",
 				"order": 1,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$clearExportCache",
+		"order": 7,
+		"pvardefs": [
+			{
+				"name": "pRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvParameters",
+				"order": 2,
 				"type": "kRow",
 				"subtype": "",
 				"sublen": 0

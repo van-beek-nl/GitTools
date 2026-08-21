@@ -1,0 +1,9 @@
+Do tvLogger.$showWorkingMessage(con('Importing ',ivLibraryID),"")
+Do tvGitTools.$importLibrary(ivLibraryID) Returns lvIsOk
+Do tvMenu.$buildMenu()
+Do tvLogger.$closeWorkingMessage()
+
+If not(lvIsOk)
+	Open trace log
+	OK message [ivLibraryID] - Import failed {Check the trace log for details.}
+End If

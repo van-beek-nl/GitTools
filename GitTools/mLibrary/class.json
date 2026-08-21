@@ -3,7 +3,7 @@
 	"omnisversion": "10.2",
 	"internalversion": 81,
 	"designtaskname": "GitTools",
-	"nextident": 1020,
+	"nextident": 1021,
 	"cvardefs": [
 
 	],
@@ -14,6 +14,14 @@
 			"type": "kCharacter",
 			"subtype": "kSimplechar",
 			"sublen": 100000000
+		},
+		{
+			"name": "ivShowPrimaryActions",
+			"order": 1,
+			"type": "kBoolean",
+			"subtype": 0,
+			"sublen": 0,
+			"initval": "kTrue"
 		}
 	],
 	"properties": {
@@ -33,10 +41,7 @@
 		"issupercomponent": false,
 		"moddate": "2025-10-29 08:38:42",
 		"showascheckedout": false,
-		"title": {
-			"type": 0,
-			"calc": "Library"
-		},
+		"title": "",
 		"userinfo": "",
 		"users": "12345678",
 		"vcsrevision": 0,

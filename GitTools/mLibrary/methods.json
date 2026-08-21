@@ -1,7 +1,51 @@
 [
 	{
-		"name": "$libraryID",
+		"name": "$construct",
 		"order": 1,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$buildMenu",
+		"order": 2,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvEventMethod",
+				"order": 2,
+				"type": "kItemref",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvMenuEntry",
+				"order": 1,
+				"type": "kItemref",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "---- Properties",
+		"order": 3,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		],
+		"empty": true
+	},
+	{
+		"name": "$libraryID",
+		"order": 4,
 		"pvardefs": [
 			{
 				"name": "pClient",
@@ -26,7 +70,7 @@
 	},
 	{
 		"name": "$libraryID.$assign",
-		"order": 2,
+		"order": 5,
 		"pvardefs": [
 			{
 				"name": "pLibraryID",
@@ -59,6 +103,135 @@
 				"subtype": "sLibraryRegistration",
 				"sublen": 0
 			}
+		]
+	},
+	{
+		"name": "$showPrimaryActions",
+		"order": 6,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$showPrimaryActions.$assign",
+		"order": 7,
+		"pvardefs": [
+			{
+				"name": "pShow",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "---- Operations",
+		"order": 8,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		],
+		"empty": true
+	},
+	{
+		"name": "$import",
+		"order": 9,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvIsOk",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$export",
+		"order": 10,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvIsOk",
+				"order": 2,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			},
+			{
+				"name": "lvMergeConflicts",
+				"order": 1,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$reloadConfig",
+		"order": 11,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$openConfig",
+		"order": 12,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$openLocation",
+		"order": 13,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegistration",
+				"order": 1,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$clearExportCache",
+		"order": 14,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
 		]
 	}
 ]

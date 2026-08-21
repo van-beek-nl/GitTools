@@ -1,0 +1,2 @@
+Calculate ivShowPrimaryActions as pShow
+Do $cinst.$buildMenu()

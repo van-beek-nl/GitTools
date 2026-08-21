@@ -455,8 +455,40 @@
 		]
 	},
 	{
-		"name": "$getRegistration",
+		"name": "$clearExportCache",
 		"order": 10,
+		"desc": "Clears the export cache for the given library. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvRegistration",
+				"order": 2,
+				"type": "kRow",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			},
+			{
+				"name": "lvWorkerResult",
+				"order": 3,
+				"type": "kRow",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$getRegistration",
+		"order": 11,
 		"desc": "Returns the registration data for the given library, or null if the library is not registered with GitTools.",
 		"pvardefs": [
 			{
@@ -481,7 +513,7 @@
 	},
 	{
 		"name": "----- Properties",
-		"order": 11,
+		"order": 12,
 		"pvardefs": [
 
 		],
@@ -492,7 +524,7 @@
 	},
 	{
 		"name": "$libraries",
-		"order": 12,
+		"order": 13,
 		"desc": "All libraries currently registered with GitTools.",
 		"pvardefs": [
 
@@ -503,7 +535,7 @@
 	},
 	{
 		"name": "$libraries.$assign",
-		"order": 13,
+		"order": 14,
 		"pvardefs": [
 
 		],
@@ -513,7 +545,7 @@
 	},
 	{
 		"name": "$gitAvailable",
-		"order": 14,
+		"order": 15,
 		"pvardefs": [
 
 		],
@@ -550,16 +582,6 @@
 	},
 	{
 		"name": "$gitAvailable.$assign",
-		"order": 15,
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$selfImportPath",
 		"order": 16,
 		"pvardefs": [
 
@@ -569,7 +591,7 @@
 		]
 	},
 	{
-		"name": "$selfImportPath.$assign",
+		"name": "$selfImportPath",
 		"order": 17,
 		"pvardefs": [
 
@@ -579,8 +601,18 @@
 		]
 	},
 	{
-		"name": "----- Private",
+		"name": "$selfImportPath.$assign",
 		"order": 18,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "----- Private",
+		"order": 19,
 		"pvardefs": [
 
 		],
@@ -591,7 +623,7 @@
 	},
 	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 19,
+		"order": 20,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{
@@ -619,7 +651,7 @@
 	},
 	{
 		"name": "$$getLibraryReferenceFromPath",
-		"order": 20,
+		"order": 21,
 		"desc": "Finds and returns a matching library reference for the given library path.",
 		"pvardefs": [
 			{
@@ -644,7 +676,7 @@
 	},
 	{
 		"name": "----- Scripts",
-		"order": 21,
+		"order": 22,
 		"pvardefs": [
 
 		],
@@ -655,7 +687,7 @@
 	},
 	{
 		"name": "$$runScript",
-		"order": 22,
+		"order": 23,
 		"desc": "Runs GitTools script. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -683,7 +715,7 @@
 	},
 	{
 		"name": "$$runScriptAction",
-		"order": 23,
+		"order": 24,
 		"desc": "Runs a given GitTools script action. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -752,7 +784,7 @@
 	},
 	{
 		"name": "$$extractSourceAndDestination",
-		"order": 24,
+		"order": 25,
 		"desc": "Extracts source and destination paths from the given GitTools script action value. Returns a row with \"source\" and \"destination\" columns.",
 		"pvardefs": [
 			{

@@ -1,0 +1,32 @@
+# Remove all current menu entries
+While $cinst.$objs.$count()>0
+	Do $cinst.$objs.$remove($cinst.$objs.$first())
+End While
+
+If $cinst.$showPrimaryActions
+	Do $cinst.$objs.$add("Import",kTrue) Returns lvMenuEntry
+	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$import()")
+	
+	Do $cinst.$objs.$add("Export",kTrue) Returns lvMenuEntry
+	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$export()")
+	
+	Do $cinst.$objs.$add("")
+End If
+
+Do $cinst.$objs.$add("Reload config",kTrue) Returns lvMenuEntry
+Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$reloadConfig()")
+
+Do $cinst.$objs.$add("Open config file",kTrue) Returns lvMenuEntry
+Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$openConfig()")
+
+Do $cinst.$objs.$add("Open directory",kTrue) Returns lvMenuEntry
+Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$openLocation()")
+
+Do $cinst.$objs.$add("Clear export cache",kTrue) Returns lvMenuEntry
+Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$clearExportCache()")

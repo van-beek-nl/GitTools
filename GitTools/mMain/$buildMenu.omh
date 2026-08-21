@@ -14,6 +14,7 @@ Else
 			Do $cinst.$objs.$add(lvLibraries.id,kTrue) Returns lvMenuEntry
 			Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.id)
 			Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.id
+			Calculate lvMenuEntry.$menuinst().$showPrimaryActions as kTrue
 		End For
 		
 		Do $cinst.$objs.$add("")
@@ -28,6 +29,13 @@ Else
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$exportAll()")
 		
+		If lvLibraries.$linecount=1
+			Do $cinst.$objs.$add("More actions",kTrue) Returns lvMenuEntry
+			Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.1.id)
+			Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.1.id
+			Calculate lvMenuEntry.$menuinst().$showPrimaryActions as kFalse
+		End If
+		
 		Do $cinst.$objs.$add("")
 	End If
 	
@@ -35,8 +43,7 @@ Else
 	# For these versions, we'll provide a button to manually scan.
 	Calculate lvOmnisMajorVersion as pick(pos('.',sys(1))<>0,sys(1),left(sys(1),pos('.',sys(1))-1))
 	If lvOmnisMajorVersion<=10
-		Do $cinst.$objs.$add("Scan for libraries") Returns lvMenuEntry
-		Calculate lvMenuEntry.$enabled as kTrue
+		Do $cinst.$objs.$add("Scan for libraries",kTrue) Returns lvMenuEntry
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibraries()")
 	End If
@@ -52,8 +59,7 @@ Else
 	Do lvUnregisteredLibraries.$remove(kListKeepSelected)
 	
 	
-	Do $cinst.$objs.$add("Register library") Returns lvMenuEntry
-	Calculate lvMenuEntry.$enabled as kTrue
+	Do $cinst.$objs.$add("Register library",kTrue) Returns lvMenuEntry
 	If lvUnregisteredLibraries.$linecount>0
 		Calculate lvMenuEntry.$cascade as "mUnregisteredLibraries"
 		Calculate lvMenuEntry.$menuinst().$unregisteredLibraries as lvUnregisteredLibraries
