@@ -26,7 +26,7 @@ For lvOpenLibraries.$line from 1 to lvOpenLibraries.$linecount step 1
 		Do tvLogger.$updateWorkingMessage(#NULL,con(lvOpenLibraries.C1().$name," (",lvOpenLibraries.$line,"/",lvOpenLibraries.$linecount,")"))
 	End If
 	
-	Do $cinst.$registerLibrary(lvOpenLibraries.C1,kFalse)
+	Do $cinst.$registerLibraryByReference(lvOpenLibraries.C1,kFalse)
 End For
 
 If lvShowingWorkingMessage
