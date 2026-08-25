@@ -8,5 +8,6 @@ Install menu mMain
 # was created in an Omnis v10 library. To work around this issue, we create the method
 # as a temporary/instance method dynamically instead.
 Do $cinst.$methods.$add("$openlibschanged") Returns lvMethod
-Calculate lvMethod.$methodtext as con("Do tvGitTools.$autoUpdateRegister()",kCr,kLf,"Do tvMenu.$buildMenu()")
+Do lvMethod.$lvardefs.$add("lvFlag",kInteger,k32bitint)
+Calculate lvMethod.$methodtext as con("Calculate lvFlag as #F",kCr,"Do tvGitTools.$autoUpdateRegister()",kCr,"Do tvMenu.$buildMenu()",kCr,"Calculate #F as lvFlag")
 Do $cinst.["$openlibschanged"]()
