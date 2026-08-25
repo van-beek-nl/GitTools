@@ -4,6 +4,6 @@ For pErrors.$line from 1 to pErrors.$linecount step 1
 End For
 
 For pWarnings.$line from 1 to pWarnings.$linecount step 1
-	Do tvLogger.$error("#",pWarnings.errorcode," in ",pick(isclear(pWarnings.pathname),pWarnings.pathname,con("class ",pWarnings.class.$pathname()))," on line ",pWarnings.lineno,":")
-	Do tvLogger.$warning(pWarnings.errortext)
+	Do tvLogger.$warn("#",pWarnings.errorcode," in ",pick(isclear(pWarnings.pathname),pWarnings.pathname,con("class ",pWarnings.class.$pathname()))," on line ",pWarnings.lineno,":")
+	Do tvLogger.$warn(pWarnings.errortext)
 End For
