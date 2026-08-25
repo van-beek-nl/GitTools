@@ -3,4 +3,4 @@ If isclear(pLibrary.$pathname())
 	Quit method kFalse
 End If
 
-Quit method $cinst.$deregisterLibrary(tvFileUtilities.$configPathToLibraryID(tvFileUtilities.$libraryPathToConfigPath(pLibrary.$pathname())))
+Quit method $cinst.$deregisterLibrary(tvFileUtilities.$configPathToLibraryID(tvFileUtilities.$libraryPathToConfigPath(pLibrary.$pathname())),pWaitForClose)

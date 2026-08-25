@@ -1,0 +1,1 @@
+Do $cinst.$showtoast(pMessage,pick(isclear(pTitle),con("GitTools - ",pTitle),"GitTools"),pType,kToastStackBottomRight,10000,pClearStack)

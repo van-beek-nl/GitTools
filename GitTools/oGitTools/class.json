@@ -31,16 +31,22 @@
 	],
 	"ivardefs": [
 		{
-			"name": "ivBusy",
-			"order": 5,
-			"type": "kBoolean",
-			"subtype": 0,
-			"sublen": 0,
-			"initval": "kFalse"
-		},
-		{
 			"name": "ivCheckedGitExecutable",
 			"order": 4,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
+			"name": "ivCurrentWorkDescription",
+			"order": 8,
+			"type": "kCharacter",
+			"subtype": "kSimplechar",
+			"sublen": 100000000
+		},
+		{
+			"name": "ivCurrentWorkTitle",
+			"order": 7,
 			"type": "kCharacter",
 			"subtype": "kSimplechar",
 			"sublen": 100000000
@@ -66,6 +72,14 @@
 			"type": "kCharacter",
 			"subtype": "kSimplechar",
 			"sublen": 100000000
+		},
+		{
+			"name": "ivSuppressAutoRegistration",
+			"order": 5,
+			"type": "kBoolean",
+			"subtype": 0,
+			"sublen": 0,
+			"initval": "kFalse"
 		},
 		{
 			"name": "ivWorker",

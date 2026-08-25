@@ -18,4 +18,6 @@ If not(lvWorkerResult.ok)
 	Quit method kFalse
 End If
 
+Do $cinst.$$showToast(con(pLibraryID," export cache"),"Export cache cleared successfully.",kToastSuccess)
+
 Quit method kTrue

@@ -144,45 +144,6 @@
 		"empty": true
 	},
 	{
-		"name": "$import",
-		"order": 9,
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-			{
-				"name": "lvIsOk",
-				"order": 1,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			}
-		]
-	},
-	{
-		"name": "$export",
-		"order": 10,
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-			{
-				"name": "lvIsOk",
-				"order": 2,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			},
-			{
-				"name": "lvMergeConflicts",
-				"order": 1,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			}
-		]
-	},
-	{
 		"name": "$reloadConfig",
 		"order": 11,
 		"pvardefs": [

@@ -1,0 +1,3 @@
+Calculate ivCurrentWorkTitle as pWorkTitle
+Calculate ivCurrentWorkDescription as pWorkDescription
+Calculate ivSuppressAutoRegistration as kTrue

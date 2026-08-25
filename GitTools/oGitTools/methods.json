@@ -16,41 +16,8 @@
 		]
 	},
 	{
-		"name": "$registerLibraries",
-		"order": 2,
-		"desc": "Attempts to register all currently opened libraries.",
-		"pvardefs": [
-			{
-				"name": "pCleanStaleEntries",
-				"order": 3,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0,
-				"param": 1,
-				"initval": "kTrue",
-				"desc": "Whether to clean up stale library registrations."
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvOpenLibraries",
-				"order": 1,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvShowingWorkingMessage",
-				"order": 2,
-				"type": "kBoolean",
-				"subtype": 0,
-				"sublen": 0
-			}
-		]
-	},
-	{
 		"name": "$registerLibraryFromConfigPath",
-		"order": 3,
+		"order": 2,
 		"desc": "Registers a library based on the given path to a GitTools config file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -117,7 +84,7 @@
 	},
 	{
 		"name": "$registerLibraryFromLibraryPath",
-		"order": 4,
+		"order": 3,
 		"desc": "Registers a library based on the given path to an Omnis library file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -149,7 +116,7 @@
 	},
 	{
 		"name": "$registerLibraryByReference",
-		"order": 5,
+		"order": 4,
 		"desc": "Registers the given library with GitTools. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -168,7 +135,7 @@
 	},
 	{
 		"name": "$deregisterLibraryByReference",
-		"order": 6,
+		"order": 5,
 		"desc": "Deregisters the given library from GitTools. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -179,6 +146,16 @@
 				"sublen": 0,
 				"param": 1,
 				"desc": "Item reference to library."
+			},
+			{
+				"name": "pWaitForClose",
+				"order": 2,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kFalse",
+				"desc": "Whether to wait for the library to be closed."
 			}
 		],
 		"lvardefs": [
@@ -186,8 +163,103 @@
 		]
 	},
 	{
-		"name": "$updateRegistration",
+		"name": "$deregisterLibrary",
+		"order": 6,
+		"desc": "Deregisters a library with the given library ID. Returns a boolean indicating success.",
+		"pvardefs": [
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1,
+				"desc": "Library ID."
+			},
+			{
+				"name": "pWaitForClose",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kFalse",
+				"desc": "Whether to wait for the library to be closed."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvLine",
+				"order": 2,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0
+			},
+			{
+				"name": "lvOpenLibraries",
+				"order": 4,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$autoUpdateRegister",
 		"order": 7,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$updateRegister",
+		"order": 8,
+		"desc": "Attempts to register all currently opened libraries.",
+		"pvardefs": [
+			{
+				"name": "pPruneStaleEntries",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1,
+				"initval": "kTrue",
+				"desc": "Whether to prune stale library registrations."
+			},
+			{
+				"name": "pForce",
+				"order": 4,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kFalse",
+				"desc": "Whether to forcefully update all libraries, reloading all config files."
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvOpenLibraries",
+				"order": 1,
+				"type": "kList",
+				"subtype": "",
+				"sublen": 0
+			},
+			{
+				"name": "lvShowingWorkingMessage",
+				"order": 2,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
+			}
+		]
+	},
+	{
+		"name": "$updateRegistration",
+		"order": 9,
 		"desc": "Updates the library registered under the given ID, reloading its configuration. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -211,33 +283,8 @@
 		]
 	},
 	{
-		"name": "$deregisterLibrary",
-		"order": 8,
-		"desc": "Deregisters a library with the given library ID. Returns a boolean indicating success.",
-		"pvardefs": [
-			{
-				"name": "pLibraryID",
-				"order": 1,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000,
-				"param": 1,
-				"desc": "Library ID."
-			}
-		],
-		"lvardefs": [
-			{
-				"name": "lvLine",
-				"order": 2,
-				"type": "kInteger",
-				"subtype": "k32bitint",
-				"sublen": 0
-			}
-		]
-	},
-	{
 		"name": "$importLibrary",
-		"order": 9,
+		"order": 10,
 		"desc": "Imports the given library from source, creating a new Omnis library file. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -385,7 +432,7 @@
 	},
 	{
 		"name": "$exportLibrary",
-		"order": 10,
+		"order": 11,
 		"desc": "Exports the given library to JSON. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -475,7 +522,7 @@
 	},
 	{
 		"name": "$clearExportCache",
-		"order": 11,
+		"order": 12,
 		"desc": "Clears the export cache for the given library. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -507,7 +554,7 @@
 	},
 	{
 		"name": "$getRegistration",
-		"order": 12,
+		"order": 13,
 		"desc": "Returns the registration data for the given library, or null if the library is not registered with GitTools.",
 		"pvardefs": [
 			{
@@ -532,7 +579,7 @@
 	},
 	{
 		"name": "----- Properties",
-		"order": 13,
+		"order": 14,
 		"pvardefs": [
 
 		],
@@ -543,7 +590,7 @@
 	},
 	{
 		"name": "$libraries",
-		"order": 14,
+		"order": 15,
 		"desc": "All libraries currently registered with GitTools.",
 		"pvardefs": [
 
@@ -554,7 +601,7 @@
 	},
 	{
 		"name": "$libraries.$assign",
-		"order": 15,
+		"order": 16,
 		"pvardefs": [
 
 		],
@@ -564,7 +611,7 @@
 	},
 	{
 		"name": "$gitAvailable",
-		"order": 16,
+		"order": 17,
 		"pvardefs": [
 
 		],
@@ -601,16 +648,6 @@
 	},
 	{
 		"name": "$gitAvailable.$assign",
-		"order": 17,
-		"pvardefs": [
-
-		],
-		"lvardefs": [
-
-		]
-	},
-	{
-		"name": "$selfImportPath",
 		"order": 18,
 		"pvardefs": [
 
@@ -620,7 +657,7 @@
 		]
 	},
 	{
-		"name": "$selfImportPath.$assign",
+		"name": "$selfImportPath",
 		"order": 19,
 		"pvardefs": [
 
@@ -630,8 +667,18 @@
 		]
 	},
 	{
-		"name": "----- Private",
+		"name": "$selfImportPath.$assign",
 		"order": 20,
+		"pvardefs": [
+
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "----- Private",
+		"order": 21,
 		"pvardefs": [
 
 		],
@@ -641,8 +688,77 @@
 		"empty": true
 	},
 	{
+		"name": "$$startWork",
+		"order": 22,
+		"pvardefs": [
+			{
+				"name": "pWorkTitle",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pWorkDescription",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
+		"name": "$$finishWork",
+		"order": 23,
+		"pvardefs": [
+			{
+				"name": "pIsOk",
+				"order": 1,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 1,
+				"initval": "kTrue"
+			},
+			{
+				"name": "pShowToast",
+				"order": 2,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 2,
+				"initval": "kTrue"
+			},
+			{
+				"name": "pCustomToastMessage",
+				"order": 3,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 3
+			},
+			{
+				"name": "pCustomToastType",
+				"order": 4,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0,
+				"param": 4,
+				"initval": "-1"
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
 		"name": "$$logErrorsAndWarnings",
-		"order": 21,
+		"order": 24,
 		"desc": "Logs the given import/export errors and warnings to the trace log.",
 		"pvardefs": [
 			{
@@ -670,7 +786,7 @@
 	},
 	{
 		"name": "$$getLibraryReferenceFromPath",
-		"order": 22,
+		"order": 25,
 		"desc": "Finds and returns a matching library reference for the given library path.",
 		"pvardefs": [
 			{
@@ -694,8 +810,51 @@
 		]
 	},
 	{
+		"name": "$$showToast",
+		"order": 26,
+		"pvardefs": [
+			{
+				"name": "pTitle",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			},
+			{
+				"name": "pMessage",
+				"order": 2,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 2
+			},
+			{
+				"name": "pType",
+				"order": 3,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0,
+				"param": 3,
+				"initval": "kToastInformation"
+			},
+			{
+				"name": "pClearStack",
+				"order": 4,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"param": 4,
+				"initval": "kFalse"
+			}
+		],
+		"lvardefs": [
+
+		]
+	},
+	{
 		"name": "----- Scripts",
-		"order": 23,
+		"order": 27,
 		"pvardefs": [
 
 		],
@@ -706,7 +865,7 @@
 	},
 	{
 		"name": "$$runScript",
-		"order": 24,
+		"order": 28,
 		"desc": "Runs GitTools script. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -734,7 +893,7 @@
 	},
 	{
 		"name": "$$runScriptAction",
-		"order": 25,
+		"order": 29,
 		"desc": "Runs a given GitTools script action. Returns a boolean indicating success.",
 		"pvardefs": [
 			{
@@ -803,7 +962,7 @@
 	},
 	{
 		"name": "$$extractSourceAndDestination",
-		"order": 26,
+		"order": 30,
 		"desc": "Extracts source and destination paths from the given GitTools script action value. Returns a row with \"source\" and \"destination\" columns.",
 		"pvardefs": [
 			{

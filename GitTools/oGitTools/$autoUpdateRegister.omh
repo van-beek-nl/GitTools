@@ -1,0 +1,6 @@
+If ivSuppressAutoRegistration
+	Do tvLogger.$debug("Skipping $autoUpdateRegister - Updates are being suppressed.")
+	Quit method
+End If
+
+Quit method $cinst.$updateRegister(kTrue,kFalse)

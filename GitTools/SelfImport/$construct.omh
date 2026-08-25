@@ -1,2 +1,3 @@
+Do tvLogger.$showWorkingMessage("Self-import","Performing self-import, please wait...")
 Set reference ivLibrary to pLibrary
 Do ivDeferralTimer.$starttimer($cinst.$ref(),"$selfImport()")

@@ -28,6 +28,15 @@
 				"subtype": "kSimplechar",
 				"sublen": 100000000,
 				"param": 2
+			},
+			{
+				"name": "pTimeout",
+				"order": 3,
+				"type": "kInteger",
+				"subtype": "k32bitint",
+				"sublen": 0,
+				"param": 3,
+				"initval": "0"
 			}
 		],
 		"lvardefs": [

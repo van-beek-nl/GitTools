@@ -20,21 +20,29 @@ Else
 		Do $cinst.$objs.$add("")
 	End If
 	
-	If lvLibraries.$linecount>0
-		Do $cinst.$objs.$add(con("Import ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all")),kTrue) Returns lvMenuEntry
+	If lvLibraries.$linecount=1
+		Do $cinst.$objs.$add(con("Import ",lvLibraries.1.id),kTrue) Returns lvMenuEntry
+		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$import('",lvLibraries.1.id,"')")
+		
+		Do $cinst.$objs.$add(con("Export ",lvLibraries.1.id),kTrue) Returns lvMenuEntry
+		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$export('",lvLibraries.1.id,"')")
+		
+		Do $cinst.$objs.$add("More actions",kTrue) Returns lvMenuEntry
+		Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.1.id)
+		Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.1.id
+		Calculate lvMenuEntry.$menuinst().$showPrimaryActions as kFalse
+		
+		Do $cinst.$objs.$add("")
+	Else If lvLibraries.$linecount>1
+		Do $cinst.$objs.$add("Import all",kTrue) Returns lvMenuEntry
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$importAll()")
 		
-		Do $cinst.$objs.$add(con("Export ",pick(lvLibraries.$linecount>1,lvLibraries.1.id,"all")),kTrue) Returns lvMenuEntry
+		Do $cinst.$objs.$add("Export all",kTrue) Returns lvMenuEntry
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
 		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$exportAll()")
-		
-		If lvLibraries.$linecount=1
-			Do $cinst.$objs.$add("More actions",kTrue) Returns lvMenuEntry
-			Calculate lvMenuEntry.$cascade as con("mLibrary/",lvLibraries.1.id)
-			Calculate lvMenuEntry.$menuinst().$libraryID as lvLibraries.1.id
-			Calculate lvMenuEntry.$menuinst().$showPrimaryActions as kFalse
-		End If
 		
 		Do $cinst.$objs.$add("")
 	End If
@@ -43,21 +51,27 @@ Else
 	# For these versions, we'll provide a button to manually scan.
 	Calculate lvOmnisMajorVersion as pick(pos('.',sys(1))<>0,sys(1),left(sys(1),pos('.',sys(1))-1))
 	If lvOmnisMajorVersion<=10
-		Do $cinst.$objs.$add("Scan for libraries",kTrue) Returns lvMenuEntry
+		Do $cinst.$objs.$add("Update library register",kTrue) Returns lvMenuEntry
 		Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$registerLibraries()")
+		Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do tvGitTools.$updateRegister()",kCr,"Do tvMenu.$buildMenu()")
 	End If
 	
+	# Create a list of all currently opened unregistered libraries to allow registration with a single click.
 	Do $libs.$makelist($ref) Returns lvUnregisteredLibraries
 	For lvUnregisteredLibraries.$line from 1 to lvUnregisteredLibraries.$linecount step 1
+		# Exclude the self-import library.
 		If lvUnregisteredLibraries.C1.$pathname=tvGitTools.$selfImportPath
+			Jump to start of loop
+		End If
+		
+		# Exclude any libraries placed in the Omnis startup directory.
+		If pos(con(sys(115),"startup",pathsep()),lvUnregisteredLibraries.C1.$pathname)=1
 			Jump to start of loop
 		End If
 		
 		Calculate lvUnregisteredLibraries.$selected as isclear(lvLibraries.$search($ref.libraryPath=lvUnregisteredLibraries.C1.$pathname,kTrue,kFalse,kFalse,kFalse))
 	End For
 	Do lvUnregisteredLibraries.$remove(kListKeepSelected)
-	
 	
 	Do $cinst.$objs.$add("Register library",kTrue) Returns lvMenuEntry
 	If lvUnregisteredLibraries.$linecount>0

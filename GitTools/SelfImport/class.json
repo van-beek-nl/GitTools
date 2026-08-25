@@ -3,7 +3,13 @@
 	"omnisversion": "10.2",
 	"internalversion": 4,
 	"tvardefs": [
-
+		{
+			"name": "tvLogger",
+			"order": 1,
+			"type": "kObject",
+			"subtype": "oLogger",
+			"sublen": 0
+		}
 	],
 	"cvardefs": [
 

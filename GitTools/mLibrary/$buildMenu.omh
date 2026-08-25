@@ -6,11 +6,11 @@ End While
 If $cinst.$showPrimaryActions
 	Do $cinst.$objs.$add("Import",kTrue) Returns lvMenuEntry
 	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$import()")
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,'Do ivDeferralTimer.$starttimer(tvMenu,"$import(',"'",ivLibraryID,"'",')")')
 	
 	Do $cinst.$objs.$add("Export",kTrue) Returns lvMenuEntry
 	Do lvMenuEntry.$methods.$add("$event") Returns lvEventMethod
-	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,"Do $cinst.$export()")
+	Calculate lvEventMethod.$methodtext as con("On evClick",kCr,'Do ivDeferralTimer.$starttimer(tvMenu,"$export(',"'",ivLibraryID,"'",')")')
 	
 	Do $cinst.$objs.$add("")
 End If

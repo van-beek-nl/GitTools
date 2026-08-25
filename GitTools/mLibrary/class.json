@@ -9,6 +9,13 @@
 	],
 	"ivardefs": [
 		{
+			"name": "ivDeferralTimer",
+			"order": 4,
+			"type": "kObject",
+			"subtype": "oDeferralTimer",
+			"sublen": 0
+		},
+		{
 			"name": "ivLibraryID",
 			"order": 2,
 			"type": "kCharacter",
@@ -22,6 +29,13 @@
 			"subtype": 0,
 			"sublen": 0,
 			"initval": "kTrue"
+		},
+		{
+			"name": "ivUnregisteredLibraries",
+			"order": 3,
+			"type": "kList",
+			"subtype": "",
+			"sublen": 0
 		}
 	],
 	"properties": {

@@ -1,4 +1,4 @@
-Calculate ivBusy as kTrue
+Do $cinst.$$startWork(con("Import ",pLibraryID),"Library import")
 Do ivRegisteredLibraries.$search($ref.id=pLibraryID,kTrue,kFalse,kFalse,kFalse)
 Calculate lvRegistration as ivRegisteredLibraries.$first(kFalse,kFalse,$ref.id=pLibraryID)
 Calculate lvIsSelfImport as lvRegistration.libraryPath=$clib.$pathname
@@ -27,8 +27,7 @@ If not(lvWorkerResult.ok)
 	End If
 	
 	Do tvLogger.$error("Worker preImport reported error - Aborting")
-	Calculate ivBusy as kFalse
-	Quit method kFalse
+	Quit method $cinst.$$finishWork(kFalse)
 End If
 
 If not(isclear(lvRegistration.preImportScript))
@@ -36,8 +35,7 @@ If not(isclear(lvRegistration.preImportScript))
 	Do tvLogger.$updateWorkingMessage(#NULL,"Running pre-import script")
 	If not($cinst.$$runScript(lvRegistration.preImportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Pre-import script failure")
-		Calculate ivBusy as kFalse
-		Quit method kFalse
+		Quit method $cinst.$$finishWork(kFalse)
 	End If
 End If
 
@@ -61,8 +59,7 @@ Do $cinst.$$logErrorsAndWarnings(lvErrors,lvWarnings)
 
 If not(lvIsOk)
 	Do FileOps.$deletefile(lvImportPath)
-	Calculate ivBusy as kFalse
-	Quit method kFalse
+	Quit method $cinst.$$finishWork(kFalse)
 End If
 
 Do tvLogger.$updateWorkingMessage(#NULL,"Finalizing import")
@@ -83,8 +80,7 @@ If FileOps.$doesfileexist(lvBackupPath)
 	
 	If lvFileOpsCode<>kFileOpsOK
 		Do tvLogger.$error("Import failed - Unable to delete previous library backup ",lvBackupPath," (FileOps #",lvFileOpsCode,")")
-		Calculate ivBusy as kFalse
-		Quit method kFalse
+		Quit method $cinst.$$finishWork(kFalse)
 	End If
 End If
 
@@ -93,8 +89,7 @@ If FileOps.$doesfileexist(lvRegistration.libraryPath)&not(lvIsSelfImport)
 	Do FileOps.$movefile(lvRegistration.libraryPath,lvBackupPath) Returns lvFileOpsCode
 	If lvFileOpsCode<>kFileOpsOK
 		Do tvLogger.$error("Import failed - Unable to create backup (FileOps #",lvFileOpsCode,")")
-		Calculate ivBusy as kFalse
-		Quit method kFalse
+		Quit method $cinst.$$finishWork(kFalse)
 	End If
 End If
 
@@ -102,8 +97,7 @@ If not(lvIsSelfImport)
 	Do FileOps.$movefile(lvImportPath,lvRegistration.libraryPath) Returns lvFileOpsCode
 	If lvFileOpsCode<>kFileOpsOK
 		Do tvLogger.$error("Import failed - Unable to replace existing library with build artifact (FileOps #",lvFileOpsCode,")")
-		Calculate ivBusy as kFalse
-		Quit method kFalse
+		Quit method $cinst.$$finishWork(kFalse)
 	End If
 End If
 
@@ -114,8 +108,7 @@ If not(lvWorkerResult.ok)|lvWorkerResult.result<>"clean"
 	End If
 	
 	Do tvLogger.$error("Worker postImport reported error - Aborting")
-	Calculate ivBusy as kFalse
-	Quit method kFalse
+	Quit method $cinst.$$finishWork(kFalse)
 End If
 
 If lvLibraryWasOpen&not(lvIsSelfImport)
@@ -136,13 +129,12 @@ If not(isclear(lvRegistration.postImportScript))
 	Do tvLogger.$updateWorkingMessage(#NULL,"Running post-import script")
 	If not($cinst.$$runScript(lvRegistration.postImportScript,lvRegistration.basePath))
 		Do tvLogger.$error("Post-import script failure")
-		Calculate ivBusy as kFalse
-		Quit method kFalse
+		Quit method $cinst.$$finishWork(kFalse)
 	End If
 End If
 
 Do tvLogger.$info("Import succeeded")
-Calculate ivBusy as kFalse
+Do $cinst.$$finishWork(kTrue)
 
 # Self-imports require a specialized flow as GitTools would otherwise attempt to close itself during an import
 # This workaround swaps the old library with the imported one after the fact using a second library
@@ -169,7 +161,7 @@ End If
 
 # Ensure that any new libraries opened as a result of the import are registered
 If pRegisterLibrariesAfterImport
-	Do $cinst.$registerLibraries()
+	Do $cinst.$updateRegister()
 End If
 
 Quit method kTrue

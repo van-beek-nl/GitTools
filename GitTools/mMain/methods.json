@@ -105,35 +105,43 @@
 		]
 	},
 	{
-		"name": "$registerLibraries",
+		"name": "$importAll",
 		"order": 4,
 		"pvardefs": [
 
 		],
 		"lvardefs": [
-
+			{
+				"name": "lvHadFailures",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0,
+				"initval": "kFalse"
+			},
+			{
+				"name": "lvLibraries",
+				"order": 1,
+				"type": "kList",
+				"subtype": "sLibraryRegistration",
+				"sublen": 0
+			}
 		]
 	},
 	{
-		"name": "$importAll",
+		"name": "$exportAll",
 		"order": 5,
 		"pvardefs": [
 
 		],
 		"lvardefs": [
 			{
-				"name": "lvFailures",
-				"order": 5,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
-				"name": "lvIsOk",
-				"order": 2,
+				"name": "lvHadFailures",
+				"order": 6,
 				"type": "kBoolean",
 				"subtype": 0,
-				"sublen": 0
+				"sublen": 0,
+				"initval": "kFalse"
 			},
 			{
 				"name": "lvLibraries",
@@ -141,64 +149,59 @@
 				"type": "kList",
 				"subtype": "sLibraryRegistration",
 				"sublen": 0
-			},
-			{
-				"name": "lvResultMessage",
-				"order": 4,
-				"type": "kCharacter",
-				"subtype": "kSimplechar",
-				"sublen": 100000000
 			}
 		]
 	},
 	{
-		"name": "$exportAll",
+		"name": "$import",
 		"order": 6,
 		"pvardefs": [
-
+			{
+				"name": "pLibraryID",
+				"order": 1,
+				"type": "kCharacter",
+				"subtype": "kSimplechar",
+				"sublen": 100000000,
+				"param": 1
+			}
 		],
 		"lvardefs": [
 			{
-				"name": "lvFailures",
-				"order": 4,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
 				"name": "lvIsOk",
-				"order": 2,
+				"order": 3,
 				"type": "kBoolean",
 				"subtype": 0,
 				"sublen": 0
 			},
 			{
-				"name": "lvLibraries",
-				"order": 1,
-				"type": "kList",
-				"subtype": "sLibraryRegistration",
-				"sublen": 0
-			},
-			{
-				"name": "lvLibrariesWithMergeConflicts",
-				"order": 8,
-				"type": "kList",
-				"subtype": "",
-				"sublen": 0
-			},
-			{
 				"name": "lvMergeConflicts",
-				"order": 5,
+				"order": 2,
 				"type": "kList",
 				"subtype": "",
 				"sublen": 0
-			},
+			}
+		]
+	},
+	{
+		"name": "$export",
+		"order": 7,
+		"pvardefs": [
 			{
-				"name": "lvResultMessage",
-				"order": 3,
+				"name": "pLibraryID",
+				"order": 1,
 				"type": "kCharacter",
 				"subtype": "kSimplechar",
-				"sublen": 100000000
+				"sublen": 100000000,
+				"param": 1
+			}
+		],
+		"lvardefs": [
+			{
+				"name": "lvIsOk",
+				"order": 3,
+				"type": "kBoolean",
+				"subtype": 0,
+				"sublen": 0
 			}
 		]
 	}

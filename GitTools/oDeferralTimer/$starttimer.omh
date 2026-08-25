@@ -1,3 +1,4 @@
+Calculate $cinst.$timervalue as pTimeout
 Set reference ivHandlerRef to pHandlerRef
 Calculate ivHandlerMethod as pHandlerMethod
 Do inherited

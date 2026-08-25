@@ -17,4 +17,5 @@ If lvErrorCode<>kFileOpsOK
 End If
 
 Open library (Do not close others) [lvBasePath]
+Do tvLogger.$closeWorkingMessage()
 Close library [$clib().$name]

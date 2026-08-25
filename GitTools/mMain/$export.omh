@@ -1,0 +1,8 @@
+Do tvLogger.$showWorkingMessage(con('Exporting ',pLibraryID),"")
+Do tvGitTools.$exportLibrary(pLibraryID) Returns lvIsOk
+Do tvLogger.$closeWorkingMessage()
+Do tvMenu.$buildMenu()
+
+If not(lvIsOk)
+	Open trace log
+End If

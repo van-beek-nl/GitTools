@@ -1,0 +1,9 @@
+If pShowToast
+	Do $cinst.$$showToast(ivCurrentWorkTitle,pick(isclear(pCustomToastMessage),pCustomToastMessage,con(ivCurrentWorkDescription,pick(pIsOk," failed. Check the trace log for details."," succeeded."))),pick(pCustomToastType>=0,pick(pIsOk,kToastError,kToastSuccess),pCustomToastType))
+End If
+
+Calculate ivCurrentWorkTitle as ""
+Calculate ivCurrentWorkDescription as ""
+Calculate ivSuppressAutoRegistration as kFalse
+
+Quit method pIsOk
