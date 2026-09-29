@@ -24,6 +24,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
+        shell: bash
         working-directory: gittools_worker
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +32,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: git --version
-      - run: npm test
+      - if: matrix.node == '16.17.0'
+        run: npm test
+      # Annotates failures and writes a job summary; Node 16.17 lacks --test-reporter.
+      - if: matrix.node != '16.17.0'
+        run: |
+          npm install --no-save --no-audit --no-fund @reporters/github@2
+          npm test -- --test-reporter=@reporters/github --test-reporter-destination=stdout --test-reporter=spec --test-reporter-destination=stdout
 
   test-oldest-git:
     runs-on: ubuntu-latest

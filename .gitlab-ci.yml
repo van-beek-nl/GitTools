@@ -7,7 +7,7 @@
     - sh gittools_worker/ci/install-git.sh "$INSTALL_GIT_VERSION"
     - node --version
     - cd gittools_worker
-    - npm test
+    - npm test -- $TEST_ARGS
 
 worker-tests-oldest:
   extends: .worker-tests
@@ -20,3 +20,11 @@ worker-tests-latest:
   image: node:lts
   variables:
     INSTALL_GIT_VERSION: latest
+    # Node 16.17 has no JUnit reporter, so only this job reports per-test results.
+    TEST_ARGS: >-
+      --test-reporter=spec --test-reporter-destination=stdout
+      --test-reporter=junit --test-reporter-destination=junit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: gittools_worker/junit.xml
