@@ -39,8 +39,12 @@ process.on('exit', () => {
   }
 });
 
+// Windows may report the temp dir with 8.3 short names (e.g. RUNNER~1) that git expands, so
+// expand them up front to keep test paths comparable with the repo roots git reports.
+const TMP_DIR = process.platform === 'win32' ? fs.realpathSync.native(os.tmpdir()) : os.tmpdir();
+
 function tmpName(prefix) {
-  return path.join(os.tmpdir(), `${prefix}-${crypto.randomBytes(6).toString('hex')}`);
+  return path.join(TMP_DIR, `${prefix}-${crypto.randomBytes(6).toString('hex')}`);
 }
 
 // git that throws on failure and returns trimmed stdout (stderr suppressed).
