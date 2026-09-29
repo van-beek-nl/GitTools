@@ -65,7 +65,7 @@ Switch low(lvActionType)
 		End If
 		
 	Case "delete"
-		Do tvFileUtilities.$getAbsolutePath(lvActionValue) Returns lvActionValue
+		Do tvFileUtilities.$getAbsolutePath(lvActionValue,pBaseDirectory) Returns lvActionValue
 		Do FileOps.$deletefile(lvActionValue,kTrue,kTrue) Returns lvErrorCode
 		
 		If lvErrorCode<>kFileOpsOK&lvErrorCode<>kFileOpsFileNotFound
