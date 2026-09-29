@@ -71,6 +71,8 @@ function newRepo(prefix) {
   git(r, 'init', '-q');
   git(r, 'config', 'user.email', 't@t.t');
   git(r, 'config', 'user.name', 't');
+  // Tests expect checkouts to keep LF, regardless of a machine-wide core.autocrlf (the default on Windows).
+  git(r, 'config', 'core.autocrlf', 'false');
   fs.writeFileSync(path.join(r, 'Lib.lbs'), 'bin');
   return r;
 }
