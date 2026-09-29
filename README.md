@@ -2,11 +2,14 @@
 Omnis library to improve working with JSON source and git.
 
 ## Prerequisites
-- [Git >= v2.23](https://git-scm.com/) installed and present in your path environment variable.
+- [Git >= v2.45](https://git-scm.com/) installed and present in your path environment variable.
 - [Omnis Studio](https://www.omnis.net/) v10.22 or higher.
 
 ## Getting started
-Installing GitTools is simple: copy `GitTools.lbs.release` to your Omnis Studio startup directory and rename it to `GitTools.lbs`. You should also manually open the library once to ensure it gets converted to your version of Omnis Studio. When you start Omnis, a new GitTools menu item should appear.
+Installing GitTools is simple:
+- Download the latest release from the GitHub releases page.
+- Copy `GitTools.lbs` and `gittools_worker` to your Omnis Studio startup directory.
+- You may have to manually open the library once to ensure it gets converted to your version of Omnis Studio. When you start Omnis, a new GitTools menu item should appear.
 
 ### Automatic library registration
 GitTools will attempt to register all currently opened libraries upon startup, populating the menu. In Omnis Studio 11+, GitTools will also automatically find and register newly opened libraries. For older versions, you can either manually trigger this feature with the `GitTools -> Scan for libraries` menu option, or you can programmatically trigger the feature in safe manner by putting the following code in your library's startup task:

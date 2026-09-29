@@ -1,0 +1,22 @@
+.worker-tests:
+  rules:
+    - changes:
+        - gittools_worker/**/*
+        - .gitlab-ci.yml
+  script:
+    - sh gittools_worker/ci/install-git.sh "$INSTALL_GIT_VERSION"
+    - node --version
+    - cd gittools_worker
+    - npm test
+
+worker-tests-oldest:
+  extends: .worker-tests
+  image: node:16.17.0
+  variables:
+    INSTALL_GIT_VERSION: "2.45.0"
+
+worker-tests-latest:
+  extends: .worker-tests
+  image: node:lts
+  variables:
+    INSTALL_GIT_VERSION: latest

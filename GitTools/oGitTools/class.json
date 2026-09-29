@@ -26,7 +26,7 @@
 			"type": "kInteger",
 			"subtype": "k32bitint",
 			"sublen": 0,
-			"initval": "23"
+			"initval": "45"
 		}
 	],
 	"ivardefs": [

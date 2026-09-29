@@ -4,7 +4,7 @@ While $cinst.$objs.$count()>0
 End While
 
 If not(tvGitTools.$gitAvailable)
-	Do $cinst.$objs.$add("Git >= v2.23 unavailable")
+	Do $cinst.$objs.$add("Git >= v2.45 unavailable")
 Else
 	Calculate lvLibraries as tvGitTools.$libraries
 	

@@ -29,7 +29,7 @@ function preExport(ctx, request) {
   if (!git.mergeTreeHasWriteTreeCapabilities()) {
     throw new GitToolsError(
       ErrorCodes.MERGE_TREE_UNSUPPORTED,
-      'This procedure requires git merge-tree --write-tree (git 2.38 or newer).'
+      'This procedure requires git merge-tree --write-tree (git 2.45 or newer).'
     );
   }
 

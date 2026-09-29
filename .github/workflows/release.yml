@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  test:
+    uses: ./.github/workflows/worker-tests.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package
+        run: |
+          mkdir -p release/gittools_worker
+          cp GitTools.lbs.release release/GitTools.lbs
+          cp LICENSE release/
+          cp -R gittools_worker/index.js gittools_worker/package.json gittools_worker/src release/gittools_worker/
+          node -e "require('./release/gittools_worker/src/core.js')"
+          cd release && zip -r "../GitTools-$GITHUB_REF_NAME.zip" .
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "GitTools-$GITHUB_REF_NAME.zip" --verify-tag --generate-notes

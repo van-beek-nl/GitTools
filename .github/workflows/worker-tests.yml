@@ -1,0 +1,43 @@
+name: Worker tests
+
+on:
+  push:
+    branches: ['**'] # tag pushes are tested by release.yml
+    paths:
+      - 'gittools_worker/**'
+      - '.github/workflows/worker-tests.yml'
+  pull_request:
+    paths:
+      - 'gittools_worker/**'
+      - '.github/workflows/worker-tests.yml'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  # Uses the runner's git, which tracks the latest release.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['16.17.0', 'lts/*']
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: gittools_worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: git --version
+      - run: npm test
+
+  test-oldest-git:
+    runs-on: ubuntu-latest
+    container: node:16.17.0
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh gittools_worker/ci/install-git.sh 2.45.0
+      - run: npm test
+        working-directory: gittools_worker
