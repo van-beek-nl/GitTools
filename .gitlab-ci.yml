@@ -3,6 +3,12 @@
     - changes:
         - gittools_worker/**/*
         - .gitlab-ci.yml
+  variables:
+    GIT_CACHE_DIR: $CI_PROJECT_DIR/.git-cache
+  cache:
+    key: $CI_JOB_NAME
+    paths:
+      - .git-cache/
   script:
     - sh gittools_worker/ci/install-git.sh "$INSTALL_GIT_VERSION"
     - node --version

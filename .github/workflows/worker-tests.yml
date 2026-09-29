@@ -45,6 +45,10 @@ jobs:
     container: node:16.17.0
     steps:
       - uses: actions/checkout@v4
-      - run: sh gittools_worker/ci/install-git.sh 2.45.0
+      - uses: actions/cache@v4
+        with:
+          path: .git-cache
+          key: git-2.45.0
+      - run: GIT_CACHE_DIR="$GITHUB_WORKSPACE/.git-cache" sh gittools_worker/ci/install-git.sh 2.45.0
       - run: npm test
         working-directory: gittools_worker
