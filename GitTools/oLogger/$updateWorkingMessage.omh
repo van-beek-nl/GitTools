@@ -7,11 +7,11 @@ If not(cvWorkingMessage.$secondary.$cando())
 	Quit method $cinst.$showWorkingMessage(pTitle,pBody)
 End If
 
-If not(isnull(pTitle))
+If not(isclear(pTitle))
 	Calculate cvWorkingMessage.$primary as con('GitTools - ',pTitle)
 End If
 
-If not(isnull(pBody))
+If not(isclear(pBody))
 	Calculate cvWorkingMessage.$secondary as pBody
 End If
 
