@@ -26,13 +26,8 @@ function postImport(ctx, request) {
   if (git.isPathInHead(jsonPath)) {
     const committedTree = git.invoke(['rev-parse', `HEAD:${jsonPath}`]);
     if (committedTree !== liveTree) {
-      // The live tree is durable (the lineage ref below pins it) but it is not reachable from
-      // HEAD, so the recovery path that scans HEAD's committed subtrees for a recorded base
-      // (findRecordedBaseInHistory) cannot match it. That path runs when HEAD has moved off the
-      // line we synced against — a reset or branch switch — and finding nothing there means a
-      // false "missing base". Anchoring the committed tree in the lineage keeps it findable.
-      // This does not change what we record as the base now, only what a later export can fall
-      // back to. Same reasoning as post-export anchoring the source it overwrites.
+      // The live tree never reaches HEAD's history, so per-file bases can only match the committed
+      // versions it was built on. Same reasoning as post-export anchoring the source it overwrites.
       log.info('Imported over uncommitted source; anchoring the committed tree in the base lineage.');
       git.advanceBaseRef(stateKey, committedTree);
     }
@@ -42,8 +37,7 @@ function postImport(ctx, request) {
   git.advanceBaseRef(stateKey, baseTree);
   git.deletePendingRefs(stateKey);
 
-  // Record the HEAD commit this import synced against.
-  meta.write(meta.getClean(baseTree, liveTree, git.headCommit()));
+  meta.write(meta.getClean(baseTree, liveTree));
 
   return { result: 'clean' };
 }

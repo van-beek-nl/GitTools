@@ -31,14 +31,13 @@ function createMeta(metaPath, jsonPath) {
     fs.renameSync(tempMetaFile, metaPath);
   }
 
-  /** Builds a clean meta object (no pending conflict) for the given base, source, and sync commit. */
-  function getClean(baseTree, sourceTree, syncCommit) {
+  /** Builds a clean meta object (no pending conflict) for the given base and source. */
+  function getClean(baseTree, sourceTree) {
     return {
       version: 2,
       jsonPath,
       baseTree,
       sourceTree,
-      syncCommit: syncCommit || '',
       status: 'clean',
       pending: null
     };

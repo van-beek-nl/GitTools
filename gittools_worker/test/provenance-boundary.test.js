@@ -1,9 +1,5 @@
-// The boundary of the provenance rule (see selectFilesNeedingRecordedBase): what an UNKNOWN
-// provenance does and does not block.
-//
-// Unknown provenance does not veto an export. It narrows what the library is trusted to speak for:
-// only its diff since the last export lands. Content it had already exported before, which HEAD
-// has since moved away from, is treated as settled and is not re-asserted over the commit.
+// Without a base lineage, the per-file base falls back to the last export: only the library's diff
+// since then lands, and content HEAD has since moved away from is not re-asserted over the commit.
 
 const { test } = require('node:test');
 const assert = require('node:assert');

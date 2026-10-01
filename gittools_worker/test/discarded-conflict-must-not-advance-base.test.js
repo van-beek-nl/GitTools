@@ -1,23 +1,6 @@
-// Regression: a DISCARDED export conflict must never be recorded as an ACCEPTED one.
-//
-// From a field report (omnis_20260728.log, 12:04 -> 12:07). resolvePendingConflict discards
-// uncommitted work by restoring the JSON path to HEAD, then decides "did the user accept the
-// export?" by replaying the conflicting three-way merge. When the discard lands the source
-// exactly on pending.baseTree, that replay degenerates: a merge whose base equals one side can
-// never conflict, it just returns the other side. GitTools read that guaranteed-clean exit as
-// proof of acceptance and advanced the base to the export tree.
-//
-// Advancing the base there is unrecoverable: from then on base == exportTree, so every later
-// merge is (base=X, ours=HEAD, theirs=X), which resolves to `ours` and writes nothing. The
-// library's content can never reach git again. In the field this showed up as "no more changed
-// files from the codebase" and exports that silently did nothing.
-//
-// Reaching the replay at all needs a pending conflict whose source side is NOT what the working
-// tree settles on. postImport used to hand that over on a plate, by recording HEAD's committed tree
-// as the base while the live tree was the source; that mismatch was itself a bug and is fixed, so
-// the route below builds the state the way it still arises: an export that merges cleanly leaves
-// base = the raw export tree and source = the merged result, and the next export conflicts against
-// that source. HEAD then moves out from under the pending conflict.
+// Regression (omnis_20260728.log): a DISCARDED export conflict must never be treated as accepted.
+// Taking the export tree as the base there makes every later merge resolve to HEAD, so no library
+// change reaches git again.
 
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -41,19 +24,13 @@ test('a conflict that was discarded (not resolved) must not advance the base pas
   assert.equal(h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bZ' }), 'conflict',
     'the library and the colleague both moved b');
 
-  // HEAD moves out from under the pending conflict (a pull that reverts both files). The working
-  // tree now sits on a state that is neither pending.sourceTree nor pending.exportTree, so the
-  // replay runs -- and it merges CLEANLY, because each side's change is unopposed there. A clean
-  // exit is therefore no evidence at all that the user accepted the export.
+  // HEAD moves out from under the pending conflict (a pull that reverts both files).
   h.commitSource(r, J, { 'a.json': 'a0', 'b.json': 'b0' }, 'colleague reverts both files');
 
   // Re-export the SAME library.
   h.exportLib(r, J, lib, { 'a.json': 'aX', 'b.json': 'bZ' });
 
-  // Nothing accepted the export, so the base must not have advanced to it: the library is still
-  // the only authority for both files and its content must reach the working tree. Reading the
-  // replay's clean exit as acceptance instead produced base == exportTree, after which every
-  // merge resolved to `ours` and wrote nothing -- here, 'a0' and 'b0' forever.
+  // Nothing accepted the export, so the library's content must reach the working tree.
   assert.equal(h.read1(r, J, 'a.json'), 'aX', "the library's a reaches the working tree");
   assert.equal(h.read1(r, J, 'b.json'), 'bZ', "the library's b reaches the working tree");
 

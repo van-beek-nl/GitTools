@@ -1,18 +1,5 @@
-// Regression: a second export after pulling a peer's commit must not drop the peer's work.
-//
-// The scenario (from the PionUs bug report, bug-report/omnis_20260701.log):
-//  - The dev imports the baseline, then PULLS a peer commit, so the peer's work is on HEAD
-//    *before* the dev exports. The dev's library still carries the old (pre-pull) content.
-//  - Export #1 reconciles correctly: the peer's committed change is behind the recorded sync
-//    commit, so it three-way merges in and survives on disk. But post-export then advances
-//    meta.syncCommit to the pulled HEAD, even though the library was never imported from it.
-//  - The dev exports again without committing, on the "live path drifted" branch (a discard
-//    here). Now syncCommit == HEAD, so the reconciliation base sees no committed work since the
-//    sync, collapses to HEAD, and post-export applies the raw library export (which lacks the
-//    peer's work) directly over the live path — deleting the peer's pulled change.
-//
-// The peer's committed change must survive the second export exactly as it did the first.
-// See memory/second-export-collapses-reconciliation-base.md.
+// Regression (PionUs report, omnis_20260701.log): a second export after pulling a peer's commit,
+// with the first export left uncommitted and then discarded, must not drop the peer's work.
 
 const { test } = require('node:test');
 const assert = require('node:assert');

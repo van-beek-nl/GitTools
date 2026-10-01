@@ -1,23 +1,10 @@
-// Regression: a library change that was exported but not yet committed must survive the next
-// export, instead of being reverted to HEAD.
-//
-// From the field report (bug_description.txt, 2026-07-30): a '#TEST!' comment was exported, left
-// uncommitted, and then silently erased from the working tree by a later export while it was still
-// sitting in the Omnis library. Verified against the colleague's repo: the recorded base tree
-// 8ddfbd94 already contained the comment.
-//
-// Mechanism: buildReconciliationBase gives files that a commit touched since the sync their value
-// from metaObject.baseTree -- the LAST EXPORT. An export is only a proposal until it is committed,
-// so for a change that was exported and not committed the base already holds it. The merge then
-// reads base == theirs as "the library changed nothing here" and keeps `ours` (HEAD), deleting it.
-//
-// The discriminator is provenance: has the library ever PRODUCED what HEAD holds for this file?
-//   - yes -> the library has already moved past it, so the library's content wins
-//   - no  -> it arrived from git and was never imported (a peer's work), so it must be protected
-// The base lineage ref records every tree the library ever produced, which answers exactly that.
+// A library change that was exported but not committed must survive the next export instead of
+// being reverted to HEAD (field report 2026-07-30), while a peer's committed work is never dropped.
 
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
 
 const h = require('../test-support/helpers');
 const { J } = h;
@@ -25,7 +12,6 @@ const { J } = h;
 test('an exported-but-uncommitted library change is not reverted to HEAD by the next export', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
 
-  // Baseline import: records the sync commit and the first lineage entry.
   h.importLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v0' });
 
   // The developer does a round of work the normal way: export, review, commit. HEAD's t.json is
@@ -49,30 +35,47 @@ test('an exported-but-uncommitted library change is not reverted to HEAD by the 
   assert.equal(h.read1(r, J, 't.json'), 'v1+TEST', "the library's uncommitted tweak survives the export");
 });
 
-test('a peer commit is still protected when the library never produced HEAD\'s content', () => {
+test('a discarded export colliding with a peer commit on the same file conflicts', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
-
   h.importLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v0' });
-
-  // The developer exports a change to t and leaves it uncommitted.
   assert.equal(h.exportLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v1' }), 'clean');
 
-  // They set it aside, then a teammate's independent change to the same file lands on HEAD.
-  // 'peer' is content the library has never produced, so it must not be overwritten.
+  // Discarding in git leaves v1 in the library, so it comes back; the peer's edit must not win silently.
   h.git(r, 'restore', '--source=HEAD', '--worktree', '--', J);
   h.commitSource(r, J, { 'a.json': 'a0', 't.json': 'peer' }, 'teammate edits t');
 
-  h.exportLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v1' });
-  assert.equal(h.read1(r, J, 't.json'), 'peer', "the teammate's committed change is not dropped");
+  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v1' }), 'conflict');
+  assert.equal(h.stat(r, `${J}/t.json`), 'UU');
+  const t = h.read1(r, J, 't.json');
+  assert.ok(t.includes('peer') && t.includes('v1'), 'both versions are kept in the conflict');
+});
+
+test('a discarded export colliding with a fast-forwarded peer commit conflicts', () => {
+  const r = h.newRepo(); const lib = h.libOf(r);
+  h.importLib(r, J, lib, { 'a.json': 'a0', 'x.json': 'x0' }, { clear: true });
+  const branch = h.git(r, 'symbolic-ref', '--short', 'HEAD');
+  const importCommit = h.git(r, 'rev-parse', 'HEAD');
+
+  h.exportLib(r, J, lib, { 'a.json': 'a1', 'x.json': 'x0' });
+  h.git(r, 'restore', '--source=HEAD', '--worktree', '--', J);
+
+  h.git(r, 'branch', 'peer', importCommit);
+  h.git(r, 'checkout', '-q', 'peer');
+  fs.writeFileSync(path.join(r, J, 'a.json'), 'a2');
+  h.git(r, 'add', '-A'); h.git(r, 'commit', '-q', '-m', 'peer a2');
+  h.git(r, 'checkout', '-q', branch);
+  h.git(r, 'merge', '-q', 'peer');
+
+  assert.equal(h.exportLib(r, J, lib, { 'a.json': 'a1', 'x.json': 'x0' }), 'conflict');
+  assert.equal(h.stat(r, `${J}/a.json`), 'UU');
+  assert.equal(h.read1(r, J, 'x.json'), 'x0');
 });
 
 test('an unavailable base lineage degrades to protecting committed content, not to overwriting it', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
 
-  // The lineage lives in .git and is never pushed, so a fresh clone (or a pruned ref) has none.
-  // With no provenance record, nothing can be shown to have come from the library, and every
-  // file must fall back to the recorded base -- the pre-provenance behaviour. The one thing that
-  // must never happen is the reverse: treating "unknown provenance" as "the library owns it".
+  // The lineage is never pushed, so a fresh clone or pruned ref has none. Without it the last
+  // export is the only known library output; unknown origin must never read as "the library owns it".
   h.importLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v0' });
   assert.equal(h.exportLib(r, J, lib, { 'a.json': 'a0', 't.json': 'v1' }), 'clean');
   h.git(r, 'add', '-A'); h.git(r, 'commit', '-q', '-m', 'commit exported v1');

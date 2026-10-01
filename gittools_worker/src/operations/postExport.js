@@ -4,6 +4,7 @@ const path = require('path');
 const { GitToolsError, ErrorCodes } = require('../constants.js');
 const { fingerprintPath } = require('../fingerprint.js');
 const { splitLines } = require('../text.js');
+const { buildPerFileBase } = require('../perFileBase.js');
 
 // JSON keys Omnis rewrites on every export — and even on merely opening and closing a class in
 // the IDE — whose values carry no meaning for import. Left alone they change constantly, producing
@@ -52,19 +53,8 @@ function postExport(ctx, request) {
     throw new GitToolsError(ErrorCodes.NO_PENDING_EXPORT, 'No pending export to finalize. Run pre-export first.');
   }
 
-  const { currentSourceTree, mergeBase, liveTree, liveFingerprint } = pendingOperation;
-
-  // syncCommit marks the commit the library's content matches. Only import changes the library,
-  // so export must not move syncCommit up to HEAD: after a pull, HEAD can hold peer commits that
-  // were merged into the working tree but never imported, and claiming the library is synced to
-  // HEAD makes the next export drop that peer work. Keep the old syncCommit while it is still
-  // behind HEAD; only reset to HEAD when there is no prior one, or HEAD no longer descends from it
-  // (reset / branch switch).
-  const headCommit = git.headCommit();
-  const priorSyncCommit = meta.read().syncCommit;
-  const syncCommit = (priorSyncCommit && headCommit && git.isAncestor(priorSyncCommit, headCommit))
-    ? priorSyncCommit
-    : headCommit;
+  const { currentSourceTree, perFileBase, fallbackBase, liveTree, liveFingerprint } = pendingOperation;
+  let { mergeBase } = pendingOperation;
 
   // Hashing the live JSON path is one of the most expensive steps (a full untracked-file scan),
   // and applyTreeToLiveJsonPath needs that tree to compute its delta. Pre-export already hashed
@@ -99,6 +89,10 @@ function postExport(ctx, request) {
       exportTree = cleanExportTree(ctx, exportCache, currentSourceTree, exportTree);
     }
 
+    if (perFileBase) {
+      mergeBase = buildPerFileBase(ctx, currentSourceTree, exportTree, fallbackBase);
+    }
+
     // No reconciliation base: a genuine first export, or the base was lost. There is nothing
     // to merge against, so apply directly unless that would overwrite committed source that
     // differs from this export.
@@ -121,7 +115,7 @@ function postExport(ctx, request) {
 
       const finalSourceTree = applyTreeToLiveJsonPath(ctx, exportTree, knownLiveTree);
       git.advanceBaseRef(stateKey, exportTree);
-      meta.write(meta.getClean(exportTree, finalSourceTree, syncCommit));
+      meta.write(meta.getClean(exportTree, finalSourceTree));
       return { result: 'clean' };
     }
 
@@ -130,7 +124,7 @@ function postExport(ctx, request) {
       log.info('Current source equals base tree; applying export directly.');
       const finalSourceTree = applyTreeToLiveJsonPath(ctx, exportTree, knownLiveTree);
       git.advanceBaseRef(stateKey, exportTree);
-      meta.write(meta.getClean(exportTree, finalSourceTree, syncCommit));
+      meta.write(meta.getClean(exportTree, finalSourceTree));
       return { result: 'clean' };
     }
 
@@ -146,12 +140,14 @@ function postExport(ctx, request) {
       // to recognize its own last output on the next export.
       const finalSourceTree = applyTreeToLiveJsonPath(ctx, mergeResult.resultTree, knownLiveTree);
       git.advanceBaseRef(stateKey, exportTree);
-      meta.write(meta.getClean(exportTree, finalSourceTree, syncCommit));
+      meta.write(meta.getClean(exportTree, finalSourceTree));
       return { result: 'clean' };
     }
 
     log.info('Merge completed with conflicts; applying conflicted result to live JSON path.');
     applyConflictedMergeToLiveJsonPath(ctx, mergeResult, knownLiveTree);
+    // Recorded as library output so later per-file bases see whatever of it the user commits.
+    git.advanceBaseRef(stateKey, exportTree);
     git.setPendingRefs(stateKey, currentSourceTree, exportTree);
     meta.write(meta.getPending(mergeBase, currentSourceTree, exportTree));
     log.warning('Export completed with conflicts. Resolve the JSON path with your Git client.');
