@@ -34,7 +34,7 @@ function postImport(ctx, request) {
   }
 
   const baseTree = liveTree;
-  git.advanceBaseRef(stateKey, baseTree);
+  git.advanceBaseRef(stateKey, baseTree, git.headCommit());
   git.deletePendingRefs(stateKey);
 
   meta.write(meta.getClean(baseTree, liveTree));

@@ -1,3 +1,4 @@
+const { LINEAGE_IMPORT_SUBJECT } = require('./constants.js');
 const { splitLines } = require('./text.js');
 
 const NULL_OBJECT_ID = /^0+$/;
@@ -10,17 +11,15 @@ const MAX_ABSORPTION_TRIALS = 5000;
  * Builds the merge base for `sourceTree` vs `exportTree` file by file.
  *
  * A file's base starts as the newest version git has held (the source, then HEAD's history) that
- * the library produced byte for byte, i.e. that appears in the base lineage. A newer library
- * output still counts when some later git version already contains all of its changes, which is
- * how a cleanly merged export that was committed shows up in git ("absorbed"). Without any match,
- * a file present in the source falls back to `fallbackTree`'s version (the last library output);
- * otherwise it is absent from the base.
+ * the library produced byte for byte since its latest import. An import replaces the whole
+ * library, so earlier output is no ancestor of it; the import's own ancestry is the commit it was
+ * read from. Lineages without an import marker (older GitTools) or whose imported commit is gone
+ * are searched in full. A newer library output still counts when some later git version already
+ * contains all of its changes, which is how a cleanly merged export that was committed shows up
+ * in git ("absorbed"). Without any match, a file present in the source falls back to
+ * `fallbackTree`'s version (the last library output); otherwise it is absent from the base.
  *
  * Files both sides agree on keep `fallbackTree`'s version (or the source's when there is none).
- *
- * Known gap: matching is by content, not time. If git reaches content the library produced earlier
- * but has since moved away from (e.g. a branch exported on, then main imported, then the branch
- * merged in git), that content is taken as the base and the export silently reverts it.
  *
  * @param {import('./context.js').Context} ctx
  * @param {string} sourceTree
@@ -29,7 +28,7 @@ const MAX_ABSORPTION_TRIALS = 5000;
  * @returns {string} base tree SHA
  */
 function buildPerFileBase(ctx, sourceTree, exportTree, fallbackTree) {
-  const { git, log, jsonPath, stateKey } = ctx;
+  const { git, log, jsonPath } = ctx;
 
   const paths = splitLines(git.invoke(['-c', 'core.quotePath=false', 'diff-tree', '-r', '--no-renames', '--name-only', sourceTree, exportTree]));
   if (paths.length === 0) {
@@ -39,7 +38,7 @@ function buildPerFileBase(ctx, sourceTree, exportTree, fallbackTree) {
 
   const source = listTree(git, sourceTree, wanted);
   const fallback = fallbackTree ? listTree(git, fallbackTree, wanted) : new Map();
-  const timelines = lineageTimelines(git, `refs/gittools/${stateKey}/base`, wanted);
+  const timelines = libraryTimelines(ctx, wanted);
   for (const [file, entry] of fallback) {
     if (!timelines.has(file)) {
       timelines.set(file, [entry.oid]);
@@ -49,8 +48,9 @@ function buildPerFileBase(ctx, sourceTree, exportTree, fallbackTree) {
   // Path-limiting `git log` to many files is far slower than walking the whole JSON path once.
   const history = new Map();
   const prefix = `${jsonPath}/`;
-  for (const entry of rawEntries(git.invoke(['-c', 'core.quotePath=false', 'log', '--full-history', '--cc', '--no-renames', '--raw', '--no-abbrev', '--format=%H', 'HEAD', '--', jsonPath]))) {
-    const file = entry.path.startsWith(prefix) ? entry.path.slice(prefix.length) : null;
+  for (const line of splitLines(git.invoke(['-c', 'core.quotePath=false', 'log', '--full-history', '--cc', '--no-renames', '--raw', '--no-abbrev', '--format=%H', 'HEAD', '--', jsonPath]))) {
+    const entry = rawEntry(line);
+    const file = entry && entry.path.startsWith(prefix) ? entry.path.slice(prefix.length) : null;
     if (file !== null && wanted.has(file)) {
       if (!history.has(file)) {
         history.set(file, []);
@@ -230,28 +230,85 @@ function addRange(set, start, count) {
   }
 }
 
-/** Each wanted path's blobs across the base lineage, newest first. A missing ref yields none. */
-function lineageTimelines(git, ref, wanted) {
-  const timelines = new Map();
-  if (!git.resolveRef(ref)) {
-    return timelines;
+/**
+ * Each wanted path's blobs the library held since its latest import, newest first: lineage output,
+ * then the imported tree and the commit it was read from.
+ */
+function libraryTimelines(ctx, wanted) {
+  const { git, log, jsonPath, stateKey } = ctx;
+  const ref = `refs/gittools/${stateKey}/base`;
+
+  const lineage = lineageTimelines(git, ref, wanted, true);
+  if (!lineage.imported) {
+    return lineage.timelines;
   }
 
-  for (const entry of rawEntries(git.invoke(['-c', 'core.quotePath=false', 'log', '--root', '--no-renames', '--raw', '--no-abbrev', '--format=%H', ref]))) {
-    if (wanted.has(entry.path)) {
+  const ancestry = [`${lineage.imported.commit}^{tree}`];
+  const head = lineage.imported.head;
+  if (head) {
+    if (git.invokeRaw(['cat-file', '-e', `${head}^{commit}`]).status !== 0) {
+      log.info('The commit the library was last imported from is gone; matching against the whole base lineage.');
+      return lineageTimelines(git, ref, wanted, false).timelines;
+    }
+    ancestry.push(`${head}:${jsonPath}`);
+  }
+
+  const timelines = lineage.timelines;
+  for (const treeish of ancestry) {
+    for (const [file, entry] of listTree(git, treeish, wanted)) {
+      if (!timelines.has(file)) {
+        timelines.set(file, []);
+      }
+      timelines.get(file).push(entry.oid);
+    }
+  }
+  return timelines;
+}
+
+/**
+ * Each wanted path's blobs across the base lineage, newest first, and the latest import entry.
+ * With `stopAtImport`, entries from that import on are left out. A missing ref yields none.
+ */
+function lineageTimelines(git, ref, wanted, stopAtImport) {
+  const timelines = new Map();
+  let imported = null;
+  if (!git.resolveRef(ref)) {
+    return { timelines, imported };
+  }
+
+  const importHeader = new RegExp(`^@([0-9a-fA-F]+) ${LINEAGE_IMPORT_SUBJECT}(?: ([0-9a-fA-F]+))?$`);
+  const output = git.invoke(['-c', 'core.quotePath=false', 'log', '--root', '--no-renames', '--raw', '--no-abbrev', '--format=@%H %s', ref]);
+  for (const line of splitLines(output)) {
+    if (line.startsWith('@')) {
+      const match = imported ? null : importHeader.exec(line);
+      if (match) {
+        imported = { commit: match[1], head: match[2] || '' };
+        if (stopAtImport) {
+          break;
+        }
+      }
+      continue;
+    }
+
+    const entry = rawEntry(line);
+    if (entry && wanted.has(entry.path)) {
       if (!timelines.has(entry.path)) {
         timelines.set(entry.path, []);
       }
       timelines.get(entry.path).push(entry.oid);
     }
   }
-  return timelines;
+  return { timelines, imported };
 }
 
-/** Blob entries of `tree`, limited to `wanted` paths unless it is null. */
-function listTree(git, tree, wanted) {
+/** Blob entries of `treeish`, limited to `wanted` paths unless it is null; none if it is absent. */
+function listTree(git, treeish, wanted) {
   const entries = new Map();
-  for (const line of splitLines(git.invoke(['-c', 'core.quotePath=false', 'ls-tree', '-r', tree]))) {
+  const result = git.invokeRaw(['-c', 'core.quotePath=false', 'ls-tree', '-r', treeish]);
+  if (result.status !== 0) {
+    return entries;
+  }
+  for (const line of splitLines(result.stdout)) {
     const match = /^(\d{6}) blob ([0-9a-fA-F]+)\t(.+)$/.exec(line);
     if (match && (wanted === null || wanted.has(match[3]))) {
       entries.set(match[3], { mode: match[1], oid: match[2] });
@@ -261,26 +318,20 @@ function listTree(git, tree, wanted) {
 }
 
 /**
- * Post-image of each `--raw` record (plain or `--cc` combined), in output order. Deletions are
- * skipped: an absent file never counts as a version.
+ * Post-image of a `--raw` record (plain or `--cc` combined), or null for any other line and for
+ * deletions: an absent file never counts as a version.
  */
-function rawEntries(output) {
-  const entries = [];
-  for (const line of splitLines(output)) {
-    const tab = line.indexOf('\t');
-    if (!line.startsWith(':') || tab === -1) {
-      continue;
-    }
-
-    // ":<modes...> <oids...> <status>", with one leading colon per parent.
-    const fields = line.slice(0, tab).split(' ');
-    const parents = /^:+/.exec(fields[0])[0].length;
-    const oid = fields[2 * parents + 1];
-    if (oid && !NULL_OBJECT_ID.test(oid)) {
-      entries.push({ path: line.slice(tab + 1), mode: fields[parents], oid: oid });
-    }
+function rawEntry(line) {
+  const tab = line.indexOf('\t');
+  if (!line.startsWith(':') || tab === -1) {
+    return null;
   }
-  return entries;
+
+  // ":<modes...> <oids...> <status>", with one leading colon per parent.
+  const fields = line.slice(0, tab).split(' ');
+  const parents = /^:+/.exec(fields[0])[0].length;
+  const oid = fields[2 * parents + 1];
+  return oid && !NULL_OBJECT_ID.test(oid) ? { path: line.slice(tab + 1), mode: fields[parents], oid: oid } : null;
 }
 
 function unique(values) {

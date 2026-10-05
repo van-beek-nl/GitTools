@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { performance } = require('perf_hooks');
-const { GitToolsError, ErrorCodes } = require('./constants.js');
+const { GitToolsError, ErrorCodes, LINEAGE_IMPORT_SUBJECT } = require('./constants.js');
 const { splitLines } = require('./text.js');
 
 // spawnSync caps captured stdout at ~1 MB by default and silently errors past it.
@@ -520,24 +520,33 @@ function createGit(options) {
   /**
    * Advances this library's base lineage by committing `tree` onto `refs/gittools/<key>/base`.
    * The ref lives outside refs/worktree, so the base lineage is SHARED across all worktrees
-   * (every export/import an ancestor a later export can reconcile against); see preExport's
-   * history walk. Each call chains a new commit onto the previous tip.
+   * (every export/import an ancestor a later export can reconcile against); see perFileBase.js.
+   * Each call chains a new commit onto the previous tip.
    *
    * @param {string} key   state key identifying the library
    * @param {string} tree  tree SHA to record as the new base
+   * @param {string} [importedFrom]  for an import: the HEAD commit it read from ('' when unborn)
    */
-  function advanceBaseRef(key, tree) {
+  function advanceBaseRef(key, tree, importedFrom) {
     const ref = `refs/gittools/${key}/base`;
+    const isImport = importedFrom !== undefined;
+    const message = isImport ? `${LINEAGE_IMPORT_SUBJECT} ${importedFrom}`.trim() : 'GitTools base';
+
+    if (isImport && importedFrom) {
+      // Per-file bases read its tree; keep it alive if its branch is rewritten.
+      invoke(['update-ref', `refs/gittools/${key}/imported-head`, importedFrom]);
+    }
 
     // Skip a no-op advance: if the lineage tip already records this exact tree (a repeated
     // import/export of identical content), chaining another commit would only grow the lineage
-    // with a duplicate. The tree stays discoverable via the existing tip, so nothing is lost.
+    // with a duplicate. An import still marks the lineage unless the tip is that same import.
     const tip = resolveRef(ref);
-    if (tip && resolveRef(`${tip}^{tree}`) === tree) {
+    if (tip && resolveRef(`${tip}^{tree}`) === tree
+      && (!isImport || invoke(['log', '-1', '--format=%s', tip]) === message)) {
       return;
     }
 
-    advanceRef(ref, tree, { message: 'GitTools base' });
+    advanceRef(ref, tree, { message: message });
   }
 
   /**

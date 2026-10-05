@@ -29,4 +29,7 @@ class GitToolsError extends Error {
   }
 }
 
-module.exports = { ErrorCodes, GitToolsError };
+// Subject of base lineage commits recorded by an import, followed by the imported HEAD if any.
+const LINEAGE_IMPORT_SUBJECT = 'GitTools import';
+
+module.exports = { ErrorCodes, GitToolsError, LINEAGE_IMPORT_SUBJECT };
