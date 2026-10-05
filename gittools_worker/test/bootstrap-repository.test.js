@@ -54,6 +54,16 @@ test('creates .gitignore and .gitattributes from scratch when absent', () => {
   assert.ok(attrs.includes('*.df1 binary'), 'ensures *.df1 binary');
 });
 
+// Omnis writes .omh with CRLF; git must keep them byte for byte whatever core.autocrlf says.
+test('stores .omh files exactly as Omnis writes them', () => {
+  const r = h.newRepo(); const lib = h.libOf(r);
+
+  bootstrap(r, lib, WITH_CONFIG);
+
+  assert.ok(lines(r, '.gitattributes').includes('*.omh -text'), 'ensures *.omh -text');
+  assert.equal(h.git(r, 'check-attr', 'text', '--', `${J}/Class/$construct.omh`), `${J}/Class/$construct.omh: text: unset`);
+});
+
 test('sets the CR-compatible diff driver in local git config', () => {
   const r = h.newRepo(); const lib = h.libOf(r);
 

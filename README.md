@@ -62,7 +62,7 @@ By default, GitTools will automatically modify the following files in your git r
 - `.gitignore`  
     GitTools creates and uses several files such as temporary import artifacts and library backups. These files should not be committed to the git repository. The same goes for the library files (`.lbs`) themselves, as the JSON source is what gets committed instead. GitTools amends the `.gitignore` file to prevent these files from being picked up by git. The changes to this file should be committed to your repository.
 - `.gitattributes`  
-    Git has no inherent understanding of the file formats Omnis uses. GitTools amends your repository's `.gitattributes` file to help git understand what to do with certain files. For example, this enables proper diffing of string table (.tsv) files, as these files use old-school Macintosh line endings (CR, no LF). The changes to this file should be committed to your repository.
+    Git has no inherent understanding of the file formats Omnis uses. GitTools amends your repository's `.gitattributes` file to help git understand what to do with certain files. For example, this enables proper diffing of string table (.tsv) files, as these files use old-school Macintosh line endings (CR, no LF). It also keeps method (.omh) files byte for byte as Omnis writes them (CRLF), regardless of your `core.autocrlf` setting. The changes to this file should be committed to your repository.
 - `.git/config`  
     GitTools will amend your local repository config to add the custom diff-er for CR-based line endings mentioned above. In the future, GitTools may also add support for more advanced merge logic by using a custom merge driver.
 

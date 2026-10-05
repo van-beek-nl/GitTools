@@ -11,7 +11,7 @@ const GITIGNORE = {
 };
 const GITATTRIBUTES = {
   file: '.gitattributes',
-  require: ['*.tsv diff=cr', '*.df1 binary'],
+  require: ['*.tsv diff=cr', '*.df1 binary', '*.omh -text'],
   remove: [],
 };
 
