@@ -93,30 +93,33 @@ test('a feature merged in git after importing main is not reverted by the next e
 });
 
 for (const featureLast of [true, false]) {
-  test(`a merged feature survives when both branches edited the file (${featureLast ? 'feature' : 'main'} committed last)`, (t) => {
-    t.after(clearClock);
+  test(`a merged feature survives when both branches edited the file (${featureLast ? 'feature' : 'main'} committed last)`, () => {
     const r = h.newRepo(); const lib = h.libOf(r);
-    at(0);
-    h.importLib(r, J, lib, { 'f.json': A0 });
-    const main = branchOf(r);
-    h.git(r, 'branch', 'feature');
-    const onFeature = () => {
-      h.git(r, 'checkout', '-q', 'feature');
-      h.exportLib(r, J, lib, { 'f.json': X });
-      h.git(r, 'commit', '-qam', 'feature X');
-      h.git(r, 'checkout', '-q', main);
-    };
-    const onMain = () => h.commitSource(r, J, { 'f.json': A }, 'main A');
-    at(10);
-    (featureLast ? onMain : onFeature)();
-    at(20);
-    (featureLast ? onFeature : onMain)();
-    at(30);
-    h.runOp('postImport', r, J, lib);
-    h.git(r, 'merge', '-q', '--no-edit', 'feature');
+    try {
+      at(0);
+      h.importLib(r, J, lib, { 'f.json': A0 });
+      const main = branchOf(r);
+      h.git(r, 'branch', 'feature');
+      const onFeature = () => {
+        h.git(r, 'checkout', '-q', 'feature');
+        h.exportLib(r, J, lib, { 'f.json': X });
+        h.git(r, 'commit', '-qam', 'feature X');
+        h.git(r, 'checkout', '-q', main);
+      };
+      const onMain = () => h.commitSource(r, J, { 'f.json': A }, 'main A');
+      at(10);
+      (featureLast ? onMain : onFeature)();
+      at(20);
+      (featureLast ? onFeature : onMain)();
+      at(30);
+      h.runOp('postImport', r, J, lib);
+      h.git(r, 'merge', '-q', '--no-edit', 'feature');
 
-    h.exportLib(r, J, lib, { 'f.json': A });
-    assert.equal(h.read1(r, J, 'f.json'), AX);
+      h.exportLib(r, J, lib, { 'f.json': A });
+      assert.equal(h.read1(r, J, 'f.json'), AX);
+    } finally {
+      clearClock();
+    }
   });
 }
 
